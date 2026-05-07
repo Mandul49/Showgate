@@ -9,6 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Crown, Instagram, ChevronUp, ShieldCheck } from "lucide-react";
+import mntLogo from "@assets/02._MnT_White_1778142804399.png";
 
 declare global {
   interface Window {
@@ -383,16 +384,12 @@ export default function Home() {
 
         <div className="relative max-w-4xl mx-auto px-4 pt-12 pb-16">
           <div className="flex flex-col items-center text-center mb-10">
-            <div className="flex items-baseline gap-1 mb-1">
-              <span className="text-amber-400 font-black text-5xl sm:text-7xl tracking-tight" style={{ fontStyle: "italic" }}>M</span>
-              <span className="text-white font-black text-3xl sm:text-4xl">&</span>
-              <span className="text-amber-400 font-black text-5xl sm:text-7xl tracking-tight" style={{ fontStyle: "italic" }}>T</span>
-            </div>
-            <p className="text-zinc-500 text-xs uppercase tracking-[0.4em] mb-6">Creative Ministry</p>
+            <img src={mntLogo} alt="Musick & Tea Creative Ministry" className="w-40 sm:w-56 mb-6" style={{ mixBlendMode: "screen" }} />
 
             <div className="w-16 h-px bg-amber-400/50 mb-6" />
 
-            <p className="text-amber-400 text-xs font-bold uppercase tracking-[0.3em] mb-3">Theme</p>
+            <p className="text-amber-400 text-xs font-bold uppercase tracking-[0.3em] mb-1">11th Edition</p>
+            <p className="text-zinc-500 text-xs uppercase tracking-[0.3em] mb-3">Theme</p>
             <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-2">
               {EVENT.theme}
             </h1>
@@ -470,16 +467,20 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-zinc-800 bg-zinc-950">
         <div className="max-w-4xl mx-auto px-4 py-10 flex flex-col items-center gap-4">
-          <div className="flex items-baseline gap-1">
-            <span className="text-amber-400 font-black text-2xl italic">M</span>
-            <span className="text-white font-black text-lg">&</span>
-            <span className="text-amber-400 font-black text-2xl italic">T</span>
-          </div>
-          <p className="text-zinc-300 font-bold text-sm italic tracking-widest">"transforming a generation"</p>
+          <img src={mntLogo} alt="Musick & Tea Creative Ministry" className="w-24 opacity-80" style={{ mixBlendMode: "screen" }} />
           <p className="text-zinc-600 text-xs text-center">
             {EVENT.name} · Theme: {EVENT.theme}<br />
             {EVENT.date} · {EVENT.venue}
           </p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-5 text-zinc-500 text-xs">
+            <a href="mailto:contactus@musickntea.com" className="hover:text-amber-400 transition-colors">
+              contactus@musickntea.com
+            </a>
+            <span className="hidden sm:inline text-zinc-700">·</span>
+            <a href="tel:+2348136808888" className="hover:text-amber-400 transition-colors">
+              08136808888
+            </a>
+          </div>
           <p className="text-zinc-800 text-xs">© 2026 Musick & Tea Creative Ministry. All rights reserved.</p>
         </div>
       </footer>
