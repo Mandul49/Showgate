@@ -15,16 +15,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/orders", async (req, res) => {
+  app.post("/api/payments/verify", async (req, res) => {
     try {
-      const parsed = insertOrderSchema.safeParse(req.body);
+      const { reference, orderData } = req.body;
+      if (!reference || !orderData) {
+        return res.status(400).json({ message: "Missing reference or order data" });
+      }
+
+      const secretKey = process.env.PAYSTACK_SECRET_KEY;
+      if (!secretKey) {
+        return res.status(500).json({ message: "Payment configuration error" });
+      }
+
+      const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+        headers: { Authorization: `Bearer ${secretKey}` },
+      });
+
+      if (!paystackRes.ok) {
+        return res.status(400).json({ message: "Payment verification failed" });
+      }
+
+      const paystackData: any = await paystackRes.json();
+
+      if (!paystackData.status || paystackData.data?.status !== "success") {
+        return res.status(400).json({ message: "Payment was not successful" });
+      }
+
+      const expectedAmountKobo = orderData.totalAmount * 100;
+      if (paystackData.data.amount < expectedAmountKobo) {
+        return res.status(400).json({ message: "Payment amount mismatch" });
+      }
+
+      const sold = await storage.getTotalTicketsSold();
+      if (sold + orderData.quantity > TOTAL_TICKETS) {
+        return res.status(400).json({ message: "Not enough tickets remaining" });
+      }
+
+      const parsed = insertOrderSchema.safeParse(orderData);
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid order data", errors: parsed.error.errors });
       }
-      const sold = await storage.getTotalTicketsSold();
-      if (sold + parsed.data.quantity > TOTAL_TICKETS) {
-        return res.status(400).json({ message: "Not enough tickets remaining" });
-      }
+
       const order = await storage.createOrder(parsed.data);
       return res.status(201).json(order);
     } catch (err: any) {

@@ -8,7 +8,26 @@ import { apiRequest } from "@/lib/queryClient";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Crown, Instagram, ChevronUp } from "lucide-react";
+import { MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Crown, Instagram, ChevronUp, ShieldCheck } from "lucide-react";
+
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup(options: {
+        key: string;
+        email: string;
+        amount: number;
+        currency: string;
+        ref: string;
+        metadata?: Record<string, any>;
+        callback: (response: { reference: string }) => void;
+        onClose: () => void;
+      }): { openIframe(): void };
+    };
+  }
+}
+
+const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
 
 const EVENT = {
   name: "Musick & Tea 11",
@@ -101,19 +120,25 @@ function DarkInput({ icon: Icon, field, placeholder, type = "text" }: any) {
   );
 }
 
-function TicketForm({ ticket, onSuccess }: { ticket: typeof TICKET_TYPES[0]; onSuccess: (orderId: string, name: string, total: number, qty: number) => void }) {
+function TicketForm({ ticket, onSuccess }: {
+  ticket: typeof TICKET_TYPES[0];
+  onSuccess: (orderId: string, name: string, total: number, qty: number) => void;
+}) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [paying, setPaying] = useState(false);
+
   const form = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
     defaultValues: { customerName: "", customerEmail: "", customerPhone: "", instagramHandle: "", quantity: 1 },
   });
+
   const quantity = form.watch("quantity");
   const total = ticket.price * quantity;
 
-  const mutation = useMutation({
-    mutationFn: async (data: RegistrationForm) => {
-      const res = await apiRequest("POST", "/api/orders", {
+  const verifyMutation = useMutation({
+    mutationFn: async ({ reference, data }: { reference: string; data: RegistrationForm }) => {
+      const orderData = {
         customerName: data.customerName,
         customerEmail: data.customerEmail,
         customerPhone: data.customerPhone,
@@ -121,19 +146,70 @@ function TicketForm({ ticket, onSuccess }: { ticket: typeof TICKET_TYPES[0]; onS
         ticketType: ticket.name,
         quantity: data.quantity,
         totalAmount: ticket.price * data.quantity,
-      });
+      };
+      const res = await apiRequest("POST", "/api/payments/verify", { reference, orderData });
       return res.json();
     },
     onSuccess: (order, vars) => {
       qc.invalidateQueries({ queryKey: ["/api/tickets/availability"] });
-      onSuccess(order.id, vars.customerName, ticket.price * vars.quantity, vars.quantity * ticket.ticketsIncluded);
+      onSuccess(order.id, vars.data.customerName, ticket.price * vars.data.quantity, vars.data.quantity * ticket.ticketsIncluded);
     },
-    onError: (err: any) => toast({ title: "Registration failed", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      setPaying(false);
+      toast({ title: "Payment verification failed", description: err.message, variant: "destructive" });
+    },
   });
+
+  function onSubmit(data: RegistrationForm) {
+    if (!PAYSTACK_PUBLIC_KEY) {
+      toast({
+        title: "Payment not configured",
+        description: "Paystack public key is missing. Please add VITE_PAYSTACK_PUBLIC_KEY.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!window.PaystackPop) {
+      toast({ title: "Payment system unavailable", description: "Please refresh and try again.", variant: "destructive" });
+      return;
+    }
+
+    setPaying(true);
+
+    const ref = `MNT11-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+    const handler = window.PaystackPop.setup({
+      key: PAYSTACK_PUBLIC_KEY,
+      email: data.customerEmail,
+      amount: total * 100,
+      currency: "NGN",
+      ref,
+      metadata: {
+        custom_fields: [
+          { display_name: "Name", variable_name: "name", value: data.customerName },
+          { display_name: "Phone", variable_name: "phone", value: data.customerPhone },
+          { display_name: "Ticket Type", variable_name: "ticket_type", value: ticket.name },
+          { display_name: "Quantity", variable_name: "quantity", value: String(data.quantity) },
+        ],
+      },
+      callback: (response) => {
+        verifyMutation.mutate({ reference: response.reference, data });
+      },
+      onClose: () => {
+        setPaying(false);
+        toast({ title: "Payment cancelled", description: "You closed the payment window.", variant: "destructive" });
+      },
+    });
+
+    handler.openIframe();
+  }
+
+  const isLoading = paying || verifyMutation.isPending;
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))}
+      <form onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4 pt-5 mt-5 border-t border-zinc-700">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField control={form.control} name="customerName" render={({ field }) => (
@@ -151,6 +227,7 @@ function TicketForm({ ticket, onSuccess }: { ticket: typeof TICKET_TYPES[0]; onS
             </FormItem>
           )} />
         </div>
+
         <FormField control={form.control} name="customerEmail" render={({ field }) => (
           <FormItem>
             <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Email *</FormLabel>
@@ -158,9 +235,12 @@ function TicketForm({ ticket, onSuccess }: { ticket: typeof TICKET_TYPES[0]; onS
             <FormMessage className="text-red-400 text-xs" />
           </FormItem>
         )} />
+
         <FormField control={form.control} name="instagramHandle" render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Instagram <span className="normal-case text-zinc-600">(optional)</span></FormLabel>
+            <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">
+              Instagram <span className="normal-case text-zinc-600">(optional)</span>
+            </FormLabel>
             <FormControl><DarkInput icon={Instagram} field={field} placeholder="@yourhandle" /></FormControl>
           </FormItem>
         )} />
@@ -183,21 +263,27 @@ function TicketForm({ ticket, onSuccess }: { ticket: typeof TICKET_TYPES[0]; onS
         )}
 
         <div className="flex items-center justify-between bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3">
-          <span className="text-zinc-400 text-sm">Total · pay at venue</span>
+          <span className="text-zinc-400 text-sm">Total</span>
           <span className="text-amber-400 font-black text-xl">{formatPrice(total)}</span>
         </div>
 
-        <button type="submit" disabled={mutation.isPending}
-          className={`w-full py-3.5 rounded-lg font-bold uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2
+        <button type="submit" disabled={isLoading}
+          className={`w-full py-4 rounded-lg font-black uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2
             ${ticket.gold
               ? "bg-amber-400 hover:bg-amber-300 text-black"
               : "border-2 border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-black"
             } disabled:opacity-50 disabled:cursor-not-allowed`}>
-          {mutation.isPending
-            ? <><span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" /> Registering...</>
-            : <><Ticket className="w-4 h-4" /> Reserve My Seat</>}
+          {isLoading ? (
+            <><span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+              {verifyMutation.isPending ? "Confirming payment..." : "Opening payment..."}</>
+          ) : (
+            <><ShieldCheck className="w-4 h-4" /> Pay {formatPrice(total)} with Paystack</>
+          )}
         </button>
-        <p className="text-center text-zinc-600 text-xs">Payment collected at the venue gate</p>
+
+        <p className="text-center text-zinc-600 text-xs flex items-center justify-center gap-1">
+          <ShieldCheck className="w-3 h-3" /> Secured by Paystack · Your card details are never stored
+        </p>
       </form>
     </Form>
   );
@@ -264,7 +350,9 @@ function TicketCard({ ticket, remaining }: { ticket: typeof TICKET_TYPES[0]; rem
                 ? open ? "bg-amber-400/10 text-amber-400 border border-amber-400/40" : "bg-amber-400 hover:bg-amber-300 text-black"
                 : open ? "bg-zinc-800 text-white border border-zinc-600" : "border-2 border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-black"
               }`}>
-            {open ? <><ChevronUp className="w-4 h-4" /> Close Form</> : <><Ticket className="w-4 h-4" /> Register Now</>}
+            {open
+              ? <><ChevronUp className="w-4 h-4" /> Close Form</>
+              : <><Ticket className="w-4 h-4" /> Get Ticket</>}
           </button>
         )}
 
@@ -294,7 +382,6 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0d0d0d]" />
 
         <div className="relative max-w-4xl mx-auto px-4 pt-12 pb-16">
-          {/* M&T Branding */}
           <div className="flex flex-col items-center text-center mb-10">
             <div className="flex items-baseline gap-1 mb-1">
               <span className="text-amber-400 font-black text-5xl sm:text-7xl tracking-tight" style={{ fontStyle: "italic" }}>M</span>
@@ -312,7 +399,6 @@ export default function Home() {
             <p className="text-zinc-400 text-base mt-3 max-w-md">{EVENT.description}</p>
           </div>
 
-          {/* Event Details */}
           <div className="flex flex-wrap justify-center gap-3 mb-10">
             {[
               { icon: Calendar, text: EVENT.date },
@@ -326,7 +412,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Countdown */}
           <div className="text-center mb-6">
             <p className="text-zinc-600 text-xs uppercase tracking-[0.3em] mb-5 font-semibold">Event Starts In</p>
             <div className="flex items-start justify-center gap-3 sm:gap-6">
@@ -342,22 +427,18 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Faith · Creativity · Excellence bar */}
+      {/* Ticket availability bar */}
       <div className="border-y border-zinc-800 bg-zinc-950">
         <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-sm font-black uppercase tracking-[0.2em]">
-            <span className="text-white">Faith</span>
-            <span className="text-amber-400 mx-3">·</span>
-            <span className="text-amber-400">Creativity</span>
-            <span className="text-amber-400 mx-3">·</span>
-            <span className="text-white">Excellence</span>
-          </p>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-zinc-400 text-xs font-semibold">{remaining} of {EVENT.totalTickets} tickets remaining</span>
-            <div className="w-24 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-40 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
               <div className="h-full rounded-full bg-amber-400 transition-all duration-700" style={{ width: `${pctSold}%` }} />
             </div>
+            <span className="text-zinc-600 text-xs">{pctSold}% sold</span>
           </div>
         </div>
       </div>
@@ -366,13 +447,21 @@ export default function Home() {
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 py-12 space-y-8">
         <div className="text-center mb-8">
           <h2 className="text-3xl sm:text-4xl font-black uppercase text-white tracking-wide">Get Your Tickets</h2>
-          <p className="text-zinc-500 mt-2">Reserve your seat · Pay at the venue gate</p>
+          <p className="text-zinc-500 mt-2">Fill in your details and pay securely with Paystack</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {TICKET_TYPES.map((ticket) => (
             <TicketCard key={ticket.id} ticket={ticket} remaining={remaining} />
           ))}
         </div>
+
+        {!PAYSTACK_PUBLIC_KEY && (
+          <div className="border border-amber-400/30 bg-amber-400/5 rounded-lg p-4 text-center">
+            <p className="text-amber-400 text-sm font-semibold">⚠ Payment not yet active</p>
+            <p className="text-zinc-500 text-xs mt-1">Add <code className="text-amber-300">VITE_PAYSTACK_PUBLIC_KEY</code> to your environment variables to enable payments.</p>
+          </div>
+        )}
+
         <p className="text-center text-zinc-700 text-xs pt-4">
           Tickets are non-refundable · Please arrive 30 minutes early · {EVENT.name}
         </p>
