@@ -24,6 +24,8 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 
+export type PaymentMethod = "paystack" | "stripe" | "paypal" | "bank_transfer";
+
 export interface TicketTier {
   id: string;
   name: string;
@@ -49,8 +51,23 @@ export interface EventConfig {
   bgColor: string;
   contactEmail: string;
   contactPhone: string;
+  currency: string;
+  paymentMethod: PaymentMethod;
+  // Paystack
   paystackPublicKey: string;
   paystackSecretKey: string;
+  // Stripe
+  stripePublicKey: string;
+  stripeSecretKey: string;
+  // PayPal
+  paypalClientId: string;
+  paypalSecretKey: string;
+  // Bank Transfer
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  bankRoutingCode: string;
+  bankTransferInstructions: string;
   ticketTiers: TicketTier[];
   totalTickets: number;
   isPublished: boolean;
@@ -81,8 +98,19 @@ export const eventConfigSchema = z.object({
   bgColor: z.string(),
   contactEmail: z.string().email().or(z.literal("")),
   contactPhone: z.string(),
+  currency: z.string(),
+  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer"]),
   paystackPublicKey: z.string(),
   paystackSecretKey: z.string(),
+  stripePublicKey: z.string(),
+  stripeSecretKey: z.string(),
+  paypalClientId: z.string(),
+  paypalSecretKey: z.string(),
+  bankName: z.string(),
+  bankAccountName: z.string(),
+  bankAccountNumber: z.string(),
+  bankRoutingCode: z.string(),
+  bankTransferInstructions: z.string(),
   ticketTiers: z.array(ticketTierSchema),
   totalTickets: z.number().min(1),
   isPublished: z.boolean(),

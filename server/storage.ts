@@ -1,4 +1,4 @@
-import { type Order, type InsertOrder, type EventConfig, type TicketTier } from "@shared/schema";
+import { type Order, type InsertOrder, type EventConfig } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 const DEFAULT_CONFIG: EventConfig = {
@@ -15,8 +15,19 @@ const DEFAULT_CONFIG: EventConfig = {
   bgColor: "#0d0d0d",
   contactEmail: "",
   contactPhone: "",
+  currency: "NGN",
+  paymentMethod: "paystack",
   paystackPublicKey: "",
   paystackSecretKey: "",
+  stripePublicKey: "",
+  stripeSecretKey: "",
+  paypalClientId: "",
+  paypalSecretKey: "",
+  bankName: "",
+  bankAccountName: "",
+  bankAccountNumber: "",
+  bankRoutingCode: "",
+  bankTransferInstructions: "",
   ticketTiers: [
     {
       id: "regular",
@@ -34,7 +45,7 @@ const DEFAULT_CONFIG: EventConfig = {
 };
 
 export interface IStorage {
-  createOrder(order: InsertOrder): Promise<Order>;
+  createOrder(order: InsertOrder, status?: string): Promise<Order>;
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
   getTotalTicketsSold(): Promise<number>;
@@ -51,12 +62,12 @@ export class MemStorage implements IStorage {
     this.eventConfig = { ...DEFAULT_CONFIG };
   }
 
-  async createOrder(insertOrder: InsertOrder): Promise<Order> {
+  async createOrder(insertOrder: InsertOrder, status = "confirmed"): Promise<Order> {
     const id = randomUUID();
     const order: Order = {
       ...insertOrder,
       id,
-      status: "confirmed",
+      status,
       createdAt: new Date(),
     };
     this.orders.set(id, order);
