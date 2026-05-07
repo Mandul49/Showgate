@@ -1,15 +1,48 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertOrderSchema } from "@shared/schema";
-
-const TOTAL_TICKETS = 250;
+import { insertOrderSchema, eventConfigSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.get("/api/config", async (_req, res) => {
+    try {
+      const config = await storage.getEventConfig();
+      const { paystackSecretKey: _secret, ...publicConfig } = config;
+      return res.json(publicConfig);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message || "Internal server error" });
+    }
+  });
+
+  app.get("/api/config/admin", async (_req, res) => {
+    try {
+      const config = await storage.getEventConfig();
+      return res.json(config);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message || "Internal server error" });
+    }
+  });
+
+  app.post("/api/config", async (req, res) => {
+    try {
+      const parsed = eventConfigSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid configuration", errors: parsed.error.errors });
+      }
+      const saved = await storage.saveEventConfig(parsed.data);
+      const { paystackSecretKey: _secret, ...publicConfig } = saved;
+      return res.json(publicConfig);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message || "Internal server error" });
+    }
+  });
+
   app.get("/api/tickets/availability", async (_req, res) => {
     try {
+      const config = await storage.getEventConfig();
       const sold = await storage.getTotalTicketsSold();
-      return res.json({ total: TOTAL_TICKETS, sold, remaining: Math.max(0, TOTAL_TICKETS - sold) });
+      const total = config.totalTickets;
+      return res.json({ total, sold, remaining: Math.max(0, total - sold) });
     } catch (err: any) {
       return res.status(500).json({ message: err.message || "Internal server error" });
     }
@@ -22,9 +55,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing reference or order data" });
       }
 
-      const secretKey = process.env.PAYSTACK_SECRET_KEY;
+      const config = await storage.getEventConfig();
+      const secretKey = config.paystackSecretKey || process.env.PAYSTACK_SECRET_KEY;
       if (!secretKey) {
-        return res.status(500).json({ message: "Payment configuration error" });
+        return res.status(500).json({ message: "Payment configuration error: secret key not set" });
       }
 
       const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
@@ -47,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const sold = await storage.getTotalTicketsSold();
-      if (sold + orderData.quantity > TOTAL_TICKETS) {
+      if (sold + orderData.quantity > config.totalTickets) {
         return res.status(400).json({ message: "Not enough tickets remaining" });
       }
 

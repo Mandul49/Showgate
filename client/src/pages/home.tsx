@@ -8,8 +8,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Crown, Instagram, ChevronUp, ShieldCheck } from "lucide-react";
-import mntLogo from "@assets/02._MnT_White_1778142804399.png";
+import { MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Crown, Instagram, ChevronUp, ShieldCheck, Settings } from "lucide-react";
+import type { EventConfig, TicketTier } from "@shared/schema";
 
 declare global {
   interface Window {
@@ -27,49 +27,6 @@ declare global {
     };
   }
 }
-
-const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
-
-const EVENT = {
-  name: "Musick & Tea 11",
-  theme: "The Name of Jesus",
-  date: "Sunday, December 13, 2026",
-  dateISO: "2026-12-13T15:00:00",
-  time: "3:00 PM",
-  venue: "Odillins Event Center",
-  description: "A faith-driven evening of worship, music, and community — centred on the Name above all names.",
-  totalTickets: 250,
-};
-
-const TICKET_TYPES = [
-  {
-    id: "regular",
-    name: "Regular",
-    price: 2000,
-    description: "Your entry into the Musick & Tea 11 concert experience.",
-    icon: Ticket,
-    gold: false,
-    perks: ["Full concert access", "Event programme", "Welcome refreshment"],
-    ticketsIncluded: 1,
-    allowQuantity: true,
-  },
-  {
-    id: "vip-support",
-    name: "VIP Support",
-    price: 100000,
-    description: "Support the vision and enjoy an elevated experience.",
-    icon: Crown,
-    gold: true,
-    perks: [
-      "2 concert tickets included",
-      "Reserved front-row seating",
-      "Special Musick & Tea gift package",
-      "Recognition in event programme",
-    ],
-    ticketsIncluded: 2,
-    allowQuantity: false,
-  },
-];
 
 const registrationSchema = z.object({
   customerName: z.string().min(2, "Name must be at least 2 characters"),
@@ -96,38 +53,43 @@ function useCountdown(targetISO: string) {
     };
   };
   const [time, setTime] = useState(calc);
-  useEffect(() => { const id = setInterval(() => setTime(calc()), 1000); return () => clearInterval(id); }, []);
+  useEffect(() => { const id = setInterval(() => setTime(calc()), 1000); return () => clearInterval(id); }, [targetISO]);
   return time;
 }
 
-function CountdownUnit({ value, label }: { value: number; label: string }) {
+function CountdownUnit({ value, label, primary }: { value: number; label: string; primary: string }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="bg-zinc-900 border border-zinc-700 rounded-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-        <span className="text-2xl sm:text-3xl font-black text-amber-400 tabular-nums">{String(value).padStart(2, "0")}</span>
+        <span className="text-2xl sm:text-3xl font-black tabular-nums" style={{ color: primary }}>
+          {String(value).padStart(2, "0")}
+        </span>
       </div>
       <span className="text-zinc-500 text-[10px] uppercase tracking-widest font-semibold">{label}</span>
     </div>
   );
 }
 
-function DarkInput({ icon: Icon, field, placeholder, type = "text" }: any) {
+function DarkInput({ icon: Icon, field, placeholder, type = "text", primary }: any) {
   return (
     <div className="relative">
       <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 z-10" />
       <Input {...field} type={type} placeholder={placeholder}
-        className="pl-10 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 focus:border-amber-400 focus:ring-amber-400/20 h-11" />
+        className="pl-10 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 h-11"
+        style={{ "--tw-ring-color": primary + "33" } as any} />
     </div>
   );
 }
 
-function TicketForm({ ticket, onSuccess }: {
-  ticket: typeof TICKET_TYPES[0];
+function TicketForm({ ticket, config, onSuccess }: {
+  ticket: TicketTier;
+  config: EventConfig;
   onSuccess: (orderId: string, name: string, total: number, qty: number) => void;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [paying, setPaying] = useState(false);
+  const primary = config.primaryColor;
 
   const form = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
@@ -162,26 +124,22 @@ function TicketForm({ ticket, onSuccess }: {
   });
 
   function onSubmit(data: RegistrationForm) {
-    if (!PAYSTACK_PUBLIC_KEY) {
-      toast({
-        title: "Payment not configured",
-        description: "Paystack public key is missing. Please add VITE_PAYSTACK_PUBLIC_KEY.",
-        variant: "destructive",
-      });
+    const publicKey = config.paystackPublicKey;
+    if (!publicKey) {
+      toast({ title: "Payment not configured", description: "The event organiser has not set up payments yet.", variant: "destructive" });
       return;
     }
-
     if (!window.PaystackPop) {
       toast({ title: "Payment system unavailable", description: "Please refresh and try again.", variant: "destructive" });
       return;
     }
 
     setPaying(true);
-
-    const ref = `MNT11-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const prefix = config.eventName.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase() || "EVT";
+    const ref = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
     const handler = window.PaystackPop.setup({
-      key: PAYSTACK_PUBLIC_KEY,
+      key: publicKey,
       email: data.customerEmail,
       amount: total * 100,
       currency: "NGN",
@@ -210,20 +168,19 @@ function TicketForm({ ticket, onSuccess }: {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-4 pt-5 mt-5 border-t border-zinc-700">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-5 mt-5 border-t border-zinc-700">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField control={form.control} name="customerName" render={({ field }) => (
             <FormItem>
               <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Full Name *</FormLabel>
-              <FormControl><DarkInput icon={User} field={field} placeholder="Your full name" /></FormControl>
+              <FormControl><DarkInput icon={User} field={field} placeholder="Your full name" primary={primary} /></FormControl>
               <FormMessage className="text-red-400 text-xs" />
             </FormItem>
           )} />
           <FormField control={form.control} name="customerPhone" render={({ field }) => (
             <FormItem>
               <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Phone *</FormLabel>
-              <FormControl><DarkInput icon={Phone} field={field} placeholder="+234 xxx xxx xxxx" /></FormControl>
+              <FormControl><DarkInput icon={Phone} field={field} placeholder="+234 xxx xxx xxxx" primary={primary} /></FormControl>
               <FormMessage className="text-red-400 text-xs" />
             </FormItem>
           )} />
@@ -232,7 +189,7 @@ function TicketForm({ ticket, onSuccess }: {
         <FormField control={form.control} name="customerEmail" render={({ field }) => (
           <FormItem>
             <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Email *</FormLabel>
-            <FormControl><DarkInput icon={Mail} field={field} placeholder="your@email.com" type="email" /></FormControl>
+            <FormControl><DarkInput icon={Mail} field={field} placeholder="your@email.com" type="email" primary={primary} /></FormControl>
             <FormMessage className="text-red-400 text-xs" />
           </FormItem>
         )} />
@@ -242,7 +199,7 @@ function TicketForm({ ticket, onSuccess }: {
             <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">
               Instagram <span className="normal-case text-zinc-600">(optional)</span>
             </FormLabel>
-            <FormControl><DarkInput icon={Instagram} field={field} placeholder="@yourhandle" /></FormControl>
+            <FormControl><DarkInput icon={Instagram} field={field} placeholder="@yourhandle" primary={primary} /></FormControl>
           </FormItem>
         )} />
 
@@ -253,10 +210,11 @@ function TicketForm({ ticket, onSuccess }: {
               <FormControl>
                 <div className="flex items-center gap-4">
                   <button type="button" onClick={() => field.onChange(Math.max(1, field.value - 1))}
-                    className="w-9 h-9 rounded-full border border-zinc-600 text-zinc-300 hover:border-amber-400 hover:text-amber-400 transition-colors flex items-center justify-center text-xl font-bold">−</button>
+                    className="w-9 h-9 rounded-full border border-zinc-600 text-zinc-300 transition-colors flex items-center justify-center text-xl font-bold hover:border-amber-400 hover:text-amber-400"
+                    style={{ "--tw-border-opacity": 1 } as any}>−</button>
                   <span className="text-white font-bold text-xl w-8 text-center">{field.value}</span>
                   <button type="button" onClick={() => field.onChange(Math.min(20, field.value + 1))}
-                    className="w-9 h-9 rounded-full border border-zinc-600 text-zinc-300 hover:border-amber-400 hover:text-amber-400 transition-colors flex items-center justify-center text-xl font-bold">+</button>
+                    className="w-9 h-9 rounded-full border border-zinc-600 text-zinc-300 transition-colors flex items-center justify-center text-xl font-bold hover:border-amber-400 hover:text-amber-400">+</button>
                 </div>
               </FormControl>
             </FormItem>
@@ -265,15 +223,27 @@ function TicketForm({ ticket, onSuccess }: {
 
         <div className="flex items-center justify-between bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3">
           <span className="text-zinc-400 text-sm">Total</span>
-          <span className="text-amber-400 font-black text-xl">{formatPrice(total)}</span>
+          <span className="font-black text-xl" style={{ color: primary }}>{formatPrice(total)}</span>
         </div>
 
         <button type="submit" disabled={isLoading}
-          className={`w-full py-4 rounded-lg font-black uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2
-            ${ticket.gold
-              ? "bg-amber-400 hover:bg-amber-300 text-black"
-              : "border-2 border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-black"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}>
+          className="w-full py-4 rounded-lg font-black uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={ticket.isVip
+            ? { backgroundColor: primary, color: "#000" }
+            : { border: `2px solid ${primary}`, color: primary, backgroundColor: "transparent" }
+          }
+          onMouseEnter={(e) => {
+            if (!ticket.isVip) {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = primary;
+              (e.currentTarget as HTMLButtonElement).style.color = "#000";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!ticket.isVip) {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
+              (e.currentTarget as HTMLButtonElement).style.color = primary;
+            }
+          }}>
           {isLoading ? (
             <><span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
               {verifyMutation.isPending ? "Confirming payment..." : "Opening payment..."}</>
@@ -290,10 +260,12 @@ function TicketForm({ ticket, onSuccess }: {
   );
 }
 
-function TicketCard({ ticket, remaining }: { ticket: typeof TICKET_TYPES[0]; remaining: number }) {
+function TicketCard({ ticket, config, remaining }: { ticket: TicketTier; config: EventConfig; remaining: number }) {
   const [open, setOpen] = useState(false);
   const [, navigate] = useLocation();
-  const Icon = ticket.icon;
+  const primary = config.primaryColor;
+
+  const Icon = ticket.isVip ? Crown : Ticket;
 
   function handleSuccess(orderId: string, name: string, total: number, qty: number) {
     navigate(`/success?orderId=${orderId}&name=${encodeURIComponent(name)}&total=${total}&tickets=${qty}`);
@@ -301,25 +273,30 @@ function TicketCard({ ticket, remaining }: { ticket: typeof TICKET_TYPES[0]; rem
 
   return (
     <div className={`rounded-xl border transition-all duration-300 overflow-hidden
-      ${ticket.gold
-        ? "border-amber-400/60 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-[0_0_30px_rgba(234,179,8,0.12)]"
+      ${ticket.isVip
+        ? "bg-gradient-to-b from-zinc-900 to-zinc-950"
         : "border-zinc-700 bg-zinc-900"
-      } ${open ? "shadow-2xl" : "hover:border-zinc-500"}`}>
+      } ${open ? "shadow-2xl" : ""}`}
+      style={ticket.isVip ? { borderColor: primary + "99", boxShadow: `0 0 30px ${primary}1e` } : {}}>
 
-      {ticket.gold && <div className="h-0.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400" />}
+      {ticket.isVip && <div className="h-0.5" style={{ background: `linear-gradient(90deg, ${primary}, ${config.highlightColor}, ${primary})` }} />}
 
       <div className="p-6">
         <div className="flex items-start justify-between mb-5">
-          <div className={`p-2.5 rounded-lg ${ticket.gold ? "bg-amber-400/15 text-amber-400" : "bg-zinc-800 text-zinc-300"}`}>
+          <div className="p-2.5 rounded-lg" style={ticket.isVip
+            ? { backgroundColor: primary + "26", color: primary }
+            : { backgroundColor: "#27272a", color: "#d4d4d8" }}>
             <Icon className="w-6 h-6" />
           </div>
-          <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full
-            ${ticket.gold ? "bg-amber-400/15 text-amber-400 border border-amber-400/30" : "bg-zinc-800 text-zinc-400 border border-zinc-700"}`}>
-            {ticket.gold ? "Exclusive" : "General"}
+          <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+            style={ticket.isVip
+              ? { backgroundColor: primary + "26", color: primary, border: `1px solid ${primary}4d` }
+              : { backgroundColor: "#27272a", color: "#a1a1aa", border: "1px solid #3f3f46" }}>
+            {ticket.isVip ? "Exclusive" : "General"}
           </span>
         </div>
 
-        <h3 className={`text-2xl font-black uppercase tracking-wide mb-1 ${ticket.gold ? "text-amber-400" : "text-white"}`}>
+        <h3 className="text-2xl font-black uppercase tracking-wide mb-1" style={{ color: ticket.isVip ? primary : "#fff" }}>
           {ticket.name}
         </h3>
         <p className="text-zinc-500 text-sm mb-5">{ticket.description}</p>
@@ -327,14 +304,14 @@ function TicketCard({ ticket, remaining }: { ticket: typeof TICKET_TYPES[0]; rem
         <ul className="space-y-2.5 mb-6">
           {ticket.perks.map((perk) => (
             <li key={perk} className="flex items-start gap-3 text-sm text-zinc-300">
-              <span className={`text-lg leading-none mt-0.5 flex-shrink-0 ${ticket.gold ? "text-amber-400" : "text-zinc-500"}`}>✦</span>
+              <span className="text-lg leading-none mt-0.5 flex-shrink-0" style={{ color: ticket.isVip ? primary : "#71717a" }}>✦</span>
               {perk}
             </li>
           ))}
         </ul>
 
         <div className="mb-5">
-          <span className={`text-4xl font-black ${ticket.gold ? "text-amber-400" : "text-white"}`}>{formatPrice(ticket.price)}</span>
+          <span className="text-4xl font-black" style={{ color: ticket.isVip ? primary : "#fff" }}>{formatPrice(ticket.price)}</span>
           <span className="text-zinc-600 text-sm ml-2">
             {ticket.ticketsIncluded > 1 ? `· ${ticket.ticketsIncluded} tickets` : "· per ticket"}
           </span>
@@ -346,64 +323,130 @@ function TicketCard({ ticket, remaining }: { ticket: typeof TICKET_TYPES[0]; rem
           </div>
         ) : (
           <button onClick={() => setOpen((v) => !v)}
-            className={`w-full py-3.5 rounded-lg font-bold uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2
-              ${ticket.gold
-                ? open ? "bg-amber-400/10 text-amber-400 border border-amber-400/40" : "bg-amber-400 hover:bg-amber-300 text-black"
-                : open ? "bg-zinc-800 text-white border border-zinc-600" : "border-2 border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-black"
-              }`}>
-            {open
-              ? <><ChevronUp className="w-4 h-4" /> Close Form</>
-              : <><Ticket className="w-4 h-4" /> Get Ticket</>}
+            className="w-full py-3.5 rounded-lg font-bold uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2"
+            style={open
+              ? ticket.isVip
+                ? { backgroundColor: primary + "1a", color: primary, border: `1px solid ${primary}66` }
+                : { backgroundColor: "#27272a", color: "#fff", border: "1px solid #52525b" }
+              : ticket.isVip
+                ? { backgroundColor: primary, color: "#000" }
+                : { border: `2px solid ${primary}`, color: primary }
+            }>
+            {open ? <><ChevronUp className="w-4 h-4" /> Close Form</> : <><Ticket className="w-4 h-4" /> Get Ticket</>}
           </button>
         )}
 
-        {open && <TicketForm ticket={ticket} onSuccess={handleSuccess} />}
+        {open && <TicketForm ticket={ticket} config={config} onSuccess={handleSuccess} />}
       </div>
     </div>
   );
 }
 
+type PublicConfig = Omit<EventConfig, "paystackSecretKey">;
+
 export default function Home() {
-  const countdown = useCountdown(EVENT.dateISO);
+  const { data: config, isLoading: configLoading } = useQuery<PublicConfig>({
+    queryKey: ["/api/config"],
+  });
+
   const { data: availability } = useQuery<{ total: number; sold: number; remaining: number }>({
     queryKey: ["/api/tickets/availability"],
     refetchInterval: 30000,
   });
-  const remaining = availability?.remaining ?? EVENT.totalTickets;
+
+  const eventDate = config?.eventDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+  const countdown = useCountdown(eventDate);
+  const totalTickets = config?.totalTickets ?? 200;
+  const remaining = availability?.remaining ?? totalTickets;
   const sold = availability?.sold ?? 0;
-  const pctSold = Math.min(100, Math.round((sold / EVENT.totalTickets) * 100));
+  const pctSold = Math.min(100, Math.round((sold / totalTickets) * 100));
+
+  const primary = config?.primaryColor || "#F59E0B";
+  const bg = config?.bgColor || "#0d0d0d";
+
+  if (configLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bg }}>
+        <div className="flex items-center gap-3 text-zinc-500">
+          <div className="w-5 h-5 border-2 border-zinc-700 border-t-amber-400 rounded-full animate-spin" />
+          Loading event...
+        </div>
+      </div>
+    );
+  }
+
+  if (!config?.isPublished) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ backgroundColor: bg }}>
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 rounded-full border border-zinc-700 bg-zinc-900 flex items-center justify-center mx-auto mb-5">
+            <Ticket className="w-8 h-8 text-zinc-600" />
+          </div>
+          <h1 className="text-white font-black text-2xl uppercase tracking-wide mb-2">Event Coming Soon</h1>
+          <p className="text-zinc-500 text-sm">This event page hasn't been published yet. Check back soon.</p>
+          <a href="/admin"
+            className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors text-sm font-semibold">
+            <Settings className="w-4 h-4" /> Set up your event
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const formattedDate = new Date(config.eventDate).toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#0d0d0d", color: "#f5f5f5" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: bg, color: "#f5f5f5" }}>
 
       {/* Hero */}
-      <div className="relative overflow-hidden" style={{ background: "linear-gradient(180deg, #111 0%, #0d0d0d 100%)" }}>
+      <div className="relative overflow-hidden" style={{ background: `linear-gradient(180deg, #111 0%, ${bg} 100%)` }}>
         <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: "radial-gradient(circle, #EAB308 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0d0d0d]" />
+          style={{ backgroundImage: `radial-gradient(circle, ${primary} 1px, transparent 1px)`, backgroundSize: "40px 40px" }} />
+        <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent, ${bg})` }} />
 
         <div className="relative max-w-4xl mx-auto px-4 pt-12 pb-16">
           <div className="flex flex-col items-center text-center mb-10">
-            <img src={mntLogo} alt="Musick & Tea Creative Ministry" className="w-40 sm:w-56 mb-6" style={{ mixBlendMode: "screen" }} />
+            {config.logoDataUrl ? (
+              <img src={config.logoDataUrl} alt={config.eventName} className="max-h-28 max-w-xs w-auto mb-6 object-contain" style={{ mixBlendMode: "screen" }} />
+            ) : (
+              <div className="w-16 h-16 rounded-2xl border border-zinc-700 bg-zinc-900 flex items-center justify-center mb-6">
+                <Ticket className="w-8 h-8" style={{ color: primary }} />
+              </div>
+            )}
 
-            <div className="w-16 h-px bg-amber-400/50 mb-6" />
+            <div className="w-16 h-px mb-6" style={{ backgroundColor: primary + "80" }} />
 
-            <p className="text-amber-400 text-xs font-bold uppercase tracking-[0.3em] mb-1">11th Edition</p>
-            <p className="text-zinc-500 text-xs uppercase tracking-[0.3em] mb-3">Theme</p>
-            <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-2">
-              {EVENT.theme}
-            </h1>
-            <p className="text-zinc-400 text-base mt-3 max-w-md">{EVENT.description}</p>
+            {config.eventTheme && (
+              <>
+                <p className="text-xs font-bold uppercase tracking-[0.3em] mb-1" style={{ color: primary }}>Theme</p>
+                <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-2">
+                  {config.eventTheme}
+                </h1>
+              </>
+            )}
+            {!config.eventTheme && (
+              <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-2">
+                {config.eventName}
+              </h1>
+            )}
+            {config.eventTheme && (
+              <p className="text-xs font-bold uppercase tracking-[0.3em] mt-1 mb-1 text-zinc-400">{config.eventName}</p>
+            )}
+            {config.eventDescription && (
+              <p className="text-zinc-400 text-base mt-3 max-w-md">{config.eventDescription}</p>
+            )}
           </div>
 
           <div className="flex flex-wrap justify-center gap-3 mb-10">
             {[
-              { icon: Calendar, text: EVENT.date },
-              { icon: Clock, text: EVENT.time },
-              { icon: MapPin, text: EVENT.venue },
+              { icon: Calendar, text: formattedDate },
+              { icon: Clock, text: config.eventTime },
+              { icon: MapPin, text: config.eventVenue },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
-                <Icon className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: primary }} />
                 <span>{text}</span>
               </div>
             ))}
@@ -412,28 +455,28 @@ export default function Home() {
           <div className="text-center mb-6">
             <p className="text-zinc-600 text-xs uppercase tracking-[0.3em] mb-5 font-semibold">Event Starts In</p>
             <div className="flex items-start justify-center gap-3 sm:gap-6">
-              <CountdownUnit value={countdown.days} label="Days" />
-              <span className="text-amber-400/40 text-3xl font-thin mt-4">|</span>
-              <CountdownUnit value={countdown.hours} label="Hours" />
-              <span className="text-amber-400/40 text-3xl font-thin mt-4">|</span>
-              <CountdownUnit value={countdown.mins} label="Mins" />
-              <span className="text-amber-400/40 text-3xl font-thin mt-4">|</span>
-              <CountdownUnit value={countdown.secs} label="Secs" />
+              <CountdownUnit value={countdown.days} label="Days" primary={primary} />
+              <span className="text-3xl font-thin mt-4" style={{ color: primary + "66" }}>|</span>
+              <CountdownUnit value={countdown.hours} label="Hours" primary={primary} />
+              <span className="text-3xl font-thin mt-4" style={{ color: primary + "66" }}>|</span>
+              <CountdownUnit value={countdown.mins} label="Mins" primary={primary} />
+              <span className="text-3xl font-thin mt-4" style={{ color: primary + "66" }}>|</span>
+              <CountdownUnit value={countdown.secs} label="Secs" primary={primary} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Ticket availability bar */}
+      {/* Availability bar */}
       <div className="border-y border-zinc-800 bg-zinc-950">
         <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-zinc-400 text-xs font-semibold">{remaining} of {EVENT.totalTickets} tickets remaining</span>
+            <span className="text-zinc-400 text-xs font-semibold">{remaining} of {totalTickets} tickets remaining</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-40 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-              <div className="h-full rounded-full bg-amber-400 transition-all duration-700" style={{ width: `${pctSold}%` }} />
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pctSold}%`, backgroundColor: primary }} />
             </div>
             <span className="text-zinc-600 text-xs">{pctSold}% sold</span>
           </div>
@@ -446,42 +489,58 @@ export default function Home() {
           <h2 className="text-3xl sm:text-4xl font-black uppercase text-white tracking-wide">Get Your Tickets</h2>
           <p className="text-zinc-500 mt-2">Fill in your details and pay securely with Paystack</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {TICKET_TYPES.map((ticket) => (
-            <TicketCard key={ticket.id} ticket={ticket} remaining={remaining} />
-          ))}
-        </div>
 
-        {!PAYSTACK_PUBLIC_KEY && (
-          <div className="border border-amber-400/30 bg-amber-400/5 rounded-lg p-4 text-center">
-            <p className="text-amber-400 text-sm font-semibold">⚠ Payment not yet active</p>
-            <p className="text-zinc-500 text-xs mt-1">Add <code className="text-amber-300">VITE_PAYSTACK_PUBLIC_KEY</code> to your environment variables to enable payments.</p>
+        {config.ticketTiers.length > 0 ? (
+          <div className={`grid grid-cols-1 ${config.ticketTiers.length > 1 ? "sm:grid-cols-2" : "max-w-md mx-auto"} gap-6`}>
+            {config.ticketTiers.map((tier) => (
+              <TicketCard key={tier.id} ticket={tier} config={config} remaining={remaining} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-zinc-600">
+            <Ticket className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>No ticket tiers have been configured yet.</p>
+          </div>
+        )}
+
+        {!config.paystackPublicKey && (
+          <div className="border rounded-lg p-4 text-center" style={{ borderColor: primary + "4d", backgroundColor: primary + "0d" }}>
+            <p className="text-sm font-semibold" style={{ color: primary }}>⚠ Payment not yet active</p>
+            <p className="text-zinc-500 text-xs mt-1">The event organiser needs to add their Paystack keys to enable payments.</p>
           </div>
         )}
 
         <p className="text-center text-zinc-700 text-xs pt-4">
-          Tickets are non-refundable · Please arrive 30 minutes early · {EVENT.name}
+          Tickets are non-refundable · Please arrive 30 minutes early · {config.eventName}
         </p>
       </div>
 
       {/* Footer */}
       <footer className="border-t border-zinc-800 bg-zinc-950">
         <div className="max-w-4xl mx-auto px-4 py-10 flex flex-col items-center gap-4">
-          <img src={mntLogo} alt="Musick & Tea Creative Ministry" className="w-24 opacity-80" style={{ mixBlendMode: "screen" }} />
+          {config.logoDataUrl ? (
+            <img src={config.logoDataUrl} alt={config.eventName} className="max-h-12 w-auto opacity-60 object-contain" style={{ mixBlendMode: "screen" }} />
+          ) : (
+            <p className="font-black text-white text-lg">{config.eventName}</p>
+          )}
           <p className="text-zinc-600 text-xs text-center">
-            {EVENT.name} · Theme: {EVENT.theme}<br />
-            {EVENT.date} · {EVENT.venue}
+            {config.eventName}{config.eventTheme ? ` · ${config.eventTheme}` : ""}<br />
+            {formattedDate} · {config.eventVenue}
           </p>
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-5 text-zinc-500 text-xs">
-            <a href="mailto:contactus@musickntea.com" className="hover:text-amber-400 transition-colors">
-              contactus@musickntea.com
-            </a>
-            <span className="hidden sm:inline text-zinc-700">·</span>
-            <a href="tel:+2348136808888" className="hover:text-amber-400 transition-colors">
-              08136808888
-            </a>
-          </div>
-          <p className="text-zinc-800 text-xs">© 2026 Musick & Tea Creative Ministry. All rights reserved.</p>
+          {(config.contactEmail || config.contactPhone) && (
+            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-5 text-zinc-500 text-xs">
+              {config.contactEmail && (
+                <a href={`mailto:${config.contactEmail}`} className="hover:text-white transition-colors">{config.contactEmail}</a>
+              )}
+              {config.contactEmail && config.contactPhone && <span className="hidden sm:inline text-zinc-700">·</span>}
+              {config.contactPhone && (
+                <a href={`tel:${config.contactPhone}`} className="hover:text-white transition-colors">{config.contactPhone}</a>
+              )}
+            </div>
+          )}
+          <a href="/admin" className="text-zinc-800 text-xs hover:text-zinc-600 transition-colors flex items-center gap-1">
+            <Settings className="w-3 h-3" /> Event Admin
+          </a>
         </div>
       </footer>
     </div>
