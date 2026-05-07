@@ -5,6 +5,7 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
+  getTotalTicketsSold(): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -32,6 +33,11 @@ export class MemStorage implements IStorage {
 
   async getAllOrders(): Promise<Order[]> {
     return Array.from(this.orders.values());
+  }
+
+  async getTotalTicketsSold(): Promise<number> {
+    const orders = Array.from(this.orders.values());
+    return orders.reduce((sum, o) => sum + o.quantity, 0);
   }
 }
 

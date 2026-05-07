@@ -1,29 +1,30 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
-  MapPin, Calendar, Clock, Ticket, Plus, Minus, ShoppingCart,
-  User, Mail, Phone, CreditCard, Star, Zap, Crown, X, ChevronRight
+  MapPin, Calendar, Clock, Ticket, User, Mail, Phone,
+  Crown, Zap, Instagram, ChevronDown, ChevronUp, Music
 } from "lucide-react";
 
 const EVENT = {
   name: "Musick & Tea 11",
   theme: "The Name of Jesus",
   date: "Sunday, December 13, 2026",
+  dateISO: "2026-12-13T15:00:00",
   time: "3:00 PM",
   venue: "Odillins Event Center",
   description: "An evening of worship, music, and fellowship centred on the Name above all names. Come and be refreshed.",
+  totalTickets: 250,
 };
 
 const TICKET_TYPES = [
@@ -33,10 +34,12 @@ const TICKET_TYPES = [
     price: 2000,
     description: "Entry ticket to the Musick & Tea 11 concert",
     icon: Ticket,
-    color: "from-blue-500 to-blue-600",
-    badge: "General",
+    colorBar: "from-blue-500 to-blue-600",
+    colorIcon: "bg-blue-100 text-blue-600",
+    badge: "General Admission",
     perks: ["Full concert access", "Event programme", "Welcome refreshment"],
     ticketsIncluded: 1,
+    allowQuantity: true,
   },
   {
     id: "vip-support",
@@ -44,27 +47,29 @@ const TICKET_TYPES = [
     price: 100000,
     description: "Support the vision and enjoy an elevated experience",
     icon: Crown,
-    color: "from-amber-500 to-orange-500",
+    colorBar: "from-amber-400 to-orange-500",
+    colorIcon: "bg-amber-100 text-amber-600",
     badge: "Exclusive",
-    perks: ["2 concert tickets included", "Reserved seating", "Special Musick & Tea package", "Recognition in event programme"],
+    perks: [
+      "2 concert tickets included",
+      "Reserved front-row seating",
+      "Special Musick & Tea gift package",
+      "Recognition in event programme",
+    ],
     ticketsIncluded: 2,
+    allowQuantity: false,
   },
 ];
 
-interface CartItem {
-  ticketType: typeof TICKET_TYPES[0];
-  quantity: number;
-}
-
-const checkoutSchema = z.object({
+const registrationSchema = z.object({
   customerName: z.string().min(2, "Name must be at least 2 characters"),
-  customerEmail: z.string().email("Please enter a valid email address"),
+  customerEmail: z.string().email("Please enter a valid email"),
   customerPhone: z.string().min(10, "Please enter a valid phone number"),
+  instagramHandle: z.string().optional(),
+  quantity: z.number().min(1).max(20),
 });
 
-type CheckoutForm = z.infer<typeof checkoutSchema>;
-
-const TAX_RATE = 0.075;
+type RegistrationForm = z.infer<typeof registrationSchema>;
 
 function formatPrice(amount: number) {
   return new Intl.NumberFormat("en-NG", {
@@ -74,319 +79,341 @@ function formatPrice(amount: number) {
   }).format(amount);
 }
 
-export default function Home() {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [, navigate] = useLocation();
-  const { toast } = useToast();
+function useCountdown(targetISO: string) {
+  const calcRemaining = () => {
+    const diff = new Date(targetISO).getTime() - Date.now();
+    if (diff <= 0) return { days: 0, hours: 0, mins: 0, secs: 0 };
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    return { days, hours, mins, secs };
+  };
+  const [time, setTime] = useState(calcRemaining);
+  useEffect(() => {
+    const id = setInterval(() => setTime(calcRemaining()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return time;
+}
 
-  const form = useForm<CheckoutForm>({
-    resolver: zodResolver(checkoutSchema),
-    defaultValues: { customerName: "", customerEmail: "", customerPhone: "" },
+function CountdownUnit({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 min-w-[64px] text-center border border-white/20">
+        <span className="text-3xl sm:text-4xl font-bold tabular-nums leading-none">
+          {String(value).padStart(2, "0")}
+        </span>
+      </div>
+      <span className="text-purple-300 text-xs mt-2 uppercase tracking-widest">{label}</span>
+    </div>
+  );
+}
+
+function TicketForm({ ticket, onSuccess }: { ticket: typeof TICKET_TYPES[0]; onSuccess: (orderId: string, name: string, total: number, qty: number) => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const form = useForm<RegistrationForm>({
+    resolver: zodResolver(registrationSchema),
+    defaultValues: {
+      customerName: "",
+      customerEmail: "",
+      customerPhone: "",
+      instagramHandle: "",
+      quantity: 1,
+    },
   });
 
-  const subtotal = cart.reduce((sum, item) => sum + item.ticketType.price * item.quantity, 0);
-  const tax = Math.round(subtotal * TAX_RATE);
-  const total = subtotal + tax;
-  const totalTickets = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const quantity = form.watch("quantity");
+  const subtotal = ticket.price * quantity;
+  const total = subtotal;
 
-  function addToCart(ticketType: typeof TICKET_TYPES[0]) {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.ticketType.id === ticketType.id);
-      if (existing) {
-        return prev.map((i) =>
-          i.ticketType.id === ticketType.id ? { ...i, quantity: i.quantity + 1 } : i
-        );
-      }
-      return [...prev, { ticketType, quantity: 1 }];
-    });
-    toast({ title: "Added to cart", description: `${ticketType.name} ticket added.` });
-  }
-
-  function updateQuantity(ticketId: string, delta: number) {
-    setCart((prev) =>
-      prev
-        .map((i) => i.ticketType.id === ticketId ? { ...i, quantity: i.quantity + delta } : i)
-        .filter((i) => i.quantity > 0)
-    );
-  }
-
-  function removeFromCart(ticketId: string) {
-    setCart((prev) => prev.filter((i) => i.ticketType.id !== ticketId));
-  }
-
-  const orderMutation = useMutation({
-    mutationFn: async (data: CheckoutForm) => {
-      const results = [];
-      for (const item of cart) {
-        const res = await apiRequest("POST", "/api/orders", {
-          customerName: data.customerName,
-          customerEmail: data.customerEmail,
-          customerPhone: data.customerPhone,
-          ticketType: item.ticketType.name,
-          quantity: item.quantity,
-          totalAmount: item.ticketType.price * item.quantity + Math.round(item.ticketType.price * item.quantity * TAX_RATE),
-        });
-        results.push(await res.json());
-      }
-      return results;
+  const mutation = useMutation({
+    mutationFn: async (data: RegistrationForm) => {
+      const res = await apiRequest("POST", "/api/orders", {
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        instagramHandle: data.instagramHandle || null,
+        ticketType: ticket.name,
+        quantity: data.quantity,
+        totalAmount: ticket.price * data.quantity,
+      });
+      return res.json();
     },
-    onSuccess: (orders) => {
-      navigate(`/success?orderId=${orders[0].id}&name=${encodeURIComponent(form.getValues("customerName"))}&total=${total}&tickets=${totalTickets}`);
+    onSuccess: (order, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/tickets/availability"] });
+      onSuccess(order.id, vars.customerName, ticket.price * vars.quantity, vars.quantity * ticket.ticketsIncluded);
     },
     onError: (err: any) => {
-      toast({ title: "Payment failed", description: err.message, variant: "destructive" });
+      toast({ title: "Registration failed", description: err.message, variant: "destructive" });
     },
   });
 
-  function onSubmit(data: CheckoutForm) {
-    if (cart.length === 0) {
-      toast({ title: "Cart is empty", description: "Please add at least one ticket.", variant: "destructive" });
-      return;
-    }
-    orderMutation.mutate(data);
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4 pt-4 border-t border-slate-100 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField control={form.control} name="customerName" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Full Name *</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <Input {...field} placeholder="Your full name" className="pl-9 text-sm" />
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="customerPhone" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Phone Number *</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <Input {...field} placeholder="+234 xxx xxx xxxx" className="pl-9 text-sm" />
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+        </div>
+        <FormField control={form.control} name="customerEmail" render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Email Address *</FormLabel>
+            <FormControl>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <Input {...field} type="email" placeholder="your@email.com" className="pl-9 text-sm" />
+              </div>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="instagramHandle" render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Instagram Handle <span className="text-slate-400 normal-case font-normal">(optional)</span></FormLabel>
+            <FormControl>
+              <div className="relative">
+                <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <Input {...field} placeholder="@yourhandle" className="pl-9 text-sm" />
+              </div>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+
+        {ticket.allowQuantity && (
+          <FormField control={form.control} name="quantity" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Number of Tickets</FormLabel>
+              <FormControl>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => field.onChange(Math.max(1, field.value - 1))}
+                    className="w-8 h-8 rounded-full border-2 border-purple-200 flex items-center justify-center text-purple-600 hover:bg-purple-50 transition-colors text-lg font-bold">−</button>
+                  <span className="font-bold text-slate-800 text-lg w-8 text-center">{field.value}</span>
+                  <button type="button" onClick={() => field.onChange(Math.min(20, field.value + 1))}
+                    className="w-8 h-8 rounded-full border-2 border-purple-200 flex items-center justify-center text-purple-600 hover:bg-purple-50 transition-colors text-lg font-bold">+</button>
+                </div>
+              </FormControl>
+            </FormItem>
+          )} />
+        )}
+
+        <div className="flex items-center justify-between bg-purple-50 rounded-lg px-4 py-3">
+          <span className="text-sm text-slate-600 font-medium">Total to pay at venue</span>
+          <span className="font-bold text-purple-700 text-lg">{formatPrice(total)}</span>
+        </div>
+
+        <Button type="submit" disabled={mutation.isPending}
+          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 font-semibold"
+          size="lg">
+          {mutation.isPending
+            ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Registering...</span>
+            : <span className="flex items-center gap-2"><Ticket className="w-4 h-4" /> Reserve My Seat</span>}
+        </Button>
+        <p className="text-center text-xs text-slate-400">Payment of {formatPrice(total)} collected at the venue gate</p>
+      </form>
+    </Form>
+  );
+}
+
+function TicketCard({ ticket, remaining }: { ticket: typeof TICKET_TYPES[0]; remaining: number }) {
+  const [open, setOpen] = useState(false);
+  const [, navigate] = useLocation();
+  const Icon = ticket.icon;
+
+  function handleSuccess(orderId: string, name: string, total: number, qty: number) {
+    navigate(`/success?orderId=${orderId}&name=${encodeURIComponent(name)}&total=${total}&tickets=${qty}`);
   }
 
+  const soldOut = remaining <= 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-100">
-      {/* Hero Header */}
+    <Card className={`overflow-hidden border-2 transition-all duration-200 ${open ? "border-purple-400 shadow-purple-100 shadow-lg" : "border-slate-100 hover:border-purple-200 hover:shadow-md"}`}>
+      <div className={`h-1.5 bg-gradient-to-r ${ticket.colorBar}`} />
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className={`p-2.5 rounded-xl ${ticket.colorIcon}`}>
+            <Icon className="w-6 h-6" />
+          </div>
+          <Badge variant="secondary" className="text-xs">{ticket.badge}</Badge>
+        </div>
+
+        <h3 className="text-xl font-bold text-slate-800">{ticket.name}</h3>
+        <p className="text-slate-500 text-sm mt-1 mb-4">{ticket.description}</p>
+
+        <ul className="space-y-2 mb-5">
+          {ticket.perks.map((perk) => (
+            <li key={perk} className="flex items-start gap-2 text-sm text-slate-600">
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-400 flex-shrink-0 mt-1.5" />
+              {perk}
+            </li>
+          ))}
+        </ul>
+
+        <div className="mb-4">
+          <span className="text-3xl font-bold text-slate-800">{formatPrice(ticket.price)}</span>
+          <span className="text-slate-400 text-sm ml-2">
+            {ticket.ticketsIncluded > 1 ? `· ${ticket.ticketsIncluded} tickets included` : "· per ticket"}
+          </span>
+        </div>
+
+        {soldOut ? (
+          <Button disabled className="w-full" variant="outline">Sold Out</Button>
+        ) : (
+          <Button
+            onClick={() => setOpen((v) => !v)}
+            className={`w-full font-semibold ${open ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100" : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"}`}
+            variant={open ? "outline" : "default"}
+            size="lg"
+          >
+            {open ? (
+              <span className="flex items-center gap-2"><ChevronUp className="w-4 h-4" /> Hide Form</span>
+            ) : (
+              <span className="flex items-center gap-2"><Ticket className="w-4 h-4" /> Register Now</span>
+            )}
+          </Button>
+        )}
+
+        {open && <TicketForm ticket={ticket} onSuccess={handleSuccess} />}
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function Home() {
+  const countdown = useCountdown(EVENT.dateISO);
+
+  const { data: availability } = useQuery<{ total: number; sold: number; remaining: number }>({
+    queryKey: ["/api/tickets/availability"],
+    refetchInterval: 30000,
+  });
+
+  const remaining = availability?.remaining ?? EVENT.totalTickets;
+  const sold = availability?.sold ?? 0;
+  const pctSold = Math.min(100, Math.round((sold / EVENT.totalTickets) * 100));
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-purple-50 to-slate-100">
+
+      {/* Hero */}
       <div className="relative overflow-hidden bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 text-white">
-        <div className="absolute inset-0 opacity-20"
-          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        <div className="relative max-w-4xl mx-auto px-4 py-12 sm:py-16">
-          <div className="flex items-center gap-2 mb-4">
-            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm">
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: "radial-gradient(circle at 25% 40%, white 1px, transparent 1px), radial-gradient(circle at 75% 70%, white 1px, transparent 1px)", backgroundSize: "50px 50px" }} />
+        <div className="relative max-w-4xl mx-auto px-4 pt-10 pb-12">
+          <div className="flex flex-wrap items-center gap-2 mb-5">
+            <Badge className="bg-white/20 text-white border-white/30 text-xs">
               <Zap className="w-3 h-3 mr-1" /> Limited Tickets Available
             </Badge>
+            <Badge className="bg-amber-400/20 text-amber-300 border-amber-400/30 text-xs">
+              <Music className="w-3 h-3 mr-1" /> {EVENT.totalTickets} Total Seats
+            </Badge>
           </div>
-          <p className="text-amber-300 text-sm font-semibold uppercase tracking-widest mb-2">Theme: {EVENT.theme}</p>
+          <p className="text-amber-300 text-xs font-bold uppercase tracking-widest mb-2">Theme: {EVENT.theme}</p>
           <h1 className="text-4xl sm:text-5xl font-bold mb-3 tracking-tight">{EVENT.name}</h1>
-          <p className="text-purple-200 text-lg mb-6 max-w-xl">{EVENT.description}</p>
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2">
-              <Calendar className="w-4 h-4 text-purple-300" />
-              <span>{EVENT.date}</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2">
-              <Clock className="w-4 h-4 text-purple-300" />
-              <span>{EVENT.time}</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2">
-              <MapPin className="w-4 h-4 text-purple-300" />
-              <span>{EVENT.venue}</span>
+          <p className="text-purple-200 text-base mb-6 max-w-lg">{EVENT.description}</p>
+          <div className="flex flex-wrap gap-3 text-sm mb-8">
+            {[
+              { icon: Calendar, text: EVENT.date },
+              { icon: Clock, text: EVENT.time },
+              { icon: MapPin, text: EVENT.venue },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-1.5">
+                <Icon className="w-3.5 h-3.5 text-purple-300" />
+                <span>{text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Countdown */}
+          <div>
+            <p className="text-purple-300 text-xs uppercase tracking-widest mb-3 font-semibold">Event starts in</p>
+            <div className="flex items-start gap-3 sm:gap-5">
+              <CountdownUnit value={countdown.days} label="Days" />
+              <span className="text-2xl text-purple-400 font-bold mt-3">:</span>
+              <CountdownUnit value={countdown.hours} label="Hours" />
+              <span className="text-2xl text-purple-400 font-bold mt-3">:</span>
+              <CountdownUnit value={countdown.mins} label="Mins" />
+              <span className="text-2xl text-purple-400 font-bold mt-3">:</span>
+              <CountdownUnit value={countdown.secs} label="Secs" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Ticket Selection */}
+      {/* Ticket Availability Banner */}
+      <div className="bg-white border-b border-slate-100 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-slate-700 text-sm font-semibold">
+              {remaining} of {EVENT.totalTickets} tickets remaining
+            </span>
+          </div>
+          <div className="flex-1 w-full sm:w-auto bg-slate-100 rounded-full h-2.5 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-700"
+              style={{ width: `${pctSold}%` }}
+            />
+          </div>
+          <span className="text-xs text-slate-400 flex-shrink-0">{pctSold}% sold</span>
+        </div>
+      </div>
+
+      {/* Ticket Cards */}
+      <div className="flex-1 max-w-4xl mx-auto w-full px-4 py-10 space-y-8">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-1">Select Your Tickets</h2>
-          <p className="text-slate-500 mb-6">Choose the experience that's right for you</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
-            {TICKET_TYPES.map((ticket) => {
-              const Icon = ticket.icon;
-              const cartItem = cart.find((i) => i.ticketType.id === ticket.id);
-              return (
-                <Card key={ticket.id} className={`relative overflow-hidden border-2 transition-all duration-200 hover:shadow-lg hover:-translate-y-1 ${cartItem ? "border-purple-400 shadow-purple-100 shadow-md" : "border-transparent"}`}>
-                  <div className={`h-2 bg-gradient-to-r ${ticket.color}`} />
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`p-2 rounded-lg bg-gradient-to-r ${ticket.color}`}>
-                        <Icon className="w-5 h-5 text-white" />
-                      </div>
-                      <Badge variant="secondary" className="text-xs font-medium">{ticket.badge}</Badge>
-                    </div>
-                    <h3 className="font-bold text-slate-800 text-lg">{ticket.name}</h3>
-                    <p className="text-slate-500 text-sm mt-1 mb-3">{ticket.description}</p>
-                    <ul className="space-y-1 mb-4">
-                      {ticket.perks.map((perk) => (
-                        <li key={perk} className="flex items-center gap-2 text-xs text-slate-600">
-                          <div className="w-1.5 h-1.5 rounded-full bg-purple-500 flex-shrink-0" />
-                          {perk}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-auto">
-                      <p className="text-2xl font-bold text-slate-800">{formatPrice(ticket.price)}</p>
-                      <p className="text-xs text-slate-400 mb-3">
-                        {ticket.ticketsIncluded > 1 ? `includes ${ticket.ticketsIncluded} tickets` : "per ticket"}
-                      </p>
-                      {cartItem ? (
-                        <div className="flex items-center gap-3">
-                          <button onClick={() => updateQuantity(ticket.id, -1)}
-                            className="w-8 h-8 rounded-full border-2 border-purple-300 flex items-center justify-center text-purple-600 hover:bg-purple-50 transition-colors">
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="font-bold text-slate-800 w-4 text-center">{cartItem.quantity}</span>
-                          <button onClick={() => updateQuantity(ticket.id, 1)}
-                            className="w-8 h-8 rounded-full border-2 border-purple-300 flex items-center justify-center text-purple-600 hover:bg-purple-50 transition-colors">
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <Button onClick={() => addToCart(ticket)} className="w-full" variant="outline">
-                          <Plus className="w-4 h-4 mr-1" /> Add to Cart
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">Choose Your Ticket</h2>
+          <p className="text-slate-500 mb-6">Register below and pay at the venue gate</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {TICKET_TYPES.map((ticket) => (
+              <TicketCard key={ticket.id} ticket={ticket} remaining={remaining} />
+            ))}
           </div>
         </div>
 
-        {/* Cart */}
-        {cart.length > 0 && (
-          <Card className="border-purple-100 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-slate-800">
-                <ShoppingCart className="w-5 h-5 text-purple-600" />
-                Your Cart
-                <Badge className="ml-auto bg-purple-100 text-purple-700 border-0">{totalTickets} ticket{totalTickets !== 1 ? "s" : ""}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {cart.map((item) => (
-                <div key={item.ticketType.id} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-1.5 rounded-md bg-gradient-to-r ${item.ticketType.color}`}>
-                      <item.ticketType.icon className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-800 text-sm">{item.ticketType.name}</p>
-                      <p className="text-xs text-slate-500">{formatPrice(item.ticketType.price)} × {item.quantity}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold text-slate-800">{formatPrice(item.ticketType.price * item.quantity)}</span>
-                    <button onClick={() => removeFromCart(item.ticketType.id)} className="text-slate-400 hover:text-red-500 transition-colors">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              <Separator className="my-2" />
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
-                  <span>{formatPrice(subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Tax (7.5%)</span>
-                  <span>{formatPrice(tax)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-slate-800 text-base pt-1">
-                  <span>Total</span>
-                  <span className="text-purple-700">{formatPrice(total)}</span>
-                </div>
-              </div>
-              <Button
-                onClick={() => setShowCheckout(true)}
-                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3"
-                size="lg"
-              >
-                Proceed to Checkout <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Checkout Form */}
-        {showCheckout && cart.length > 0 && (
-          <Card className="border-purple-100 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-800">
-                <CreditCard className="w-5 h-5 text-purple-600" />
-                Complete Your Order
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-slate-700 font-medium">Full Name</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <Input {...field} placeholder="Your full name" className="pl-10" />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="customerPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-slate-700 font-medium">Phone Number</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <Input {...field} placeholder="+234 xxx xxx xxxx" className="pl-10" />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="customerEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-slate-700 font-medium">Email Address</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <Input {...field} type="email" placeholder="your@email.com" className="pl-10" />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <p className="text-amber-800 text-sm font-medium flex items-center gap-2">
-                      <CreditCard className="w-4 h-4" /> Payment on Arrival
-                    </p>
-                    <p className="text-amber-700 text-xs mt-1">Your ticket will be reserved. Payment ({formatPrice(total)}) is collected at the venue gate.</p>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={orderMutation.isPending}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3"
-                    size="lg"
-                  >
-                    {orderMutation.isPending ? (
-                      <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...</span>
-                    ) : (
-                      <span className="flex items-center gap-2"><Ticket className="w-4 h-4" /> Confirm Reservation — {formatPrice(total)}</span>
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Footer Note */}
-        <p className="text-center text-slate-400 text-sm pb-4">
-          Tickets are non-refundable. Please arrive 30 minutes before the event starts.
+        <p className="text-center text-slate-400 text-sm">
+          Tickets are non-refundable · Please arrive 30 minutes early
         </p>
       </div>
+
+      {/* Footer */}
+      <footer className="bg-gradient-to-r from-purple-900 to-indigo-900 text-white">
+        <div className="max-w-4xl mx-auto px-4 py-8 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Music className="w-5 h-5 text-purple-300" />
+            <span className="font-bold text-lg tracking-tight">{EVENT.name}</span>
+          </div>
+          <p className="text-amber-300 font-semibold text-sm uppercase tracking-widest italic">
+            "Transforming a generation"
+          </p>
+          <p className="text-purple-300 text-xs">Theme: {EVENT.theme} · {EVENT.date} · {EVENT.venue}</p>
+          <p className="text-purple-400 text-xs mt-1">© 2026 Musick & Tea. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
