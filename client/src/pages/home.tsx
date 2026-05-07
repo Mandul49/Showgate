@@ -18,43 +18,36 @@ import {
 } from "lucide-react";
 
 const EVENT = {
-  name: "Odilin's Event",
+  name: "Musick & Tea 11",
+  theme: "The Name of Jesus",
   date: "Sunday, December 13, 2026",
   time: "3:00 PM",
-  venue: "Odilins Event Center",
-  description: "Join us for an unforgettable evening of entertainment, networking, and celebration. This is a night you won't want to miss!",
+  venue: "Odillins Event Center",
+  description: "An evening of worship, music, and fellowship centred on the Name above all names. Come and be refreshed.",
 };
 
 const TICKET_TYPES = [
   {
-    id: "general",
-    name: "General Admission",
-    price: 2500,
-    description: "Access to all general areas and main stage",
+    id: "regular",
+    name: "Regular",
+    price: 2000,
+    description: "Entry ticket to the Musick & Tea 11 concert",
     icon: Ticket,
     color: "from-blue-500 to-blue-600",
-    badge: "Popular",
-    perks: ["Main hall access", "Welcome drink", "Event program"],
+    badge: "General",
+    perks: ["Full concert access", "Event programme", "Welcome refreshment"],
+    ticketsIncluded: 1,
   },
   {
-    id: "vip",
-    name: "VIP",
-    price: 7500,
-    description: "Premium experience with exclusive VIP lounge access",
-    icon: Star,
-    color: "from-purple-500 to-purple-700",
-    badge: "Best Value",
-    perks: ["VIP lounge access", "3-course dinner", "Meet & greet", "Priority seating"],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    price: 15000,
-    description: "All-inclusive luxury package with front-row seats",
+    id: "vip-support",
+    name: "VIP Support",
+    price: 100000,
+    description: "Support the vision and enjoy an elevated experience",
     icon: Crown,
-    color: "from-amber-500 to-orange-600",
+    color: "from-amber-500 to-orange-500",
     badge: "Exclusive",
-    perks: ["Front-row seats", "Private table", "Unlimited bar", "VIP afterparty", "Gift bag"],
+    perks: ["2 concert tickets included", "Reserved seating", "Special Musick & Tea package", "Recognition in event programme"],
+    ticketsIncluded: 2,
   },
 ];
 
@@ -166,6 +159,7 @@ export default function Home() {
               <Zap className="w-3 h-3 mr-1" /> Limited Tickets Available
             </Badge>
           </div>
+          <p className="text-amber-300 text-sm font-semibold uppercase tracking-widest mb-2">Theme: {EVENT.theme}</p>
           <h1 className="text-4xl sm:text-5xl font-bold mb-3 tracking-tight">{EVENT.name}</h1>
           <p className="text-purple-200 text-lg mb-6 max-w-xl">{EVENT.description}</p>
           <div className="flex flex-wrap gap-4 text-sm">
@@ -190,7 +184,7 @@ export default function Home() {
         <div>
           <h2 className="text-2xl font-bold text-slate-800 mb-1">Select Your Tickets</h2>
           <p className="text-slate-500 mb-6">Choose the experience that's right for you</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
             {TICKET_TYPES.map((ticket) => {
               const Icon = ticket.icon;
               const cartItem = cart.find((i) => i.ticketType.id === ticket.id);
@@ -216,7 +210,9 @@ export default function Home() {
                     </ul>
                     <div className="mt-auto">
                       <p className="text-2xl font-bold text-slate-800">{formatPrice(ticket.price)}</p>
-                      <p className="text-xs text-slate-400 mb-3">per ticket</p>
+                      <p className="text-xs text-slate-400 mb-3">
+                        {ticket.ticketsIncluded > 1 ? `includes ${ticket.ticketsIncluded} tickets` : "per ticket"}
+                      </p>
                       {cartItem ? (
                         <div className="flex items-center gap-3">
                           <button onClick={() => updateQuantity(ticket.id, -1)}

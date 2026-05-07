@@ -5,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Calendar, Clock, MapPin, Ticket, Download, Share2 } from "lucide-react";
 
 const EVENT = {
-  name: "Odilin's Event",
+  name: "Musick & Tea 11",
+  theme: "The Name of Jesus",
   date: "Sunday, December 13, 2026",
   time: "3:00 PM",
-  venue: "Odilins Event Center",
+  venue: "Odillins Event Center",
 };
 
 function formatPrice(amount: number) {
