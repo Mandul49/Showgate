@@ -80,9 +80,90 @@ export interface PublicOrganizer {
   tier: UserTier;
 }
 
-// ─── Event Config ─────────────────────────────────────────────────────────────
+// ─── Events ───────────────────────────────────────────────────────────────────
 
+export type EventStatus = "active" | "inactive" | "draft";
 export type PaymentMethod = "paystack" | "stripe" | "paypal" | "bank_transfer";
+
+export interface Event {
+  id: string;
+  organizerId: string;
+  title: string;
+  date: string;
+  location: string;
+  status: EventStatus;
+  maxTickets: number;
+  paymentMethod: PaymentMethod;
+  isActive: boolean;
+  createdAt: Date;
+}
+
+export interface CreateEventData {
+  organizerId: string;
+  title: string;
+  date: string;
+  location: string;
+  status: EventStatus;
+  maxTickets: number;
+  paymentMethod: PaymentMethod;
+  isActive: boolean;
+}
+
+export interface UpdateEventData {
+  title?: string;
+  date?: string;
+  location?: string;
+  status?: EventStatus;
+  maxTickets?: number;
+  paymentMethod?: PaymentMethod;
+  isActive?: boolean;
+}
+
+export const createEventSchema = z.object({
+  title: z.string().min(1, "Event title is required"),
+  date: z.string().min(1, "Event date is required"),
+  location: z.string().min(1, "Location is required"),
+  maxTickets: z.number().min(1, "Must have at least 1 ticket"),
+  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer"]),
+  isActive: z.boolean().default(true),
+});
+
+export const updateEventSchema = createEventSchema.partial();
+
+// ─── Ticket Types ─────────────────────────────────────────────────────────────
+
+export interface TicketType {
+  id: string;
+  eventId: string;
+  name: string;
+  price: number;
+  quantityAvailable: number;
+  quantitySold: number;
+  createdAt: Date;
+}
+
+export interface CreateTicketTypeData {
+  eventId: string;
+  name: string;
+  price: number;
+  quantityAvailable: number;
+}
+
+export interface UpdateTicketTypeData {
+  name?: string;
+  price?: number;
+  quantityAvailable?: number;
+}
+
+export const createTicketTypeSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  price: z.number().min(0, "Price must be non-negative"),
+  quantityAvailable: z.number().min(1, "Must have at least 1 ticket"),
+});
+
+export const updateTicketTypeSchema = createTicketTypeSchema.partial();
+
+// ─── Event Config (legacy single-event setup page) ────────────────────────────
 
 export interface TicketTier {
   id: string;

@@ -8,6 +8,7 @@ import Success from "@/pages/success";
 import Admin from "@/pages/admin";
 import Login from "@/pages/login";
 import Onboarding from "@/pages/onboarding";
+import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/success" component={Success} />
       <Route path="/login" component={Login} />
       <Route path="/onboarding" component={Onboarding} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>

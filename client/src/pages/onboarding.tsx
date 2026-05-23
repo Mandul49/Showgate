@@ -134,9 +134,9 @@ export default function Onboarding() {
               </div>
             </div>
 
-            <button onClick={() => navigate("/admin")}
+            <button onClick={() => navigate("/dashboard")}
               className="w-full py-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black uppercase tracking-widest text-sm transition-colors flex items-center justify-center gap-2">
-              <ArrowRight className="w-5 h-5" /> Go to Event Setup
+              <ArrowRight className="w-5 h-5" /> Go to Dashboard
             </button>
           </div>
         </div>

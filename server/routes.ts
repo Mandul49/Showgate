@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { insertOrderSchema, eventConfigSchema } from "@shared/schema";
 import { registerAuthRoutes, requireAuth } from "./auth";
 import { registerOnboardingRoutes } from "./onboarding";
+import { registerEventsRoutes } from "./events";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
   const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
@@ -26,6 +27,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Onboarding ───────────────────────────────────────────────────────────
   registerOnboardingRoutes(app);
+
+  // ─── Events ───────────────────────────────────────────────────────────────
+  registerEventsRoutes(app);
 
   // ─── Config (public read, protected write) ────────────────────────────────
 

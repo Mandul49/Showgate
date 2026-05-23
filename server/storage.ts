@@ -2,6 +2,8 @@ import {
   type Order, type InsertOrder, type EventConfig,
   type User, type UserRole, type UserTier,
   type Organizer, type CreateOrganizerData,
+  type Event, type CreateEventData, type UpdateEventData,
+  type TicketType, type CreateTicketTypeData, type UpdateTicketTypeData,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -65,6 +67,16 @@ export interface IStorage {
   createOrganizer(data: CreateOrganizerData): Promise<Organizer>;
   getOrganizerByUserId(userId: string): Promise<Organizer | undefined>;
   getOrganizerById(id: string): Promise<Organizer | undefined>;
+  // Events
+  createEvent(data: CreateEventData): Promise<Event>;
+  getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
+  getEventById(id: string): Promise<Event | undefined>;
+  updateEvent(id: string, updates: UpdateEventData): Promise<Event>;
+  // Ticket Types
+  createTicketType(data: CreateTicketTypeData): Promise<TicketType>;
+  getTicketTypesByEventId(eventId: string): Promise<TicketType[]>;
+  getTicketTypeById(id: string): Promise<TicketType | undefined>;
+  updateTicketType(id: string, updates: UpdateTicketTypeData): Promise<TicketType>;
 }
 
 export class MemStorage implements IStorage {
@@ -74,6 +86,10 @@ export class MemStorage implements IStorage {
   private usersByEmail: Map<string, string> = new Map();
   private organizers: Map<string, Organizer> = new Map();
   private organizersByUserId: Map<string, string> = new Map();
+  private events: Map<string, Event> = new Map();
+  private eventsByOrganizerId: Map<string, Set<string>> = new Map();
+  private ticketTypes: Map<string, TicketType> = new Map();
+  private ticketTypesByEventId: Map<string, Set<string>> = new Map();
 
   // ── Orders ───────────────────────────────────────────────────────────────
 
@@ -143,6 +159,71 @@ export class MemStorage implements IStorage {
 
   async getOrganizerById(id: string): Promise<Organizer | undefined> {
     return this.organizers.get(id);
+  }
+
+  // ── Events ────────────────────────────────────────────────────────────────
+
+  async createEvent(data: CreateEventData): Promise<Event> {
+    const id = randomUUID();
+    const event: Event = { ...data, id, createdAt: new Date() };
+    this.events.set(id, event);
+    if (!this.eventsByOrganizerId.has(data.organizerId)) {
+      this.eventsByOrganizerId.set(data.organizerId, new Set());
+    }
+    this.eventsByOrganizerId.get(data.organizerId)!.add(id);
+    return event;
+  }
+
+  async getEventsByOrganizerId(organizerId: string): Promise<Event[]> {
+    const ids = this.eventsByOrganizerId.get(organizerId) ?? new Set<string>();
+    return Array.from(ids)
+      .map((id) => this.events.get(id))
+      .filter((e): e is Event => !!e)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getEventById(id: string): Promise<Event | undefined> {
+    return this.events.get(id);
+  }
+
+  async updateEvent(id: string, updates: UpdateEventData): Promise<Event> {
+    const event = this.events.get(id);
+    if (!event) throw new Error("Event not found");
+    const updated: Event = { ...event, ...updates };
+    this.events.set(id, updated);
+    return updated;
+  }
+
+  // ── Ticket Types ──────────────────────────────────────────────────────────
+
+  async createTicketType(data: CreateTicketTypeData): Promise<TicketType> {
+    const id = randomUUID();
+    const tt: TicketType = { ...data, id, quantitySold: 0, createdAt: new Date() };
+    this.ticketTypes.set(id, tt);
+    if (!this.ticketTypesByEventId.has(data.eventId)) {
+      this.ticketTypesByEventId.set(data.eventId, new Set());
+    }
+    this.ticketTypesByEventId.get(data.eventId)!.add(id);
+    return tt;
+  }
+
+  async getTicketTypesByEventId(eventId: string): Promise<TicketType[]> {
+    const ids = this.ticketTypesByEventId.get(eventId) ?? new Set<string>();
+    return Array.from(ids)
+      .map((id) => this.ticketTypes.get(id))
+      .filter((t): t is TicketType => !!t);
+  }
+
+  async getTicketTypeById(id: string): Promise<TicketType | undefined> {
+    return this.ticketTypes.get(id);
+  }
+
+  async updateTicketType(id: string, updates: UpdateTicketTypeData): Promise<TicketType> {
+    const tt = this.ticketTypes.get(id);
+    if (!tt) throw new Error("Ticket type not found");
+    const updated: TicketType = { ...tt, ...updates };
+    this.ticketTypes.set(id, updated);
+    return updated;
   }
 }
 
