@@ -45,6 +45,41 @@ export interface PublicUser {
   tier: UserTier;
 }
 
+// ─── Organizers ───────────────────────────────────────────────────────────────
+
+export interface Organizer {
+  id: string;
+  userId: string;
+  businessName: string;
+  bankName: string;
+  bankCode: string;
+  accountNumber: string;
+  subaccountCode: string;
+  bvn: string | null;
+  tier: UserTier;
+  createdAt: Date;
+}
+
+export interface CreateOrganizerData {
+  userId: string;
+  businessName: string;
+  bankName: string;
+  bankCode: string;
+  accountNumber: string;
+  subaccountCode: string;
+  bvn: string | null;
+  tier: UserTier;
+}
+
+export interface PublicOrganizer {
+  id: string;
+  businessName: string;
+  bankName: string;
+  accountNumber: string;
+  subaccountCode: string;
+  tier: UserTier;
+}
+
 // ─── Event Config ─────────────────────────────────────────────────────────────
 
 export type PaymentMethod = "paystack" | "stripe" | "paypal" | "bank_transfer";

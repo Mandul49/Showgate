@@ -57,6 +57,18 @@ export default function Login() {
     defaultValues: { email: "", password: "", confirmPassword: "" },
   });
 
+  async function checkOnboardingAndNavigate(token: string) {
+    try {
+      const statusRes = await fetch("/api/onboarding/status", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const status = await statusRes.json();
+      navigate(status.completed ? "/admin" : "/onboarding");
+    } catch {
+      navigate("/onboarding");
+    }
+  }
+
   async function handleLogin(data: LoginForm) {
     setLoading(true);
     try {
@@ -69,7 +81,7 @@ export default function Login() {
       if (!res.ok) throw new Error(json.message);
       setToken(json.token);
       saveUser(json.user);
-      navigate("/admin");
+      await checkOnboardingAndNavigate(json.token);
     } catch (err: any) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
     } finally {
@@ -89,8 +101,8 @@ export default function Login() {
       if (!res.ok) throw new Error(json.message);
       setToken(json.token);
       saveUser(json.user);
-      toast({ title: "Account created!", description: "Welcome to your event dashboard." });
-      navigate("/admin");
+      toast({ title: "Account created!", description: "Almost there — set up your payments next." });
+      navigate("/onboarding");
     } catch (err: any) {
       toast({ title: "Sign up failed", description: err.message, variant: "destructive" });
     } finally {

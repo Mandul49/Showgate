@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { isAuthenticated, clearToken, getUser } from "@/lib/auth";
+import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -223,7 +223,12 @@ export default function Admin() {
   const currentUser = getUser();
 
   useEffect(() => {
-    if (!isAuthenticated()) navigate("/login");
+    if (!isAuthenticated()) { navigate("/login"); return; }
+    const token = getToken();
+    fetch("/api/onboarding/status", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(status => { if (!status.completed) navigate("/onboarding"); })
+      .catch(() => navigate("/onboarding"));
   }, []);
 
   function handleLogout() {

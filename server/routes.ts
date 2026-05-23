@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { storage } from "./storage";
 import { insertOrderSchema, eventConfigSchema } from "@shared/schema";
 import { registerAuthRoutes, requireAuth } from "./auth";
+import { registerOnboardingRoutes } from "./onboarding";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
   const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
@@ -22,6 +23,9 @@ async function getPaypalAccessToken(clientId: string, secret: string): Promise<s
 export async function registerRoutes(app: Express): Promise<Server> {
   // ─── Auth ─────────────────────────────────────────────────────────────────
   registerAuthRoutes(app);
+
+  // ─── Onboarding ───────────────────────────────────────────────────────────
+  registerOnboardingRoutes(app);
 
   // ─── Config (public read, protected write) ────────────────────────────────
 

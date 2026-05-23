@@ -1,4 +1,8 @@
-import { type Order, type InsertOrder, type EventConfig, type User, type UserRole, type UserTier } from "@shared/schema";
+import {
+  type Order, type InsertOrder, type EventConfig,
+  type User, type UserRole, type UserTier,
+  type Organizer, type CreateOrganizerData,
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 
 const DEFAULT_CONFIG: EventConfig = {
@@ -57,20 +61,19 @@ export interface IStorage {
   createUser(email: string, passwordHash: string, role: UserRole, tier: UserTier): Promise<User>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserById(id: string): Promise<User | undefined>;
+  // Organizers
+  createOrganizer(data: CreateOrganizerData): Promise<Organizer>;
+  getOrganizerByUserId(userId: string): Promise<Organizer | undefined>;
+  getOrganizerById(id: string): Promise<Organizer | undefined>;
 }
 
 export class MemStorage implements IStorage {
-  private orders: Map<string, Order>;
-  private eventConfig: EventConfig;
-  private users: Map<string, User>;
-  private usersByEmail: Map<string, string>; // email → id
-
-  constructor() {
-    this.orders = new Map();
-    this.eventConfig = { ...DEFAULT_CONFIG };
-    this.users = new Map();
-    this.usersByEmail = new Map();
-  }
+  private orders: Map<string, Order> = new Map();
+  private eventConfig: EventConfig = { ...DEFAULT_CONFIG };
+  private users: Map<string, User> = new Map();
+  private usersByEmail: Map<string, string> = new Map();
+  private organizers: Map<string, Organizer> = new Map();
+  private organizersByUserId: Map<string, string> = new Map();
 
   // ── Orders ───────────────────────────────────────────────────────────────
 
@@ -116,12 +119,30 @@ export class MemStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const id = this.usersByEmail.get(email.toLowerCase());
-    if (!id) return undefined;
-    return this.users.get(id);
+    return id ? this.users.get(id) : undefined;
   }
 
   async getUserById(id: string): Promise<User | undefined> {
     return this.users.get(id);
+  }
+
+  // ── Organizers ────────────────────────────────────────────────────────────
+
+  async createOrganizer(data: CreateOrganizerData): Promise<Organizer> {
+    const id = randomUUID();
+    const organizer: Organizer = { ...data, id, createdAt: new Date() };
+    this.organizers.set(id, organizer);
+    this.organizersByUserId.set(data.userId, id);
+    return organizer;
+  }
+
+  async getOrganizerByUserId(userId: string): Promise<Organizer | undefined> {
+    const id = this.organizersByUserId.get(userId);
+    return id ? this.organizers.get(id) : undefined;
+  }
+
+  async getOrganizerById(id: string): Promise<Organizer | undefined> {
+    return this.organizers.get(id);
   }
 }
 
