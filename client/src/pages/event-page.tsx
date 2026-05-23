@@ -258,28 +258,46 @@ function PurchaseForm({
         toast({ title: "Payment not configured", description: "Paystack key is missing.", variant: "destructive" });
         return;
       }
+
+      // Ensure the Paystack inline script is loaded (may already be in <head>)
       try {
         await loadScript("https://js.paystack.co/v1/inline.js");
       } catch {
-        toast({ title: "Payment system unavailable", description: "Please refresh and try again.", variant: "destructive" });
+        toast({ title: "Payment system unavailable", description: "Could not load payment script. Please refresh.", variant: "destructive" });
         return;
       }
       if (!window.PaystackPop) {
-        toast({ title: "Payment system unavailable", description: "Please refresh and try again.", variant: "destructive" });
+        toast({ title: "Payment system unavailable", description: "Paystack did not initialise. Please refresh.", variant: "destructive" });
         return;
       }
+
+      // Confirm key is present right before launch
+      console.log("[paystack] key prefix:", pubKey.slice(0, 10), "| length:", pubKey.length);
+
       setProcessing(true);
+
       const prefix = event.title.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase() || "EVT";
       const ref = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+      // 5-second safety net — reset button if popup never opens/responds
+      let settled = false;
+      const launchTimeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          setProcessing(false);
+          toast({ title: "Payment could not launch", description: "Payment could not launch, please try again.", variant: "destructive" });
+        }
+      }, 5000);
 
       const paystackConfig: any = {
         key: pubKey,
         email: data.customerEmail,
-        // Amount shown to user is computed client-side for display; server re-computes from DB on verification
         amount: total * 100,
         currency: "NGN",
         ref,
         callback: async (response: any) => {
+          settled = true;
+          clearTimeout(launchTimeout);
           // Server verifies reference AND re-computes expected total from DB price
           const res = await apiRequest("POST", `/api/public/events/${event.id}/purchase/paystack`, {
             reference: response.reference,
@@ -300,8 +318,16 @@ function PurchaseForm({
           onSuccess(order.id, data.customerName, total, data.quantity);
         },
         onClose: () => {
+          settled = true;
+          clearTimeout(launchTimeout);
           setProcessing(false);
           toast({ title: "Payment cancelled", description: "You closed the payment window.", variant: "destructive" });
+        },
+        onError: (err: any) => {
+          settled = true;
+          clearTimeout(launchTimeout);
+          setProcessing(false);
+          toast({ title: "Payment error", description: err?.message || "Paystack encountered an error. Please try again.", variant: "destructive" });
         },
       };
 
@@ -310,7 +336,17 @@ function PurchaseForm({
         paystackConfig.bearer = "subaccount";
       }
 
-      window.PaystackPop.setup(paystackConfig).openIframe();
+      try {
+        window.PaystackPop.setup(paystackConfig).openIframe();
+        // openIframe() is synchronous — popup is now visible, cancel timeout
+        settled = true;
+        clearTimeout(launchTimeout);
+      } catch (err: any) {
+        settled = true;
+        clearTimeout(launchTimeout);
+        setProcessing(false);
+        toast({ title: "Payment could not launch", description: err?.message || "Could not open payment popup. Please try again.", variant: "destructive" });
+      }
       return;
     }
 

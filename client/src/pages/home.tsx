@@ -218,24 +218,61 @@ function TicketForm({ ticket, config, onSuccess }: {
     setFormData(data);
 
     if (paymentMethod === "paystack") {
-      if (!config.paystackPublicKey) { toast({ title: "Payment not configured", description: "Paystack key is missing.", variant: "destructive" }); return; }
+      const pubKey = config.paystackPublicKey;
+      if (!pubKey) { toast({ title: "Payment not configured", description: "Paystack key is missing.", variant: "destructive" }); return; }
       if (!window.PaystackPop) { toast({ title: "Payment system unavailable", description: "Please refresh and try again.", variant: "destructive" }); return; }
+
+      console.log("[paystack] key prefix:", pubKey.slice(0, 10), "| length:", pubKey.length);
+
       setProcessing(true);
+
       const prefix = config.eventName.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase() || "EVT";
       const ref = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-      window.PaystackPop.setup({
-        key: config.paystackPublicKey, email: data.customerEmail,
-        amount: total * 100, currency, ref,
-        callback: async (response: any) => {
-          const orderData = buildOrderData(data);
-          const res = await apiRequest("POST", "/api/payments/paystack/verify", { reference: response.reference, orderData });
-          const order = await res.json();
-          if (!res.ok) { toast({ title: "Verification failed", description: order.message, variant: "destructive" }); setProcessing(false); return; }
-          qc.invalidateQueries({ queryKey: ["/api/tickets/availability"] });
-          onSuccess(order.id, data.customerName, total, data.quantity * ticket.ticketsIncluded);
-        },
-        onClose: () => { setProcessing(false); toast({ title: "Payment cancelled", description: "You closed the payment window.", variant: "destructive" }); },
-      }).openIframe();
+
+      let settled = false;
+      const launchTimeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          setProcessing(false);
+          toast({ title: "Payment could not launch", description: "Payment could not launch, please try again.", variant: "destructive" });
+        }
+      }, 5000);
+
+      try {
+        window.PaystackPop.setup({
+          key: pubKey, email: data.customerEmail,
+          amount: total * 100, currency, ref,
+          callback: async (response: any) => {
+            settled = true;
+            clearTimeout(launchTimeout);
+            const orderData = buildOrderData(data);
+            const res = await apiRequest("POST", "/api/payments/paystack/verify", { reference: response.reference, orderData });
+            const order = await res.json();
+            if (!res.ok) { toast({ title: "Verification failed", description: order.message, variant: "destructive" }); setProcessing(false); return; }
+            qc.invalidateQueries({ queryKey: ["/api/tickets/availability"] });
+            onSuccess(order.id, data.customerName, total, data.quantity * ticket.ticketsIncluded);
+          },
+          onClose: () => {
+            settled = true;
+            clearTimeout(launchTimeout);
+            setProcessing(false);
+            toast({ title: "Payment cancelled", description: "You closed the payment window.", variant: "destructive" });
+          },
+          onError: (err: any) => {
+            settled = true;
+            clearTimeout(launchTimeout);
+            setProcessing(false);
+            toast({ title: "Payment error", description: err?.message || "Paystack encountered an error. Please try again.", variant: "destructive" });
+          },
+        }).openIframe();
+        settled = true;
+        clearTimeout(launchTimeout);
+      } catch (err: any) {
+        settled = true;
+        clearTimeout(launchTimeout);
+        setProcessing(false);
+        toast({ title: "Payment could not launch", description: err?.message || "Could not open payment popup. Please try again.", variant: "destructive" });
+      }
       return;
     }
 
