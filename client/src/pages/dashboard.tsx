@@ -13,7 +13,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
-  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck
+  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,6 +35,8 @@ interface EventData {
   maxTickets: number;
   paymentMethod: string;
   isActive: boolean;
+  description: string | null;
+  coverImageUrl: string | null;
   ticketTypes: TicketTypeData[];
   createdAt: string;
 }
@@ -58,6 +60,8 @@ const newEventSchema = z.object({
   maxTickets: z.coerce.number().min(1, "Must be at least 1"),
   paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer", "flutterwave"]),
   isActive: z.boolean(),
+  description: z.string().optional(),
+  coverImageUrl: z.string().optional().nullable(),
 });
 type NewEventForm = z.infer<typeof newEventSchema>;
 
@@ -135,6 +139,9 @@ function NewEventPanel({
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const form = useForm<NewEventForm>({
     resolver: zodResolver(newEventSchema),
@@ -143,8 +150,56 @@ function NewEventPanel({
       maxTickets: tier === "free" ? 100 : 500,
       paymentMethod: "paystack",
       isActive: true,
+      description: "",
+      coverImageUrl: null,
     },
   });
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please select an image under 5 MB.", variant: "destructive" });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const urlRes = await apiRequest("POST", "/api/uploads/request-url", {
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      });
+      const { uploadURL, objectPath } = await urlRes.json();
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      form.setValue("coverImageUrl", objectPath);
+      const reader = new FileReader();
+      reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  function removeImage() {
+    form.setValue("coverImageUrl", null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   const createMutation = useMutation({
     mutationFn: async (values: NewEventForm) => {
@@ -237,6 +292,41 @@ function NewEventPanel({
             </div>
           </div>
 
+          {/* Description */}
+          <div>
+            <label className="text-zinc-400 text-xs uppercase tracking-widest block mb-1.5">
+              Description <span className="normal-case text-zinc-600">(optional)</span>
+            </label>
+            <textarea {...form.register("description")} rows={3}
+              placeholder="Tell attendees what this event is about..."
+              className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 py-2.5 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600 resize-none" />
+          </div>
+
+          {/* Cover Image */}
+          <div>
+            <label className="text-zinc-400 text-xs uppercase tracking-widest block mb-1.5">
+              Cover Image <span className="normal-case text-zinc-600">(optional)</span>
+            </label>
+            {imagePreview ? (
+              <div className="relative rounded-xl overflow-hidden border border-zinc-700">
+                <img src={imagePreview} alt="Cover preview" className="w-full h-40 object-cover" />
+                <button type="button" onClick={removeImage}
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-900/80 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage}
+                className="w-full border-2 border-dashed border-zinc-700 hover:border-amber-400/50 rounded-xl p-6 flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                {uploadingImage
+                  ? <><Loader2 className="w-5 h-5 animate-spin" /><span className="text-xs">Uploading...</span></>
+                  : <><Image className="w-5 h-5" /><span className="text-xs">Click to upload a cover image</span><span className="text-xs text-zinc-600">JPG, PNG, WebP — max 5 MB</span></>
+                }
+              </button>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+          </div>
+
           {isFree && (
             <div className="flex gap-3 bg-amber-400/5 border border-amber-400/15 rounded-lg p-3.5">
               <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
@@ -251,7 +341,7 @@ function NewEventPanel({
               className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors text-sm font-semibold">
               Cancel
             </button>
-            <button type="submit" disabled={createMutation.isPending}
+            <button type="submit" disabled={createMutation.isPending || uploadingImage}
               className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {createMutation.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</> : "Create Event"}
             </button>
@@ -335,6 +425,156 @@ function AddTicketTypePanel({
   );
 }
 
+// ─── Edit Event Panel ─────────────────────────────────────────────────────────
+
+const editEventSchema = z.object({
+  description: z.string().optional(),
+  coverImageUrl: z.string().optional().nullable(),
+});
+type EditEventForm = z.infer<typeof editEventSchema>;
+
+function EditEventPanel({
+  event, onClose, onSaved,
+}: { event: EventData; onClose: () => void; onSaved: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    event.coverImageUrl ? null : null
+  );
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const form = useForm<EditEventForm>({
+    resolver: zodResolver(editEventSchema),
+    defaultValues: {
+      description: event.description ?? "",
+      coverImageUrl: event.coverImageUrl ?? null,
+    },
+  });
+
+  const coverImageUrl = form.watch("coverImageUrl");
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please select an image under 5 MB.", variant: "destructive" });
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const urlRes = await apiRequest("POST", "/api/uploads/request-url", {
+        name: file.name, size: file.size, contentType: file.type,
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      const putRes = await fetch(uploadURL, {
+        method: "PUT", body: file, headers: { "Content-Type": file.type },
+      });
+      if (!putRes.ok) throw new Error("Upload failed");
+
+      form.setValue("coverImageUrl", objectPath);
+      const reader = new FileReader();
+      reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  function removeImage() {
+    form.setValue("coverImageUrl", null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: EditEventForm) => {
+      const res = await apiRequest("PATCH", `/api/events/${event.id}`, values);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to save");
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Event updated!" });
+      onSaved();
+    },
+    onError: (err: any) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const displayImageSrc = imagePreview ?? (event.coverImageUrl ? event.coverImageUrl : null);
+  const hasImage = !!(coverImageUrl || imagePreview);
+
+  return (
+    <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-zinc-300 text-sm font-semibold flex items-center gap-1.5">
+          <Pencil className="w-3.5 h-3.5 text-amber-400" /> Edit Event Details
+        </span>
+        <button onClick={onClose} className="text-zinc-600 hover:text-zinc-400 transition-colors">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-3">
+        <div>
+          <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">
+            Description <span className="normal-case text-zinc-600">(optional)</span>
+          </label>
+          <textarea {...form.register("description")} rows={3}
+            placeholder="Tell attendees what this event is about..."
+            className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600 resize-none" />
+        </div>
+
+        <div>
+          <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">
+            Cover Image <span className="normal-case text-zinc-600">(optional)</span>
+          </label>
+          {hasImage && displayImageSrc ? (
+            <div className="relative rounded-xl overflow-hidden border border-zinc-700">
+              <img src={displayImageSrc} alt="Cover" className="w-full h-32 object-cover" />
+              <button type="button" onClick={removeImage}
+                className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-900/80 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage}
+              className="w-full border-2 border-dashed border-zinc-700 hover:border-amber-400/50 rounded-xl p-4 flex flex-col items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              {uploadingImage
+                ? <><Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">Uploading...</span></>
+                : <><Image className="w-4 h-4" /><span className="text-xs">Click to upload a cover image</span><span className="text-xs text-zinc-600">JPG, PNG, WebP — max 5 MB</span></>
+              }
+            </button>
+          )}
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose}
+            className="px-4 py-1.5 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">
+            Cancel
+          </button>
+          <button type="submit" disabled={saveMutation.isPending || uploadingImage}
+            className="px-4 py-1.5 rounded-lg bg-amber-400/90 hover:bg-amber-400 text-black font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5">
+            {saveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
 function CopyLinkButton({ eventId }: { eventId: string }) {
@@ -367,6 +607,7 @@ function EventCard({
 }) {
   const [expanded, setExpanded] = useState(true);
   const [addingTicketType, setAddingTicketType] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -420,6 +661,17 @@ function EventCard({
               <span className="hidden sm:inline">Analytics</span>
             </a>
             <button
+              onClick={() => { setEditingDetails((v) => !v); setExpanded(true); }}
+              title="Edit description & cover image"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                editingDetails
+                  ? "border-amber-400/40 text-amber-400 bg-amber-400/10"
+                  : "border-zinc-700 text-zinc-400 hover:border-amber-400/40 hover:text-amber-400"
+              }`}>
+              <Pencil className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Edit</span>
+            </button>
+            <button
               onClick={copyPublicLink}
               title="Copy public event link"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold transition-colors hover:border-zinc-500 text-zinc-400 hover:text-white">
@@ -457,6 +709,15 @@ function EventCard({
           <CapacityBar used={usedCapacity} total={event.maxTickets} />
         </div>
       </div>
+
+      {/* Edit details panel */}
+      {expanded && editingDetails && (
+        <EditEventPanel
+          event={event}
+          onClose={() => setEditingDetails(false)}
+          onSaved={() => setEditingDetails(false)}
+        />
+      )}
 
       {/* Ticket types */}
       {expanded && (

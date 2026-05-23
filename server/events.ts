@@ -55,7 +55,7 @@ export function registerEventsRoutes(app: Express) {
         return res.status(400).json({ message: parsed.error.errors[0].message });
       }
 
-      const { title, date, location, maxTickets, paymentMethod, isActive } = parsed.data;
+      const { title, date, location, maxTickets, paymentMethod, isActive, description, coverImageUrl } = parsed.data;
 
       const tierCheck = await checkEventTierLimits(organizer, {
         paymentMethod,
@@ -70,6 +70,8 @@ export function registerEventsRoutes(app: Express) {
         organizerId: organizer.id,
         title, date, location, maxTickets, paymentMethod, isActive,
         status: isActive ? "active" : "draft",
+        description: description ?? null,
+        coverImageUrl: coverImageUrl ?? null,
       });
 
       return res.status(201).json({ ...event, ticketTypes: [] });
@@ -127,6 +129,8 @@ export function registerEventsRoutes(app: Express) {
         ...(updates.isActive !== undefined
           ? { status: updates.isActive ? "active" : "inactive" }
           : {}),
+        description: updates.description !== undefined ? (updates.description ?? null) : undefined,
+        coverImageUrl: updates.coverImageUrl !== undefined ? (updates.coverImageUrl ?? null) : undefined,
       });
 
       const ticketTypes = await storage.getTicketTypesByEventId(event.id);
@@ -192,6 +196,8 @@ export function registerEventsRoutes(app: Express) {
         location: event.location,
         maxTickets: event.maxTickets,
         paymentMethod: event.paymentMethod,
+        description: event.description ?? null,
+        coverImageUrl: event.coverImageUrl ?? null,
         ticketTypes: ticketTypes.map((tt) => ({
           id: tt.id,
           name: tt.name,

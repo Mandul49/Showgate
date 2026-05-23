@@ -39,6 +39,8 @@ interface PublicEvent {
   location: string;
   maxTickets: number;
   paymentMethod: string;
+  description: string | null;
+  coverImageUrl: string | null;
   ticketTypes: PublicTicketType[];
   organizer: {
     businessName: string;
@@ -692,19 +694,34 @@ export default function EventPage() {
           style={{ backgroundImage: `radial-gradient(circle, ${primary} 1px, transparent 1px)`, backgroundSize: "40px 40px" }} />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-zinc-950" />
 
-        <div className="relative max-w-3xl mx-auto px-4 pt-12 pb-14">
+        {/* Cover image */}
+        {event.coverImageUrl && (
+          <div className="relative w-full max-h-[420px] overflow-hidden">
+            <img
+              src={event.coverImageUrl}
+              alt={event.title}
+              className="w-full object-cover max-h-[420px]"
+              style={{ objectPosition: "center" }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950" />
+          </div>
+        )}
+
+        <div className={`relative max-w-3xl mx-auto px-4 pb-14 ${event.coverImageUrl ? "pt-8" : "pt-12"}`}>
           <div className="flex flex-col items-center text-center mb-8">
             {/* Organizer branding — logo if pro+logoUrl, otherwise icon */}
-            {event.branding?.isPro && event.branding.logoUrl ? (
-              <img
-                src={event.branding.logoUrl}
-                alt={event.branding.name}
-                className="h-14 max-w-[180px] object-contain mb-6"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-2xl border border-amber-400/20 bg-amber-400/10 flex items-center justify-center mb-6">
-                <Ticket className="w-8 h-8 text-amber-400" />
-              </div>
+            {!event.coverImageUrl && (
+              event.branding?.isPro && event.branding.logoUrl ? (
+                <img
+                  src={event.branding.logoUrl}
+                  alt={event.branding.name}
+                  className="h-14 max-w-[180px] object-contain mb-6"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl border border-amber-400/20 bg-amber-400/10 flex items-center justify-center mb-6">
+                  <Ticket className="w-8 h-8 text-amber-400" />
+                </div>
+              )
             )}
             <p className="text-xs font-bold uppercase tracking-[0.3em] mb-2" style={{ color: primary }}>
               {event.branding?.name ?? event.organizer?.businessName}
@@ -712,7 +729,7 @@ export default function EventPage() {
             <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-4">
               {event.title}
             </h1>
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex flex-wrap justify-center gap-3 mb-4">
               <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
                 <Calendar className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                 <span>{formattedDate}</span>
@@ -722,6 +739,11 @@ export default function EventPage() {
                 <span>{event.location}</span>
               </div>
             </div>
+            {event.description && (
+              <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-xl">
+                {event.description}
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -294,6 +294,8 @@ export class DbStorage implements IStorage {
       maxTickets: row.maxTickets,
       paymentMethod: row.paymentMethod as PaymentMethod,
       isActive: row.isActive,
+      description: row.description ?? null,
+      coverImageUrl: row.coverImageUrl ?? null,
       createdAt: row.createdAt,
     };
   }

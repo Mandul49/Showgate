@@ -148,6 +148,8 @@ export const events = pgTable("events", {
   maxTickets: integer("max_tickets").notNull(),
   paymentMethod: text("payment_method").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  description: text("description"),
+  coverImageUrl: text("cover_image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -161,6 +163,8 @@ export type Event = {
   maxTickets: number;
   paymentMethod: PaymentMethod;
   isActive: boolean;
+  description: string | null;
+  coverImageUrl: string | null;
   createdAt: Date;
 };
 
@@ -173,6 +177,8 @@ export interface CreateEventData {
   maxTickets: number;
   paymentMethod: PaymentMethod;
   isActive: boolean;
+  description?: string | null;
+  coverImageUrl?: string | null;
 }
 
 export interface UpdateEventData {
@@ -183,6 +189,8 @@ export interface UpdateEventData {
   maxTickets?: number;
   paymentMethod?: PaymentMethod;
   isActive?: boolean;
+  description?: string | null;
+  coverImageUrl?: string | null;
 }
 
 export const createEventSchema = z.object({
@@ -192,6 +200,8 @@ export const createEventSchema = z.object({
   maxTickets: z.number().min(1, "Must have at least 1 ticket"),
   paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer", "flutterwave"]),
   isActive: z.boolean().default(true),
+  description: z.string().optional().nullable(),
+  coverImageUrl: z.string().optional().nullable(),
 });
 
 export const updateEventSchema = createEventSchema.partial();
