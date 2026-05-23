@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 
-const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 const setupSchema = z.object({
   businessName: z.string().min(2, "Business name must be at least 2 characters"),
@@ -93,6 +92,9 @@ export function registerOnboardingRoutes(app: Express) {
       }
 
       const { businessName, bankCode, bankName, accountNumber, bvn } = parsed.data;
+
+      const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
+      console.log("[onboarding] key prefix:", PAYSTACK_KEY?.slice(0, 10), "length:", PAYSTACK_KEY?.length);
 
       if (!PAYSTACK_KEY) {
         return res.status(500).json({ message: "Paystack API key not configured" });

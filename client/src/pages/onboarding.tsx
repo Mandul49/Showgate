@@ -232,9 +232,11 @@ export default function Onboarding() {
                                   className="w-full appearance-none bg-zinc-800 border border-zinc-600 text-white rounded-md h-11 pl-10 pr-8 text-sm outline-none focus:border-amber-400 transition-colors"
                                 >
                                   <option value="">Select your bank</option>
-                                  {banks.map((bank) => (
-                                    <option key={bank.code} value={bank.code}>{bank.name}</option>
-                                  ))}
+                                  {banks
+                                    .filter((bank, index, self) => index === self.findIndex(b => b.id === bank.id))
+                                    .map((bank) => (
+                                      <option key={bank.id} value={bank.code}>{bank.name}</option>
+                                    ))}
                                 </select>
                               </>
                           }
