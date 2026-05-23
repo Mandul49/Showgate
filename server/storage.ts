@@ -64,10 +64,13 @@ export interface IStorage {
   createUser(email: string, passwordHash: string, role: UserRole, tier: UserTier): Promise<User>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserById(id: string): Promise<User | undefined>;
+  updateUserTier(userId: string, tier: UserTier, proExpiresAt: Date | null): Promise<User>;
+  getUsersWithExpiredPro(): Promise<User[]>;
   // Organizers
   createOrganizer(data: CreateOrganizerData): Promise<Organizer>;
   getOrganizerByUserId(userId: string): Promise<Organizer | undefined>;
   getOrganizerById(id: string): Promise<Organizer | undefined>;
+  updateOrganizerTier(organizerId: string, tier: UserTier): Promise<Organizer>;
   // Events
   createEvent(data: CreateEventData): Promise<Event>;
   getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
@@ -136,10 +139,25 @@ export class MemStorage implements IStorage {
 
   async createUser(email: string, passwordHash: string, role: UserRole, tier: UserTier): Promise<User> {
     const id = randomUUID();
-    const user: User = { id, email, passwordHash, role, tier, createdAt: new Date() };
+    const user: User = { id, email, passwordHash, role, tier, proExpiresAt: null, createdAt: new Date() };
     this.users.set(id, user);
     this.usersByEmail.set(email.toLowerCase(), id);
     return user;
+  }
+
+  async updateUserTier(userId: string, tier: UserTier, proExpiresAt: Date | null): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) throw new Error("User not found");
+    const updated: User = { ...user, tier, proExpiresAt };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  async getUsersWithExpiredPro(): Promise<User[]> {
+    const now = new Date();
+    return Array.from(this.users.values()).filter(
+      (u) => u.tier === "pro" && u.proExpiresAt !== null && u.proExpiresAt <= now
+    );
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -168,6 +186,14 @@ export class MemStorage implements IStorage {
 
   async getOrganizerById(id: string): Promise<Organizer | undefined> {
     return this.organizers.get(id);
+  }
+
+  async updateOrganizerTier(organizerId: string, tier: UserTier): Promise<Organizer> {
+    const org = this.organizers.get(organizerId);
+    if (!org) throw new Error("Organizer not found");
+    const updated: Organizer = { ...org, tier };
+    this.organizers.set(organizerId, updated);
+    return updated;
   }
 
   // ── Events ────────────────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ export interface User {
   passwordHash: string;
   role: UserRole;
   tier: UserTier;
+  proExpiresAt: Date | null;
   createdAt: Date;
 }
 

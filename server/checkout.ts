@@ -2,6 +2,7 @@ import type { Express } from "express";
 import crypto from "crypto";
 import { storage } from "./storage";
 import { checkoutSchema } from "@shared/schema";
+import { fulfillUpgrade } from "./upgrade";
 
 const PAYSTACK_KEY = process.env.PICATIC_API_KEY;
 const PLATFORM_FEE_PCT = 0.025; // 2.5% charged to organizer's subaccount on free tier
@@ -201,6 +202,14 @@ export function registerCheckoutRoutes(app: Express) {
       if (webhookEvent.event !== "charge.success") return res.sendStatus(200);
 
       const { reference, metadata, amount, customer } = webhookEvent.data;
+
+      // ── Route: subscription upgrade ────────────────────────────────────────
+      if (metadata?.upgrade_plan && metadata?.user_id) {
+        const plan: "monthly" | "yearly" = metadata.upgrade_plan === "yearly" ? "yearly" : "monthly";
+        await fulfillUpgrade(metadata.user_id, plan);
+        console.log(`[webhook] Upgrade fulfilled: ${metadata.user_id} → Pro (${plan})`);
+        return res.sendStatus(200);
+      }
 
       // Verify with Paystack before fulfilling
       const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
