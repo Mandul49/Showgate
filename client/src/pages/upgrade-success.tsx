@@ -1,12 +1,20 @@
+import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Zap, Loader2, ArrowRight, Ticket } from "lucide-react";
-import { isAuthenticated } from "@/lib/auth";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, Zap, Loader2, ArrowRight, Ticket, AlertTriangle } from "lucide-react";
+import { isAuthenticated, getUser, saveUser } from "@/lib/auth";
+import { apiRequest } from "@/lib/queryClient";
 
 interface UpgradeStatus {
   tier: "free" | "pro";
   proExpiresAt: string | null;
   isPro: boolean;
+}
+
+interface VerifyResult {
+  success: boolean;
+  tier: "free" | "pro";
+  proExpiresAt: string | null;
 }
 
 function fmtDate(d: string | null) {
@@ -18,20 +26,40 @@ function fmtDate(d: string | null) {
 
 export default function UpgradeSuccess() {
   const [, navigate] = useLocation();
+  const qc = useQueryClient();
   const params = new URLSearchParams(window.location.search);
   const reference = params.get("reference") || params.get("trxref") || "";
   const authed = isAuthenticated();
+  const verifyAttempted = useRef(false);
 
   const { data: status, isLoading } = useQuery<UpgradeStatus>({
     queryKey: ["/api/upgrade/status"],
     enabled: authed,
-    retry: 5,
-    retryDelay: 1500,
-    refetchInterval: (query) => {
-      // Stop polling once we see pro tier
-      return query.state.data?.isPro ? false : 2000;
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: async (ref: string) => {
+      const res = await apiRequest("POST", "/api/upgrade/verify", { reference: ref });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Verification failed");
+      return data as VerifyResult;
+    },
+    onSuccess: () => {
+      // Refresh tier status and events (limits change)
+      qc.invalidateQueries({ queryKey: ["/api/upgrade/status"] });
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      // Update cached user so navbar badge shows Pro immediately
+      const user = getUser();
+      if (user) saveUser({ ...user, tier: "pro" });
     },
   });
+
+  // Trigger verification once on load when we have a reference
+  useEffect(() => {
+    if (!authed || !reference || verifyAttempted.current) return;
+    verifyAttempted.current = true;
+    verifyMutation.mutate(reference);
+  }, [authed, reference]);
 
   if (!authed) {
     return (
@@ -46,33 +74,42 @@ export default function UpgradeSuccess() {
     );
   }
 
-  if (isLoading || !status) {
+  const isPending = verifyMutation.isPending || isLoading;
+  const isPro = status?.isPro || verifyMutation.data?.tier === "pro";
+  const proExpiresAt = status?.proExpiresAt || verifyMutation.data?.proExpiresAt || null;
+  const expiryDate = fmtDate(proExpiresAt);
+  const verifyError = verifyMutation.error as Error | null;
+
+  if (isPending) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-5" style={{ backgroundColor: "#0a0a0a" }}>
         <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
         <p className="text-zinc-500 text-sm">Confirming your payment…</p>
+        {reference && (
+          <p className="text-zinc-700 font-mono text-xs">Ref: {reference.toUpperCase()}</p>
+        )}
       </div>
     );
   }
-
-  const expiryDate = fmtDate(status.proExpiresAt);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16" style={{ backgroundColor: "#0a0a0a" }}>
       <div className="w-full max-w-sm text-center">
         {/* Icon */}
         <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 rounded-full flex items-center justify-center relative"
-            style={{ backgroundColor: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)" }}>
-            {status.isPro ? (
-              <Zap className="w-9 h-9 text-amber-400" />
-            ) : (
-              <Loader2 className="w-9 h-9 text-amber-400 animate-spin" />
-            )}
+          <div className="w-20 h-20 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: isPro ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.10)",
+              border: isPro ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(239,68,68,0.25)",
+            }}>
+            {isPro
+              ? <Zap className="w-9 h-9 text-amber-400" />
+              : <AlertTriangle className="w-9 h-9 text-red-400" />
+            }
           </div>
         </div>
 
-        {status.isPro ? (
+        {isPro ? (
           <>
             <h1 className="text-3xl font-black text-white mb-3">You're now Pro!</h1>
             <p className="text-zinc-500 text-sm mb-8">
@@ -82,7 +119,6 @@ export default function UpgradeSuccess() {
             {/* Pro badge card */}
             <div className="bg-zinc-900 border border-amber-400/30 rounded-2xl p-6 mb-8 text-left"
               style={{ boxShadow: "0 0 40px rgba(245,158,11,0.06)" }}>
-              <div className="absolute" />
               <div className="flex items-center justify-between mb-4">
                 <span className="text-zinc-500 text-xs uppercase tracking-widest">Plan</span>
                 <span className="text-xs px-2.5 py-1 rounded-full bg-violet-400/10 text-violet-400 border border-violet-400/20 font-bold uppercase">
@@ -127,17 +163,31 @@ export default function UpgradeSuccess() {
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-black text-white mb-3">Payment processing…</h1>
+            <h1 className="text-2xl font-black text-white mb-3">
+              {verifyError ? "Payment verification failed" : "Payment processing…"}
+            </h1>
             <p className="text-zinc-500 text-sm mb-6">
-              Your upgrade is being confirmed. This usually takes a few seconds.
+              {verifyError
+                ? verifyError.message
+                : "Your upgrade is being confirmed. This usually takes a few seconds."
+              }
               {reference && (
                 <span className="block mt-2 text-zinc-600 font-mono text-xs">
                   Ref: {reference.toUpperCase()}
                 </span>
               )}
             </p>
+
+            {verifyError && (
+              <button
+                onClick={() => { verifyAttempted.current = false; verifyMutation.mutate(reference); }}
+                className="mb-3 w-full px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors">
+                Retry Verification
+              </button>
+            )}
+
             <button onClick={() => navigate("/dashboard")}
-              className="px-6 py-3 rounded-xl border border-zinc-700 text-zinc-400 hover:text-white text-sm font-semibold transition-colors">
+              className="px-6 py-3 rounded-xl border border-zinc-700 text-zinc-400 hover:text-white text-sm font-semibold transition-colors w-full">
               Back to Dashboard
             </button>
           </>

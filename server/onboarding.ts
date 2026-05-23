@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 
-const PAYSTACK_KEY = process.env.PICATIC_API_KEY;
+const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 const setupSchema = z.object({
   businessName: z.string().min(2, "Business name must be at least 2 characters"),

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { checkoutSchema } from "@shared/schema";
 import { fulfillUpgrade } from "./upgrade";
 
-const PAYSTACK_KEY = process.env.PICATIC_API_KEY;
+const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
 const PLATFORM_FEE_PCT = 0.025; // 2.5% charged to organizer's subaccount on free tier
 
 async function sendConfirmationEmail(opts: {
@@ -220,8 +220,14 @@ export function registerCheckoutRoutes(app: Express) {
       // ── Route: subscription upgrade ────────────────────────────────────────
       if (metadata?.upgrade_plan && metadata?.user_id) {
         const plan: "monthly" | "yearly" = metadata.upgrade_plan === "yearly" ? "yearly" : "monthly";
-        await fulfillUpgrade(metadata.user_id, plan);
-        console.log(`[webhook] Upgrade fulfilled: ${metadata.user_id} → Pro (${plan})`);
+        const alreadyConsumed = await storage.hasSubscriptionReference(reference);
+        if (!alreadyConsumed) {
+          await fulfillUpgrade(metadata.user_id, plan);
+          await storage.recordSubscriptionReference(reference, metadata.user_id, plan);
+          console.log(`[webhook] Upgrade fulfilled: ${metadata.user_id} → Pro (${plan})`);
+        } else {
+          console.log(`[webhook] Upgrade reference already consumed, skipping: ${reference}`);
+        }
         return res.sendStatus(200);
       }
 

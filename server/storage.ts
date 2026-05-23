@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
+  subscriptionReferences,
   type Order, type InsertOrder, type EventConfig,
   type User, type UserRole, type UserTier,
   type Organizer, type CreateOrganizerData,
@@ -92,6 +93,9 @@ export interface IStorage {
   createTicketPurchase(data: CreateTicketPurchaseData): Promise<TicketPurchase>;
   getTicketPurchaseByReference(reference: string): Promise<TicketPurchase | undefined>;
   getTicketPurchasesByEventId(eventId: string): Promise<TicketPurchase[]>;
+  // Subscription References (upgrade replay-attack prevention)
+  hasSubscriptionReference(reference: string): Promise<boolean>;
+  recordSubscriptionReference(reference: string, userId: string, plan: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -376,6 +380,21 @@ export class DbStorage implements IStorage {
       status: row.status as PurchaseStatus,
       createdAt: row.createdAt,
     };
+  }
+
+  // ── Subscription References ────────────────────────────────────────────────
+
+  async hasSubscriptionReference(reference: string): Promise<boolean> {
+    const [row] = await db.select({ reference: subscriptionReferences.reference })
+      .from(subscriptionReferences)
+      .where(eq(subscriptionReferences.reference, reference));
+    return !!row;
+  }
+
+  async recordSubscriptionReference(reference: string, userId: string, plan: string): Promise<void> {
+    await db.insert(subscriptionReferences)
+      .values({ reference, userId, plan })
+      .onConflictDoNothing();
   }
 }
 

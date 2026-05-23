@@ -292,6 +292,19 @@ export const checkoutSchema = z.object({
   quantity: z.number().int().min(1).max(10),
 });
 
+// ─── Subscription References ──────────────────────────────────────────────────
+// Tracks Paystack references that have already been used to fulfill a Pro upgrade.
+// Prevents replay attacks where a downgraded user re-uses an old valid reference.
+
+export const subscriptionReferences = pgTable("subscription_references", {
+  reference: text("reference").primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  plan: text("plan").notNull(),
+  fulfilledAt: timestamp("fulfilled_at").defaultNow().notNull(),
+});
+
+export type SubscriptionReference = typeof subscriptionReferences.$inferSelect;
+
 // ─── Event Config (legacy single-event setup page) ────────────────────────────
 
 export const eventConfig = pgTable("event_config", {
