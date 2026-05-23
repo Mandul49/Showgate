@@ -8,10 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  Plus, Calendar, MapPin, Ticket, LogOut, Settings,
+  Plus, Calendar, MapPin, Ticket, LogOut,
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
-  CheckCircle2, CircleDot, ExternalLink
+  CheckCircle2, CircleDot, Link2, Check
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -334,6 +334,26 @@ function AddTicketTypePanel({
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
+function CopyLinkButton({ eventId }: { eventId: string }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    const url = `${window.location.origin}/e/${eventId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button
+      onClick={copy}
+      title="Copy public event link"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold transition-colors hover:border-zinc-500 text-zinc-400 hover:text-white">
+      {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Link2 className="w-3.5 h-3.5" />}
+      <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>
+    </button>
+  );
+}
+
 function EventCard({
   event, tier, onToggle, isToggling,
 }: {
@@ -376,6 +396,7 @@ function EventCard({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            <CopyLinkButton eventId={event.id} />
             <button
               onClick={() => onToggle(event.id, !event.isActive)}
               disabled={isToggling}

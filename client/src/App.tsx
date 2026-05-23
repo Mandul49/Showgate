@@ -8,6 +8,8 @@ import Success from "@/pages/success";
 import Login from "@/pages/login";
 import Onboarding from "@/pages/onboarding";
 import Dashboard from "@/pages/dashboard";
+import EventPublic from "@/pages/event-public";
+import PurchaseSuccess from "@/pages/purchase-success";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +20,8 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/e/:id" component={EventPublic} />
+      <Route path="/purchase-success" component={PurchaseSuccess} />
       <Route path="/admin">
         <Redirect to="/dashboard" />
       </Route>

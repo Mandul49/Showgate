@@ -4,6 +4,7 @@ import {
   type Organizer, type CreateOrganizerData,
   type Event, type CreateEventData, type UpdateEventData,
   type TicketType, type CreateTicketTypeData, type UpdateTicketTypeData,
+  type TicketPurchase, type CreateTicketPurchaseData,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -77,6 +78,11 @@ export interface IStorage {
   getTicketTypesByEventId(eventId: string): Promise<TicketType[]>;
   getTicketTypeById(id: string): Promise<TicketType | undefined>;
   updateTicketType(id: string, updates: UpdateTicketTypeData): Promise<TicketType>;
+  incrementTicketTypeSold(ticketTypeId: string, quantity: number): Promise<TicketType>;
+  // Ticket Purchases
+  createTicketPurchase(data: CreateTicketPurchaseData): Promise<TicketPurchase>;
+  getTicketPurchaseByReference(reference: string): Promise<TicketPurchase | undefined>;
+  getTicketPurchasesByEventId(eventId: string): Promise<TicketPurchase[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -90,6 +96,9 @@ export class MemStorage implements IStorage {
   private eventsByOrganizerId: Map<string, Set<string>> = new Map();
   private ticketTypes: Map<string, TicketType> = new Map();
   private ticketTypesByEventId: Map<string, Set<string>> = new Map();
+  private ticketPurchases: Map<string, TicketPurchase> = new Map();
+  private purchasesByReference: Map<string, string> = new Map();
+  private purchasesByEventId: Map<string, Set<string>> = new Map();
 
   // ── Orders ───────────────────────────────────────────────────────────────
 
@@ -224,6 +233,41 @@ export class MemStorage implements IStorage {
     const updated: TicketType = { ...tt, ...updates };
     this.ticketTypes.set(id, updated);
     return updated;
+  }
+
+  async incrementTicketTypeSold(ticketTypeId: string, quantity: number): Promise<TicketType> {
+    const tt = this.ticketTypes.get(ticketTypeId);
+    if (!tt) throw new Error("Ticket type not found");
+    const updated: TicketType = { ...tt, quantitySold: tt.quantitySold + quantity };
+    this.ticketTypes.set(ticketTypeId, updated);
+    return updated;
+  }
+
+  // ── Ticket Purchases ──────────────────────────────────────────────────────
+
+  async createTicketPurchase(data: CreateTicketPurchaseData): Promise<TicketPurchase> {
+    const id = randomUUID();
+    const purchase: TicketPurchase = { ...data, id, createdAt: new Date() };
+    this.ticketPurchases.set(id, purchase);
+    this.purchasesByReference.set(data.reference, id);
+    if (!this.purchasesByEventId.has(data.eventId)) {
+      this.purchasesByEventId.set(data.eventId, new Set());
+    }
+    this.purchasesByEventId.get(data.eventId)!.add(id);
+    return purchase;
+  }
+
+  async getTicketPurchaseByReference(reference: string): Promise<TicketPurchase | undefined> {
+    const id = this.purchasesByReference.get(reference);
+    return id ? this.ticketPurchases.get(id) : undefined;
+  }
+
+  async getTicketPurchasesByEventId(eventId: string): Promise<TicketPurchase[]> {
+    const ids = this.purchasesByEventId.get(eventId) ?? new Set<string>();
+    return Array.from(ids)
+      .map((id) => this.ticketPurchases.get(id))
+      .filter((p): p is TicketPurchase => !!p)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 }
 

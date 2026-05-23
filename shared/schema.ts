@@ -208,6 +208,47 @@ export interface EventConfig {
   isPublished: boolean;
 }
 
+// ─── Ticket Purchases ─────────────────────────────────────────────────────────
+
+export type PurchaseStatus = "confirmed" | "pending" | "failed";
+
+export interface TicketPurchase {
+  id: string;
+  eventId: string;
+  ticketTypeId: string;
+  buyerEmail: string;
+  buyerName: string;
+  buyerPhone: string;
+  quantity: number;
+  amount: number;
+  reference: string;
+  status: PurchaseStatus;
+  createdAt: Date;
+}
+
+export interface CreateTicketPurchaseData {
+  eventId: string;
+  ticketTypeId: string;
+  buyerEmail: string;
+  buyerName: string;
+  buyerPhone: string;
+  quantity: number;
+  amount: number;
+  reference: string;
+  status: PurchaseStatus;
+}
+
+export const checkoutSchema = z.object({
+  eventId: z.string().min(1, "Event ID required"),
+  ticketTypeId: z.string().min(1, "Ticket type required"),
+  buyerName: z.string().min(2, "Full name required"),
+  buyerEmail: z.string().email("Valid email required"),
+  buyerPhone: z.string().min(7, "Phone number required"),
+  quantity: z.number().int().min(1).max(10),
+});
+
+// ─── Event Config (legacy single-event setup page) ────────────────────────────
+
 export const ticketTierSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
