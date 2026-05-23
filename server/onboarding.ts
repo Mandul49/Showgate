@@ -29,6 +29,9 @@ export function registerOnboardingRoutes(app: Express) {
         return res.json(bankCache);
       }
 
+      const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
+      if (!PAYSTACK_KEY) return res.status(500).json({ message: "Paystack API key not configured" });
+
       const r = await fetch(
         "https://api.paystack.co/bank?currency=NGN&per_page=200",
         { headers: { Authorization: `Bearer ${PAYSTACK_KEY}` } }
