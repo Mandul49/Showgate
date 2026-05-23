@@ -5,10 +5,10 @@ import {
   createEventSchema, updateEventSchema,
   createTicketTypeSchema, updateTicketTypeSchema,
 } from "@shared/schema";
-
-const FREE_MAX_ACTIVE_EVENTS = 2;
-const FREE_MAX_TICKETS_PER_EVENT = 100;
-const FREE_ALLOWED_PAYMENT_METHODS = ["paystack"];
+import {
+  checkEventTierLimits,
+  checkTicketTypeTierLimits,
+} from "./tierLimits";
 
 export function registerEventsRoutes(app: Express) {
   // ── GET /api/events ───────────────────────────────────────────────────────
@@ -24,6 +24,8 @@ export function registerEventsRoutes(app: Express) {
           ticketTypes: await storage.getTicketTypesByEventId(event.id),
         }))
       );
+
+      const { FREE_MAX_ACTIVE_EVENTS, FREE_MAX_TICKETS_PER_EVENT, FREE_ALLOWED_PAYMENT_METHODS } = await import("./tierLimits");
 
       return res.json({
         events: eventsWithTypes,
@@ -52,29 +54,13 @@ export function registerEventsRoutes(app: Express) {
 
       const { title, date, location, maxTickets, paymentMethod, isActive } = parsed.data;
 
-      if (organizer.tier === "free") {
-        if (!FREE_ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
-          return res.status(403).json({
-            message: "Free plan only supports Paystack. Upgrade to Pro for Stripe, PayPal, and Bank Transfer.",
-            code: "TIER_PAYMENT_METHOD",
-          });
-        }
-        if (maxTickets > FREE_MAX_TICKETS_PER_EVENT) {
-          return res.status(403).json({
-            message: `Free plan is limited to ${FREE_MAX_TICKETS_PER_EVENT} tickets per event. Upgrade to Pro for unlimited tickets.`,
-            code: "TIER_MAX_TICKETS",
-          });
-        }
-        if (isActive) {
-          const existing = await storage.getEventsByOrganizerId(organizer.id);
-          const activeCount = existing.filter((e) => e.isActive).length;
-          if (activeCount >= FREE_MAX_ACTIVE_EVENTS) {
-            return res.status(403).json({
-              message: `Free plan allows a maximum of ${FREE_MAX_ACTIVE_EVENTS} active events. Upgrade to Pro for unlimited events.`,
-              code: "TIER_MAX_EVENTS",
-            });
-          }
-        }
+      const tierCheck = await checkEventTierLimits(organizer, {
+        paymentMethod,
+        maxTickets,
+        activating: isActive,
+      });
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });
       }
 
       const event = await storage.createEvent({
@@ -123,29 +109,14 @@ export function registerEventsRoutes(app: Express) {
 
       const updates = parsed.data;
 
-      if (organizer.tier === "free") {
-        if (updates.paymentMethod && !FREE_ALLOWED_PAYMENT_METHODS.includes(updates.paymentMethod)) {
-          return res.status(403).json({
-            message: "Free plan only supports Paystack.",
-            code: "TIER_PAYMENT_METHOD",
-          });
-        }
-        if (updates.maxTickets !== undefined && updates.maxTickets > FREE_MAX_TICKETS_PER_EVENT) {
-          return res.status(403).json({
-            message: `Free plan is limited to ${FREE_MAX_TICKETS_PER_EVENT} tickets per event.`,
-            code: "TIER_MAX_TICKETS",
-          });
-        }
-        if (updates.isActive === true && !event.isActive) {
-          const existing = await storage.getEventsByOrganizerId(organizer.id);
-          const activeCount = existing.filter((e) => e.isActive && e.id !== event.id).length;
-          if (activeCount >= FREE_MAX_ACTIVE_EVENTS) {
-            return res.status(403).json({
-              message: `Free plan allows a maximum of ${FREE_MAX_ACTIVE_EVENTS} active events.`,
-              code: "TIER_MAX_EVENTS",
-            });
-          }
-        }
+      const tierCheck = await checkEventTierLimits(organizer, {
+        paymentMethod: updates.paymentMethod,
+        maxTickets: updates.maxTickets,
+        activating: updates.isActive === true && !event.isActive,
+        excludeEventId: event.id,
+      });
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });
       }
 
       const updated = await storage.updateEvent(event.id, {
@@ -179,13 +150,19 @@ export function registerEventsRoutes(app: Express) {
 
       const { name, price, quantityAvailable } = parsed.data;
 
+      // Capacity check: cannot exceed event.maxTickets (all tiers)
       const existingTypes = await storage.getTicketTypesByEventId(event.id);
       const currentTotal = existingTypes.reduce((sum, t) => sum + t.quantityAvailable, 0);
-
       if (currentTotal + quantityAvailable > event.maxTickets) {
         return res.status(400).json({
-          message: `Adding ${quantityAvailable} tickets would exceed this event's capacity of ${event.maxTickets}. Available capacity: ${event.maxTickets - currentTotal}.`,
+          message: `Adding ${quantityAvailable} tickets would exceed this event's capacity of ${event.maxTickets}. Available: ${event.maxTickets - currentTotal}.`,
         });
+      }
+
+      // Free-tier hard cap: total across all types must not exceed FREE_MAX_TICKETS_PER_EVENT
+      const tierCheck = await checkTicketTypeTierLimits(organizer, event, { quantityAvailable });
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });
       }
 
       const ticketType = await storage.createTicketType({ eventId: event.id, name, price, quantityAvailable });
@@ -218,6 +195,7 @@ export function registerEventsRoutes(app: Express) {
       const updates = parsed.data;
 
       if (updates.quantityAvailable !== undefined) {
+        // Capacity check: all tiers
         const allTypes = await storage.getTicketTypesByEventId(event.id);
         const otherTotal = allTypes
           .filter((t) => t.id !== ticketType.id)
@@ -226,6 +204,15 @@ export function registerEventsRoutes(app: Express) {
           return res.status(400).json({
             message: `Total ticket quantity cannot exceed this event's capacity of ${event.maxTickets}.`,
           });
+        }
+
+        // Free-tier hard cap (independent of event.maxTickets)
+        const tierCheck = await checkTicketTypeTierLimits(organizer, event, {
+          quantityAvailable: updates.quantityAvailable,
+          excludeTicketTypeId: ticketType.id,
+        });
+        if (!tierCheck.allowed) {
+          return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });
         }
       }
 

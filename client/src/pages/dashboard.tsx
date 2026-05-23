@@ -538,10 +538,6 @@ export default function Dashboard() {
                 <TierBadge tier={tier || user.tier} />
               </div>
             )}
-            <a href="/admin"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors text-xs font-semibold">
-              <Settings className="w-3.5 h-3.5" /> Event Setup
-            </a>
             <button onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-zinc-500 hover:text-red-400 hover:border-red-400/30 transition-colors text-xs font-semibold">
               <LogOut className="w-3.5 h-3.5" />
