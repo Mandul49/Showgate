@@ -1,6 +1,8 @@
-import { pgTable, text, varchar, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
 
 export const orders = pgTable("orders", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -34,7 +36,17 @@ export type Order = typeof orders.$inferSelect;
 export type UserRole = "organizer";
 export type UserTier = "free" | "pro";
 
-export interface User {
+export const users = pgTable("users", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("organizer"),
+  tier: text("tier").notNull().default("free"),
+  proExpiresAt: timestamp("pro_expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type User = {
   id: string;
   email: string;
   passwordHash: string;
@@ -42,7 +54,7 @@ export interface User {
   tier: UserTier;
   proExpiresAt: Date | null;
   createdAt: Date;
-}
+};
 
 export interface PublicUser {
   id: string;
@@ -53,7 +65,22 @@ export interface PublicUser {
 
 // ─── Organizers ───────────────────────────────────────────────────────────────
 
-export interface Organizer {
+export const organizers = pgTable("organizers", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull().unique(),
+  businessName: text("business_name").notNull(),
+  bankName: text("bank_name").notNull(),
+  bankCode: text("bank_code").notNull(),
+  accountNumber: text("account_number").notNull(),
+  subaccountCode: text("subaccount_code").notNull(),
+  bvn: text("bvn"),
+  tier: text("tier").notNull().default("free"),
+  customBrandName: text("custom_brand_name"),
+  customLogoUrl: text("custom_logo_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Organizer = {
   id: string;
   userId: string;
   businessName: string;
@@ -66,7 +93,7 @@ export interface Organizer {
   customBrandName: string | null;
   customLogoUrl: string | null;
   createdAt: Date;
-}
+};
 
 export interface CreateOrganizerData {
   userId: string;
@@ -95,7 +122,20 @@ export interface PublicOrganizer {
 export type EventStatus = "active" | "inactive" | "draft";
 export type PaymentMethod = "paystack" | "stripe" | "paypal" | "bank_transfer";
 
-export interface Event {
+export const events = pgTable("events", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  organizerId: varchar("organizer_id", { length: 36 }).notNull(),
+  title: text("title").notNull(),
+  date: text("date").notNull(),
+  location: text("location").notNull(),
+  status: text("status").notNull().default("draft"),
+  maxTickets: integer("max_tickets").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Event = {
   id: string;
   organizerId: string;
   title: string;
@@ -106,7 +146,7 @@ export interface Event {
   paymentMethod: PaymentMethod;
   isActive: boolean;
   createdAt: Date;
-}
+};
 
 export interface CreateEventData {
   organizerId: string;
@@ -142,7 +182,17 @@ export const updateEventSchema = createEventSchema.partial();
 
 // ─── Ticket Types ─────────────────────────────────────────────────────────────
 
-export interface TicketType {
+export const ticketTypes = pgTable("ticket_types", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  eventId: varchar("event_id", { length: 36 }).notNull(),
+  name: text("name").notNull(),
+  price: integer("price").notNull(),
+  quantityAvailable: integer("quantity_available").notNull(),
+  quantitySold: integer("quantity_sold").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type TicketType = {
   id: string;
   eventId: string;
   name: string;
@@ -150,7 +200,7 @@ export interface TicketType {
   quantityAvailable: number;
   quantitySold: number;
   createdAt: Date;
-}
+};
 
 export interface CreateTicketTypeData {
   eventId: string;
@@ -173,7 +223,65 @@ export const createTicketTypeSchema = z.object({
 
 export const updateTicketTypeSchema = createTicketTypeSchema.partial();
 
+// ─── Ticket Purchases ─────────────────────────────────────────────────────────
+
+export type PurchaseStatus = "confirmed" | "pending" | "failed";
+
+export const ticketPurchases = pgTable("ticket_purchases", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  eventId: varchar("event_id", { length: 36 }).notNull(),
+  ticketTypeId: varchar("ticket_type_id", { length: 36 }).notNull(),
+  buyerEmail: text("buyer_email").notNull(),
+  buyerName: text("buyer_name").notNull(),
+  buyerPhone: text("buyer_phone").notNull(),
+  quantity: integer("quantity").notNull(),
+  amount: integer("amount").notNull(),
+  reference: text("reference").notNull().unique(),
+  status: text("status").notNull().default("confirmed"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type TicketPurchase = {
+  id: string;
+  eventId: string;
+  ticketTypeId: string;
+  buyerEmail: string;
+  buyerName: string;
+  buyerPhone: string;
+  quantity: number;
+  amount: number;
+  reference: string;
+  status: PurchaseStatus;
+  createdAt: Date;
+};
+
+export interface CreateTicketPurchaseData {
+  eventId: string;
+  ticketTypeId: string;
+  buyerEmail: string;
+  buyerName: string;
+  buyerPhone: string;
+  quantity: number;
+  amount: number;
+  reference: string;
+  status: PurchaseStatus;
+}
+
+export const checkoutSchema = z.object({
+  eventId: z.string().min(1, "Event ID required"),
+  ticketTypeId: z.string().min(1, "Ticket type required"),
+  buyerName: z.string().min(2, "Full name required"),
+  buyerEmail: z.string().email("Valid email required"),
+  buyerPhone: z.string().min(7, "Phone number required"),
+  quantity: z.number().int().min(1).max(10),
+});
+
 // ─── Event Config (legacy single-event setup page) ────────────────────────────
+
+export const eventConfig = pgTable("event_config", {
+  id: integer("id").primaryKey().default(1),
+  config: jsonb("config").notNull(),
+});
 
 export interface TicketTier {
   id: string;
@@ -217,47 +325,6 @@ export interface EventConfig {
   totalTickets: number;
   isPublished: boolean;
 }
-
-// ─── Ticket Purchases ─────────────────────────────────────────────────────────
-
-export type PurchaseStatus = "confirmed" | "pending" | "failed";
-
-export interface TicketPurchase {
-  id: string;
-  eventId: string;
-  ticketTypeId: string;
-  buyerEmail: string;
-  buyerName: string;
-  buyerPhone: string;
-  quantity: number;
-  amount: number;
-  reference: string;
-  status: PurchaseStatus;
-  createdAt: Date;
-}
-
-export interface CreateTicketPurchaseData {
-  eventId: string;
-  ticketTypeId: string;
-  buyerEmail: string;
-  buyerName: string;
-  buyerPhone: string;
-  quantity: number;
-  amount: number;
-  reference: string;
-  status: PurchaseStatus;
-}
-
-export const checkoutSchema = z.object({
-  eventId: z.string().min(1, "Event ID required"),
-  ticketTypeId: z.string().min(1, "Ticket type required"),
-  buyerName: z.string().min(2, "Full name required"),
-  buyerEmail: z.string().email("Valid email required"),
-  buyerPhone: z.string().min(7, "Phone number required"),
-  quantity: z.number().int().min(1).max(10),
-});
-
-// ─── Event Config (legacy single-event setup page) ────────────────────────────
 
 export const ticketTierSchema = z.object({
   id: z.string(),
