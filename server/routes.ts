@@ -11,6 +11,7 @@ import { registerUpgradeRoutes, startSubscriptionCron } from "./upgrade";
 import { registerBrandingRoutes } from "./branding";
 import { registerAnalyticsRoutes } from "./analytics";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { sendConfirmationEmail } from "./email";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
   const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
@@ -127,6 +128,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!parsed.success) return res.status(400).json({ message: "Invalid order data" });
 
       const order = await storage.createOrder(parsed.data, "confirmed");
+
+      if (order.customerEmail) {
+        const event = order.eventId ? await storage.getEventById(order.eventId) : null;
+        sendConfirmationEmail({
+          to: order.customerEmail,
+          buyerName: order.customerName,
+          eventTitle: event?.title ?? "Your Event",
+          eventDate: event?.date,
+          eventLocation: event?.location,
+          ticketTypeName: order.ticketType,
+          quantity: order.quantity,
+          amount: order.totalAmount,
+          reference: order.id,
+        }).catch(console.error);
+      }
+
       return res.status(201).json(order);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -183,6 +200,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!parsed.success) return res.status(400).json({ message: "Invalid order data" });
 
       const order = await storage.createOrder(parsed.data, "confirmed");
+
+      if (order.customerEmail) {
+        const event = order.eventId ? await storage.getEventById(order.eventId) : null;
+        sendConfirmationEmail({
+          to: order.customerEmail,
+          buyerName: order.customerName,
+          eventTitle: event?.title ?? "Your Event",
+          eventDate: event?.date,
+          eventLocation: event?.location,
+          ticketTypeName: order.ticketType,
+          quantity: order.quantity,
+          amount: order.totalAmount,
+          reference: order.id,
+        }).catch(console.error);
+      }
+
       return res.status(201).json(order);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -245,6 +278,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!parsed.success) return res.status(400).json({ message: "Invalid order data" });
 
       const order = await storage.createOrder(parsed.data, "confirmed");
+
+      if (order.customerEmail) {
+        const event = order.eventId ? await storage.getEventById(order.eventId) : null;
+        sendConfirmationEmail({
+          to: order.customerEmail,
+          buyerName: order.customerName,
+          eventTitle: event?.title ?? "Your Event",
+          eventDate: event?.date,
+          eventLocation: event?.location,
+          ticketTypeName: order.ticketType,
+          quantity: order.quantity,
+          amount: order.totalAmount,
+          reference: order.id,
+        }).catch(console.error);
+      }
+
       return res.status(201).json(order);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -267,6 +316,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!parsed.success) return res.status(400).json({ message: "Invalid order data" });
 
       const order = await storage.createOrder(parsed.data, "awaiting_transfer");
+
+      if (order.customerEmail) {
+        const event = order.eventId ? await storage.getEventById(order.eventId) : null;
+        sendConfirmationEmail({
+          to: order.customerEmail,
+          buyerName: order.customerName,
+          eventTitle: event?.title ?? config.eventName ?? "Your Event",
+          eventDate: event?.date ?? config.eventDate,
+          eventLocation: event?.location ?? config.eventVenue,
+          ticketTypeName: order.ticketType,
+          quantity: order.quantity,
+          amount: order.totalAmount,
+          reference: order.id,
+          isBankTransfer: true,
+          bankName: config.bankName,
+          accountNumber: config.bankAccountNumber,
+          accountName: config.bankAccountName,
+        }).catch(console.error);
+      }
+
       return res.status(201).json(order);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });

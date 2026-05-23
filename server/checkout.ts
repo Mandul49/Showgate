@@ -3,72 +3,10 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { checkoutSchema } from "@shared/schema";
 import { fulfillUpgrade } from "./upgrade";
+import { sendConfirmationEmail } from "./email";
 
 const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
 const PLATFORM_FEE_PCT = 0.025; // 2.5% charged to organizer's subaccount on free tier
-
-async function sendConfirmationEmail(opts: {
-  to: string;
-  buyerName: string;
-  eventTitle: string;
-  ticketTypeName: string;
-  quantity: number;
-  amount: number;
-  reference: string;
-  brandName?: string;
-  brandLogoUrl?: string | null;
-  isPro?: boolean;
-}): Promise<void> {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
-
-  if (!host || !user || !pass) {
-    console.log(`[email] Confirmation for ${opts.to} — ref: ${opts.reference} (set SMTP_HOST/SMTP_USER/SMTP_PASS to enable emails)`);
-    return;
-  }
-
-  const brandName = opts.brandName || "Showgate";
-  const isPro = opts.isPro ?? false;
-  const logoHtml = (isPro && opts.brandLogoUrl)
-    ? `<img src="${opts.brandLogoUrl}" alt="${brandName}" style="height:36px;max-width:160px;object-fit:contain;display:block;margin-bottom:10px;" />`
-    : `<span style="font-size:18px;font-weight:900;color:#000;">${brandName}</span>`;
-
-  const poweredBy = isPro
-    ? ""
-    : `<p style="margin:24px 0 0;font-size:12px;color:#52525b;">Show this reference at the gate. Powered by Showgate.</p>`;
-
-  try {
-    const nodemailer = (await import("nodemailer")).default;
-    const transporter = nodemailer.createTransport({ host, port: 587, secure: false, auth: { user, pass } });
-    await transporter.sendMail({
-      from: `"${brandName}" <${from}>`,
-      to: opts.to,
-      subject: `✅ Your ticket for ${opts.eventTitle} is confirmed`,
-      html: `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
-          <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:28px 32px;">
-            ${logoHtml}
-            <h1 style="margin:0;font-size:22px;color:#000;font-weight:900;">You're in, ${opts.buyerName.split(" ")[0]}! 🎉</h1>
-          </div>
-          <div style="padding:28px 32px;">
-            <p style="margin:0 0 20px;color:#a1a1aa;">Your ticket for <strong style="color:#fff">${opts.eventTitle}</strong> is confirmed.</p>
-            <table style="width:100%;border-collapse:collapse;">
-              <tr><td style="padding:10px 0;border-bottom:1px solid #27272a;color:#71717a;font-size:13px;">Ticket</td><td style="padding:10px 0;border-bottom:1px solid #27272a;color:#fff;font-weight:600;text-align:right;">${opts.ticketTypeName}</td></tr>
-              <tr><td style="padding:10px 0;border-bottom:1px solid #27272a;color:#71717a;font-size:13px;">Qty</td><td style="padding:10px 0;border-bottom:1px solid #27272a;color:#fff;font-weight:600;text-align:right;">${opts.quantity}</td></tr>
-              <tr><td style="padding:10px 0;border-bottom:1px solid #27272a;color:#71717a;font-size:13px;">Amount</td><td style="padding:10px 0;border-bottom:1px solid #27272a;color:#f59e0b;font-weight:900;text-align:right;">₦${opts.amount.toLocaleString()}</td></tr>
-              <tr><td style="padding:10px 0;color:#71717a;font-size:13px;">Reference</td><td style="padding:10px 0;color:#fff;font-family:monospace;text-align:right;">${opts.reference.toUpperCase()}</td></tr>
-            </table>
-            ${poweredBy}
-          </div>
-        </div>`,
-    });
-    console.log(`[email] Confirmation sent to ${opts.to}`);
-  } catch (err: any) {
-    console.error(`[email] Send failed:`, err.message);
-  }
-}
 
 export function registerCheckoutRoutes(app: Express) {
   // ── GET /api/events/:id/public ────────────────────────────────────────────

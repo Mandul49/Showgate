@@ -11,6 +11,7 @@ import {
   checkEventTierLimits,
   checkTicketTypeTierLimits,
 } from "./tierLimits";
+import { sendConfirmationEmail } from "./email";
 
 export function registerEventsRoutes(app: Express) {
   // ── GET /api/events ───────────────────────────────────────────────────────
@@ -285,6 +286,23 @@ export function registerEventsRoutes(app: Express) {
       const order = await storage.createOrder(parsed.data, "confirmed");
       await storage.incrementTicketTypeSold(ticketType.id, qty);
 
+      const organizer = await storage.getOrganizerById(event.organizerId);
+      const isPro = organizer?.tier === "pro";
+      sendConfirmationEmail({
+        to: customerEmail,
+        buyerName: customerName,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventLocation: event.location,
+        ticketTypeName: ticketType.name,
+        quantity: qty,
+        amount: totalAmount,
+        reference: order.id,
+        brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
+        brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+        isPro,
+      }).catch(console.error);
+
       return res.status(201).json(order);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -370,6 +388,23 @@ export function registerEventsRoutes(app: Express) {
       const order = await storage.createOrder(parsed.data, "confirmed");
       await storage.incrementTicketTypeSold(ticketType.id, qty);
 
+      const organizer = await storage.getOrganizerById(event.organizerId);
+      const isPro = organizer?.tier === "pro";
+      sendConfirmationEmail({
+        to: customerEmail,
+        buyerName: customerName,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventLocation: event.location,
+        ticketTypeName: ticketType.name,
+        quantity: qty,
+        amount: totalAmount,
+        reference: order.id,
+        brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
+        brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+        isPro,
+      }).catch(console.error);
+
       return res.status(201).json(order);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -403,6 +438,27 @@ export function registerEventsRoutes(app: Express) {
 
       const order = await storage.createOrder(parsed.data, "awaiting_transfer");
       await storage.incrementTicketTypeSold(ticketType.id, qty);
+
+      const organizer = await storage.getOrganizerById(event.organizerId);
+      const isPro = organizer?.tier === "pro";
+      sendConfirmationEmail({
+        to: customerEmail,
+        buyerName: customerName,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventLocation: event.location,
+        ticketTypeName: ticketType.name,
+        quantity: qty,
+        amount: totalAmount,
+        reference: order.id,
+        brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
+        brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+        isPro,
+        isBankTransfer: true,
+        bankName: organizer?.bankName,
+        accountNumber: organizer?.accountNumber,
+        accountName: organizer?.businessName,
+      }).catch(console.error);
 
       return res.status(201).json(order);
     } catch (err: any) {
@@ -462,6 +518,22 @@ export function registerEventsRoutes(app: Express) {
 
       const order = await storage.createOrder(parsed.data, "confirmed");
       await storage.incrementTicketTypeSold(ticketType.id, qty);
+
+      const isPro = organizer.tier === "pro";
+      sendConfirmationEmail({
+        to: customerEmail,
+        buyerName: customerName,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventLocation: event.location,
+        ticketTypeName: ticketType.name,
+        quantity: qty,
+        amount: totalAmount,
+        reference: order.id,
+        brandName: (isPro && organizer.customBrandName) ? organizer.customBrandName : undefined,
+        brandLogoUrl: (isPro && organizer.customLogoUrl) ? organizer.customLogoUrl : null,
+        isPro,
+      }).catch(console.error);
 
       return res.status(201).json(order);
     } catch (err: any) {
