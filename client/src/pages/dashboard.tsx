@@ -13,7 +13,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
-  Paintbrush, Image, Type
+  Paintbrush, Image, Type, BarChart2
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -411,6 +411,13 @@ function EventCard({
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <CopyLinkButton eventId={event.id} />
+            <a
+              href={`/analytics/${event.id}`}
+              title="View analytics"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold transition-colors hover:border-amber-400/40 text-zinc-400 hover:text-amber-400">
+              <BarChart2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Analytics</span>
+            </a>
             <button
               onClick={copyPublicLink}
               title="Copy public event link"
