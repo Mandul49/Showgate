@@ -7,11 +7,13 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
   Plus, Calendar, MapPin, Ticket, LogOut,
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
-  CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap
+  CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
+  Paintbrush, Image, Type
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -506,6 +508,176 @@ function EventCard({
 
 const FREE_MAX_ACTIVE_EVENTS = 2;
 
+// ─── Branding Section ─────────────────────────────────────────────────────────
+
+const brandingFormSchema = z.object({
+  customBrandName: z.string().max(80).optional(),
+  customLogoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+});
+type BrandingForm = z.infer<typeof brandingFormSchema>;
+
+interface BrandingSettings {
+  customBrandName: string | null;
+  customLogoUrl: string | null;
+  tier: "free" | "pro";
+}
+
+function BrandingSection({ tier }: { tier: "free" | "pro" }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const { data: branding, isLoading } = useQuery<BrandingSettings>({
+    queryKey: ["/api/branding/settings"],
+    enabled: tier === "pro",
+  });
+
+  const form = useForm<BrandingForm>({
+    resolver: zodResolver(brandingFormSchema),
+    defaultValues: { customBrandName: "", customLogoUrl: "" },
+  });
+
+  useEffect(() => {
+    if (branding) {
+      form.reset({
+        customBrandName: branding.customBrandName ?? "",
+        customLogoUrl: branding.customLogoUrl ?? "",
+      });
+    }
+  }, [branding]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: BrandingForm) => {
+      const res = await apiRequest("PUT", "/api/branding/settings", {
+        customBrandName: values.customBrandName || null,
+        customLogoUrl: values.customLogoUrl || null,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to save");
+      return json;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/branding/settings"] });
+      toast({ title: "Branding saved", description: "Your brand settings are now live on event pages." });
+    },
+    onError: (err: any) => toast({ title: "Save failed", description: err.message, variant: "destructive" }),
+  });
+
+  if (tier !== "pro") {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4">
+          <div className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 flex-shrink-0">
+            <Paintbrush className="w-4 h-4 text-zinc-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-zinc-400 font-semibold text-sm flex items-center gap-2">
+              White-label Branding <Lock className="w-3.5 h-3.5 text-zinc-600" />
+            </p>
+            <p className="text-zinc-600 text-xs mt-0.5">
+              Your events show "Powered by Showgate". Upgrade to Pro to use your own logo and brand name.
+            </p>
+          </div>
+          <a href="/pricing"
+            className="flex-shrink-0 px-3 py-1.5 rounded-lg border border-violet-500/40 text-violet-400 hover:bg-violet-500/10 text-xs font-semibold transition-colors">
+            Upgrade
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-zinc-900 transition-colors">
+        <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
+          <Paintbrush className="w-4 h-4 text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm">White-label Branding</p>
+          <p className="text-zinc-500 text-xs mt-0.5">
+            {branding?.customBrandName
+              ? `Brand: ${branding.customBrandName}${branding.customLogoUrl ? " · Logo set" : ""}`
+              : "Set your brand name and logo — no Showgate mention on event pages"}
+          </p>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
+                <FormField control={form.control} name="customBrandName" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5">
+                      <Type className="w-3 h-3" /> Brand Name
+                    </FormLabel>
+                    <FormControl>
+                      <input
+                        {...field}
+                        placeholder="e.g. Afrobeats Lagos"
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-red-400 text-xs" />
+                    <p className="text-zinc-600 text-xs">Shown on event pages and confirmation emails instead of "Showgate"</p>
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="customLogoUrl" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5">
+                      <Image className="w-3 h-3" /> Logo URL
+                    </FormLabel>
+                    <FormControl>
+                      <input
+                        {...field}
+                        placeholder="https://yourdomain.com/logo.png"
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-red-400 text-xs" />
+                    <p className="text-zinc-600 text-xs">Your logo replaces the ticket icon at the top of each event page</p>
+                  </FormItem>
+                )} />
+
+                {form.watch("customLogoUrl") && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-950 border border-zinc-800">
+                    <img
+                      src={form.watch("customLogoUrl")}
+                      alt="Logo preview"
+                      className="h-10 max-w-[120px] object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                    <p className="text-zinc-600 text-xs">Logo preview</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={saveMutation.isPending}
+                  className="flex items-center gap-2 px-5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold transition-colors disabled:opacity-60">
+                  {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Save Branding
+                </button>
+              </form>
+            </Form>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -609,6 +781,9 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+
+        {/* Branding */}
+        <BrandingSection tier={tier} />
 
         {/* Pro upgrade banner — free tier only */}
         {tier === "free" && (

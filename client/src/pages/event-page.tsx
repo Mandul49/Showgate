@@ -45,6 +45,11 @@ interface PublicEvent {
     bankName: string;
     accountNumber: string;
   } | null;
+  branding: {
+    name: string;
+    logoUrl: string | null;
+    isPro: boolean;
+  };
   paystackPublicKey: string;
   stripePublicKey: string;
 }
@@ -606,14 +611,21 @@ export default function EventPage() {
 
         <div className="relative max-w-3xl mx-auto px-4 pt-12 pb-14">
           <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl border border-amber-400/20 bg-amber-400/10 flex items-center justify-center mb-6">
-              <Ticket className="w-8 h-8 text-amber-400" />
-            </div>
-            {event.organizer && (
-              <p className="text-xs font-bold uppercase tracking-[0.3em] mb-2 text-amber-400">
-                {event.organizer.businessName}
-              </p>
+            {/* Organizer branding — logo if pro+logoUrl, otherwise icon */}
+            {event.branding?.isPro && event.branding.logoUrl ? (
+              <img
+                src={event.branding.logoUrl}
+                alt={event.branding.name}
+                className="h-14 max-w-[180px] object-contain mb-6"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-2xl border border-amber-400/20 bg-amber-400/10 flex items-center justify-center mb-6">
+                <Ticket className="w-8 h-8 text-amber-400" />
+              </div>
             )}
+            <p className="text-xs font-bold uppercase tracking-[0.3em] mb-2 text-amber-400">
+              {event.branding?.name ?? event.organizer?.businessName}
+            </p>
             <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-4">
               {event.title}
             </h1>
@@ -682,7 +694,9 @@ export default function EventPage() {
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-colors text-xs font-semibold">
             {copied ? <><Check className="w-3.5 h-3.5 text-green-400" /> Link copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy event link</>}
           </button>
-          <p className="text-zinc-700 text-xs">Powered by TicketForge</p>
+          {event.branding?.isPro ? null : (
+            <p className="text-zinc-700 text-xs">Powered by Showgate</p>
+          )}
         </div>
       </footer>
     </div>

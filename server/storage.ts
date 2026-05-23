@@ -71,6 +71,7 @@ export interface IStorage {
   getOrganizerByUserId(userId: string): Promise<Organizer | undefined>;
   getOrganizerById(id: string): Promise<Organizer | undefined>;
   updateOrganizerTier(organizerId: string, tier: UserTier): Promise<Organizer>;
+  updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null }): Promise<Organizer>;
   // Events
   createEvent(data: CreateEventData): Promise<Event>;
   getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
@@ -173,7 +174,13 @@ export class MemStorage implements IStorage {
 
   async createOrganizer(data: CreateOrganizerData): Promise<Organizer> {
     const id = randomUUID();
-    const organizer: Organizer = { ...data, id, createdAt: new Date() };
+    const organizer: Organizer = {
+      ...data,
+      id,
+      customBrandName: data.customBrandName ?? null,
+      customLogoUrl: data.customLogoUrl ?? null,
+      createdAt: new Date(),
+    };
     this.organizers.set(id, organizer);
     this.organizersByUserId.set(data.userId, id);
     return organizer;
@@ -192,6 +199,14 @@ export class MemStorage implements IStorage {
     const org = this.organizers.get(organizerId);
     if (!org) throw new Error("Organizer not found");
     const updated: Organizer = { ...org, tier };
+    this.organizers.set(organizerId, updated);
+    return updated;
+  }
+
+  async updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null }): Promise<Organizer> {
+    const org = this.organizers.get(organizerId);
+    if (!org) throw new Error("Organizer not found");
+    const updated: Organizer = { ...org, ...data };
     this.organizers.set(organizerId, updated);
     return updated;
   }

@@ -207,6 +207,11 @@ export function registerEventsRoutes(app: Express) {
               accountNumber: organizer.accountNumber,
             }
           : null,
+        branding: {
+          name: (organizer?.tier === "pro" && organizer.customBrandName) ? organizer.customBrandName : (organizer?.businessName ?? "Showgate"),
+          logoUrl: (organizer?.tier === "pro" && organizer.customLogoUrl) ? organizer.customLogoUrl : null,
+          isPro: organizer?.tier === "pro" ?? false,
+        },
         paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || "",
         stripePublicKey: process.env.STRIPE_PUBLIC_KEY || "",
       });

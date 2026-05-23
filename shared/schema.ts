@@ -63,6 +63,8 @@ export interface Organizer {
   subaccountCode: string;
   bvn: string | null;
   tier: UserTier;
+  customBrandName: string | null;
+  customLogoUrl: string | null;
   createdAt: Date;
 }
 
@@ -75,6 +77,8 @@ export interface CreateOrganizerData {
   subaccountCode: string;
   bvn: string | null;
   tier: UserTier;
+  customBrandName?: string | null;
+  customLogoUrl?: string | null;
 }
 
 export interface PublicOrganizer {

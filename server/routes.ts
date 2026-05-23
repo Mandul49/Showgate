@@ -8,6 +8,7 @@ import { registerOnboardingRoutes } from "./onboarding";
 import { registerEventsRoutes } from "./events";
 import { registerCheckoutRoutes } from "./checkout";
 import { registerUpgradeRoutes, startSubscriptionCron } from "./upgrade";
+import { registerBrandingRoutes } from "./branding";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
   const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
@@ -39,6 +40,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── Upgrade / Subscriptions ──────────────────────────────────────────────
   registerUpgradeRoutes(app);
   startSubscriptionCron();
+
+  // ─── Branding ─────────────────────────────────────────────────────────────
+  registerBrandingRoutes(app);
 
   // ─── Config (public read, protected write) ────────────────────────────────
 
