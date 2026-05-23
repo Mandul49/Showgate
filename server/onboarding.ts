@@ -98,8 +98,6 @@ export function registerOnboardingRoutes(app: Express) {
         return res.status(500).json({ message: "Paystack API key not configured" });
       }
 
-      console.log("[onboarding] PAYSTACK_KEY prefix:", PAYSTACK_KEY.slice(0, 10), "length:", PAYSTACK_KEY.length);
-
       // Call Paystack Create Subaccount
       const payload: Record<string, any> = {
         business_name: businessName,
