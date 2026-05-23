@@ -1,9 +1,11 @@
 import type { Express } from "express";
+import Stripe from "stripe";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import {
   createEventSchema, updateEventSchema,
   createTicketTypeSchema, updateTicketTypeSchema,
+  insertOrderSchema,
 } from "@shared/schema";
 import {
   checkEventTierLimits,
@@ -167,6 +169,235 @@ export function registerEventsRoutes(app: Express) {
 
       const ticketType = await storage.createTicketType({ eventId: event.id, name, price, quantityAvailable });
       return res.status(201).json(ticketType);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── GET /api/public/events/:id ───────────────────────────────────────────
+  app.get("/api/public/events/:id", async (req, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (!event.isActive) return res.status(404).json({ message: "Event is not available" });
+
+      const ticketTypes = await storage.getTicketTypesByEventId(event.id);
+      const organizer = await storage.getOrganizerById(event.organizerId);
+
+      return res.json({
+        id: event.id,
+        title: event.title,
+        date: event.date,
+        location: event.location,
+        maxTickets: event.maxTickets,
+        paymentMethod: event.paymentMethod,
+        ticketTypes: ticketTypes.map((tt) => ({
+          id: tt.id,
+          name: tt.name,
+          price: tt.price,
+          quantityAvailable: tt.quantityAvailable,
+          quantitySold: tt.quantitySold,
+          remaining: Math.max(0, tt.quantityAvailable - tt.quantitySold),
+        })),
+        organizer: organizer
+          ? {
+              businessName: organizer.businessName,
+              subaccountCode: organizer.subaccountCode,
+              bankName: organizer.bankName,
+              accountNumber: organizer.accountNumber,
+            }
+          : null,
+        paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || "",
+        stripePublicKey: process.env.STRIPE_PUBLIC_KEY || "",
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Shared helper: resolve and validate ticket type for public purchase ──────
+  async function resolveTicketType(eventId: string, ticketTypeId: unknown, quantity: unknown) {
+    if (!ticketTypeId || typeof ticketTypeId !== "string") {
+      return { error: "ticketTypeId is required" } as const;
+    }
+    const qty = typeof quantity === "number" ? quantity : parseInt(String(quantity), 10);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
+      return { error: "quantity must be an integer between 1 and 20" } as const;
+    }
+    const tt = await storage.getTicketTypeById(ticketTypeId);
+    if (!tt) return { error: "Ticket type not found" } as const;
+    if (tt.eventId !== eventId) return { error: "Ticket type does not belong to this event" } as const;
+    const remaining = tt.quantityAvailable - tt.quantitySold;
+    if (remaining < qty) return { error: "Not enough tickets remaining for this type" } as const;
+    const totalAmount = tt.price * qty;
+    return { ticketType: tt, qty, totalAmount } as const;
+  }
+
+  // ── POST /api/public/events/:id/purchase/paystack ─────────────────────────
+  app.post("/api/public/events/:id/purchase/paystack", async (req, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+
+      const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle } = req.body;
+      if (!reference) return res.status(400).json({ message: "Missing payment reference" });
+
+      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
+      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
+      const { ticketType, qty, totalAmount } = resolved;
+
+      const secretKey = process.env.PAYSTACK_SECRET_KEY;
+      if (!secretKey) return res.status(500).json({ message: "Payment not configured" });
+
+      const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+        headers: { Authorization: `Bearer ${secretKey}` },
+      });
+      if (!paystackRes.ok) return res.status(400).json({ message: "Payment verification failed" });
+
+      const paystackData: any = await paystackRes.json();
+      if (!paystackData.status || paystackData.data?.status !== "success")
+        return res.status(400).json({ message: "Payment was not successful" });
+
+      // Server-authoritative amount check (Paystack amounts are in kobo)
+      if (paystackData.data.amount < totalAmount * 100)
+        return res.status(400).json({ message: "Paid amount is less than ticket price" });
+
+      const parsed = insertOrderSchema.safeParse({
+        eventId: event.id,
+        ticketTypeId: ticketType.id,
+        customerName,
+        customerEmail,
+        customerPhone,
+        instagramHandle: instagramHandle || null,
+        ticketType: ticketType.name,
+        quantity: qty,
+        totalAmount,
+      });
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+      const order = await storage.createOrder(parsed.data, "confirmed");
+      await storage.incrementTicketTypeSold(ticketType.id, qty);
+
+      return res.status(201).json(order);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── POST /api/public/events/:id/purchase/stripe-intent ────────────────────
+  // Amount is computed server-side from ticket price × quantity — never trusted from client.
+  app.post("/api/public/events/:id/purchase/stripe-intent", async (req, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+
+      const { ticketTypeId, quantity, customerEmail } = req.body;
+
+      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
+      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
+      const { qty, totalAmount } = resolved;
+
+      const secretKey = process.env.STRIPE_SECRET_KEY;
+      if (!secretKey) return res.status(500).json({ message: "Stripe not configured" });
+
+      const stripe = new Stripe(secretKey);
+      const intent = await stripe.paymentIntents.create({
+        // Amount is authoritative: computed from DB price, not client-provided
+        amount: Math.round(totalAmount * 100),
+        currency: "usd",
+        receipt_email: customerEmail || undefined,
+        metadata: {
+          eventId: event.id,
+          ticketTypeId: String(ticketTypeId),
+          quantity: String(qty),
+        },
+      });
+
+      return res.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── POST /api/public/events/:id/purchase/stripe ───────────────────────────
+  app.post("/api/public/events/:id/purchase/stripe", async (req, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+
+      const { paymentIntentId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle } = req.body;
+      if (!paymentIntentId) return res.status(400).json({ message: "Missing paymentIntentId" });
+
+      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
+      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
+      const { ticketType, qty, totalAmount } = resolved;
+
+      const secretKey = process.env.STRIPE_SECRET_KEY;
+      if (!secretKey) return res.status(500).json({ message: "Stripe not configured" });
+
+      const stripe = new Stripe(secretKey);
+      const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (intent.status !== "succeeded") return res.status(400).json({ message: "Payment not completed" });
+
+      // Verify paid amount matches server-authoritative total
+      if (intent.amount < Math.round(totalAmount * 100))
+        return res.status(400).json({ message: "Paid amount is less than ticket price" });
+
+      // Verify the intent's metadata event/ticket type matches (if metadata was set by our intent endpoint)
+      if (intent.metadata.eventId && intent.metadata.eventId !== event.id)
+        return res.status(400).json({ message: "Payment intent event mismatch" });
+
+      const parsed = insertOrderSchema.safeParse({
+        eventId: event.id,
+        ticketTypeId: ticketType.id,
+        customerName,
+        customerEmail,
+        customerPhone,
+        instagramHandle: instagramHandle || null,
+        ticketType: ticketType.name,
+        quantity: qty,
+        totalAmount,
+      });
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+      const order = await storage.createOrder(parsed.data, "confirmed");
+      await storage.incrementTicketTypeSold(ticketType.id, qty);
+
+      return res.status(201).json(order);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── POST /api/public/events/:id/purchase/bank ─────────────────────────────
+  app.post("/api/public/events/:id/purchase/bank", async (req, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+
+      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle } = req.body;
+
+      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
+      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
+      const { ticketType, qty, totalAmount } = resolved;
+
+      const parsed = insertOrderSchema.safeParse({
+        eventId: event.id,
+        ticketTypeId: ticketType.id,
+        customerName,
+        customerEmail,
+        customerPhone,
+        instagramHandle: instagramHandle || null,
+        ticketType: ticketType.name,
+        quantity: qty,
+        totalAmount,
+      });
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+      const order = await storage.createOrder(parsed.data, "awaiting_transfer");
+      await storage.incrementTicketTypeSold(ticketType.id, qty);
+
+      return res.status(201).json(order);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }

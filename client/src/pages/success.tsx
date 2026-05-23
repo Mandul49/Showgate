@@ -22,6 +22,7 @@ export default function Success() {
   const tickets = parseInt(params.get("tickets") || "1");
   const status = params.get("status") || "confirmed";
   const isBankTransfer = status === "awaiting_transfer";
+  const eventTitleParam = params.get("eventTitle") || "";
 
   const { data: config } = useQuery<PublicConfig>({ queryKey: ["/api/config"] });
 
@@ -29,7 +30,7 @@ export default function Success() {
   const highlight = config?.highlightColor || "#FDE68A";
   const bg = config?.bgColor || "#0d0d0d";
   const currency = config?.currency || "NGN";
-  const eventName = config?.eventName || "Event";
+  const eventName = eventTitleParam || config?.eventName || "Event";
   const eventTheme = config?.eventTheme || "";
   const eventVenue = config?.eventVenue || "";
   const eventTime = config?.eventTime || "";

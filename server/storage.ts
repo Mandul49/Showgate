@@ -81,7 +81,7 @@ export interface IStorage {
   getTicketTypesByEventId(eventId: string): Promise<TicketType[]>;
   getTicketTypeById(id: string): Promise<TicketType | undefined>;
   updateTicketType(id: string, updates: UpdateTicketTypeData): Promise<TicketType>;
-  incrementTicketTypeSold(ticketTypeId: string, quantity: number): Promise<TicketType>;
+  incrementTicketTypeSold(id: string, quantity: number): Promise<TicketType>;
   // Ticket Purchases
   createTicketPurchase(data: CreateTicketPurchaseData): Promise<TicketPurchase>;
   getTicketPurchaseByReference(reference: string): Promise<TicketPurchase | undefined>;
@@ -261,11 +261,11 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async incrementTicketTypeSold(ticketTypeId: string, quantity: number): Promise<TicketType> {
-    const tt = this.ticketTypes.get(ticketTypeId);
+  async incrementTicketTypeSold(id: string, quantity: number): Promise<TicketType> {
+    const tt = this.ticketTypes.get(id);
     if (!tt) throw new Error("Ticket type not found");
     const updated: TicketType = { ...tt, quantitySold: tt.quantitySold + quantity };
-    this.ticketTypes.set(ticketTypeId, updated);
+    this.ticketTypes.set(id, updated);
     return updated;
   }
 

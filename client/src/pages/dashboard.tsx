@@ -11,7 +11,7 @@ import {
   Plus, Calendar, MapPin, Ticket, LogOut,
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
-  CheckCircle2, CircleDot, Link2, Check, Zap
+  CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -364,7 +364,19 @@ function EventCard({
 }) {
   const [expanded, setExpanded] = useState(true);
   const [addingTicketType, setAddingTicketType] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const qc = useQueryClient();
+  const { toast } = useToast();
+
+  function copyPublicLink() {
+    const url = `${window.location.origin}/e/${event.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }).catch(() => {
+      toast({ title: "Could not copy link", description: "Please copy it manually.", variant: "destructive" });
+    });
+  }
 
   const totalAvailable = event.ticketTypes.reduce((s, t) => s + t.quantityAvailable, 0);
   const totalSold = event.ticketTypes.reduce((s, t) => s + t.quantitySold, 0);
@@ -397,6 +409,15 @@ function EventCard({
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <CopyLinkButton eventId={event.id} />
+            <button
+              onClick={copyPublicLink}
+              title="Copy public event link"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold transition-colors hover:border-zinc-500 text-zinc-400 hover:text-white">
+              {linkCopied
+                ? <><Check className="w-3.5 h-3.5 text-green-400" /><span className="hidden sm:inline text-green-400">Copied!</span></>
+                : <><Link2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Copy Link</span></>
+              }
+            </button>
             <button
               onClick={() => onToggle(event.id, !event.isActive)}
               disabled={isToggling}

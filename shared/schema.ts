@@ -4,6 +4,8 @@ import { z } from "zod";
 
 export const orders = pgTable("orders", {
   id: varchar("id", { length: 36 }).primaryKey(),
+  eventId: text("event_id"),
+  ticketTypeId: text("ticket_type_id"),
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email").notNull(),
   customerPhone: text("customer_phone").notNull(),
@@ -19,6 +21,9 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   status: true,
   createdAt: true,
+}).extend({
+  eventId: z.string().optional().nullable(),
+  ticketTypeId: z.string().optional().nullable(),
 });
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;

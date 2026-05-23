@@ -10,7 +10,7 @@ import Onboarding from "@/pages/onboarding";
 import Dashboard from "@/pages/dashboard";
 import Pricing from "@/pages/pricing";
 import UpgradeSuccess from "@/pages/upgrade-success";
-import EventPublic from "@/pages/event-public";
+import EventPage from "@/pages/event-page";
 import PurchaseSuccess from "@/pages/purchase-success";
 import NotFound from "@/pages/not-found";
 
@@ -18,14 +18,14 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/e/:id" component={EventPage} />
+      <Route path="/purchase-success" component={PurchaseSuccess} />
       <Route path="/success" component={Success} />
       <Route path="/login" component={Login} />
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/upgrade-success" component={UpgradeSuccess} />
-      <Route path="/e/:id" component={EventPublic} />
-      <Route path="/purchase-success" component={PurchaseSuccess} />
       <Route path="/admin">
         <Redirect to="/dashboard" />
       </Route>
