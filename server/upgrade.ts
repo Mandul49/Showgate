@@ -2,8 +2,6 @@ import type { Express } from "express";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 
-const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
-
 export const PLANS = {
   monthly: { amountKobo: 1_200_000, label: "Monthly", durationDays: 31 },
   yearly:  { amountKobo: 12_000_000, label: "Yearly",  durationDays: 366 },
@@ -13,6 +11,7 @@ type PlanKey = keyof typeof PLANS;
 // ── Paystack subaccount charge update ────────────────────────────────────────
 
 export async function updateSubaccountCharge(subaccountCode: string, percentage: number): Promise<void> {
+  const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
   if (!PAYSTACK_KEY) return;
   const res = await fetch(`https://api.paystack.co/subaccount/${subaccountCode}`, {
     method: "PUT",
@@ -88,6 +87,7 @@ export function registerUpgradeRoutes(app: Express): void {
   // POST /api/upgrade/checkout — initialize Paystack payment for Pro subscription
   app.post("/api/upgrade/checkout", requireAuth, async (req: AuthRequest, res) => {
     try {
+      const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
       if (!PAYSTACK_KEY) {
         return res.status(500).json({ message: "Payment system not configured" });
       }
@@ -159,6 +159,7 @@ export function registerUpgradeRoutes(app: Express): void {
         return res.status(400).json({ message: "Missing payment reference" });
       }
 
+      const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
       if (!PAYSTACK_KEY) {
         return res.status(500).json({ message: "Payment system not configured" });
       }

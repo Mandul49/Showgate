@@ -97,8 +97,6 @@ export function registerOnboardingRoutes(app: Express) {
       const { businessName, bankCode, bankName, accountNumber, bvn } = parsed.data;
 
       const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
-      console.log("[onboarding] key prefix:", PAYSTACK_KEY?.slice(0, 10), "length:", PAYSTACK_KEY?.length);
-
       if (!PAYSTACK_KEY) {
         return res.status(500).json({ message: "Paystack API key not configured" });
       }
@@ -111,6 +109,8 @@ export function registerOnboardingRoutes(app: Express) {
         percentage_charge: 2.5,
       };
       if (bvn) payload.metadata = { bvn };
+
+      console.log("[onboarding] Authorization header:", `Bearer ${PAYSTACK_KEY}`);
 
       const paystackRes = await fetch("https://api.paystack.co/subaccount", {
         method: "POST",
