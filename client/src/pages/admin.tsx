@@ -1,16 +1,18 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { isAuthenticated, clearToken, getUser } from "@/lib/auth";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
-  Settings, Image, Palette, Ticket, CreditCard, Plus, Trash2,
+  Settings, Image, Ticket, CreditCard, Plus, Trash2,
   Eye, EyeOff, ChevronDown, ChevronUp, Save, ExternalLink, Info,
-  CheckCircle, Globe, Building2
+  CheckCircle, Globe, Building2, LogOut, User
 } from "lucide-react";
 import type { EventConfig, TicketTier, PaymentMethod } from "@shared/schema";
 
@@ -209,6 +211,7 @@ function SecretInput({ field, placeholder }: { field: any; placeholder: string }
 export default function Admin() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [tiers, setTiers] = useState<TicketTier[]>([]);
@@ -217,10 +220,19 @@ export default function Admin() {
   const [accentColor, setAccentColor] = useState("#D97706");
   const [bgColor, setBgColor] = useState("#0d0d0d");
   const [loaded, setLoaded] = useState(false);
+  const currentUser = getUser();
+
+  useEffect(() => {
+    if (!isAuthenticated()) navigate("/login");
+  }, []);
+
+  function handleLogout() {
+    clearToken();
+    navigate("/login");
+  }
 
   const { isLoading } = useQuery<EventConfig>({
     queryKey: ["/api/config/admin"],
-    queryFn: async () => { const r = await fetch("/api/config/admin"); return r.json(); },
     onSuccess: (data: EventConfig) => {
       if (loaded) return;
       form.reset({
@@ -334,7 +346,7 @@ export default function Admin() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#0a0a0a", color: "#f5f5f5" }}>
       <div className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20"><Settings className="w-4 h-4 text-amber-400" /></div>
             <div>
@@ -342,10 +354,24 @@ export default function Admin() {
               <p className="text-zinc-600 text-xs">Configure your event ticketing page</p>
             </div>
           </div>
-          <a href="/" target="_blank" rel="noopener noreferrer"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors text-xs font-semibold">
-            <ExternalLink className="w-3.5 h-3.5" /> Preview
-          </a>
+          <div className="flex items-center gap-2">
+            {currentUser && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                <User className="w-3.5 h-3.5 text-zinc-500" />
+                <span className="text-zinc-400 text-xs truncate max-w-[140px]">{currentUser.email}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 font-bold uppercase">{currentUser.tier}</span>
+              </div>
+            )}
+            <a href="/" target="_blank" rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors text-xs font-semibold">
+              <ExternalLink className="w-3.5 h-3.5" /> Preview
+            </a>
+            <button onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-zinc-500 hover:text-red-400 hover:border-red-400/30 transition-colors text-xs font-semibold">
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
         </div>
       </div>
 

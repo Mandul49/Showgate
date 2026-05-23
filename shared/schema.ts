@@ -24,6 +24,29 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+export type UserRole = "organizer";
+export type UserTier = "free" | "pro";
+
+export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  tier: UserTier;
+  createdAt: Date;
+}
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  tier: UserTier;
+}
+
+// ─── Event Config ─────────────────────────────────────────────────────────────
+
 export type PaymentMethod = "paystack" | "stripe" | "paypal" | "bank_transfer";
 
 export interface TicketTier {
@@ -53,16 +76,12 @@ export interface EventConfig {
   contactPhone: string;
   currency: string;
   paymentMethod: PaymentMethod;
-  // Paystack
   paystackPublicKey: string;
   paystackSecretKey: string;
-  // Stripe
   stripePublicKey: string;
   stripeSecretKey: string;
-  // PayPal
   paypalClientId: string;
   paypalSecretKey: string;
-  // Bank Transfer
   bankName: string;
   bankAccountName: string;
   bankAccountNumber: string;

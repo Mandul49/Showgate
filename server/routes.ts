@@ -3,10 +3,10 @@ import { createServer, type Server } from "http";
 import Stripe from "stripe";
 import { storage } from "./storage";
 import { insertOrderSchema, eventConfigSchema } from "@shared/schema";
+import { registerAuthRoutes, requireAuth } from "./auth";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
-  const base = "https://api-m.paypal.com";
-  const res = await fetch(`${base}/v1/oauth2/token`, {
+  const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -20,7 +20,10 @@ async function getPaypalAccessToken(clientId: string, secret: string): Promise<s
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // ─── Config ───────────────────────────────────────────────────────────────
+  // ─── Auth ─────────────────────────────────────────────────────────────────
+  registerAuthRoutes(app);
+
+  // ─── Config (public read, protected write) ────────────────────────────────
 
   app.get("/api/config", async (_req, res) => {
     try {
@@ -32,7 +35,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/config/admin", async (_req, res) => {
+  app.get("/api/config/admin", requireAuth, async (_req, res) => {
     try {
       return res.json(await storage.getEventConfig());
     } catch (err: any) {
@@ -40,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/config", async (req, res) => {
+  app.post("/api/config", requireAuth, async (req, res) => {
     try {
       const parsed = eventConfigSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid configuration", errors: parsed.error.errors });
@@ -101,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Keep legacy route alias
+  // Legacy alias
   app.post("/api/payments/verify", async (req, res) => {
     req.url = "/api/payments/paystack/verify";
     return app._router.handle(req, res, () => {});

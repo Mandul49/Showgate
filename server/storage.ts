@@ -1,4 +1,4 @@
-import { type Order, type InsertOrder, type EventConfig } from "@shared/schema";
+import { type Order, type InsertOrder, type EventConfig, type User, type UserRole, type UserTier } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 const DEFAULT_CONFIG: EventConfig = {
@@ -45,31 +45,38 @@ const DEFAULT_CONFIG: EventConfig = {
 };
 
 export interface IStorage {
+  // Orders
   createOrder(order: InsertOrder, status?: string): Promise<Order>;
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
   getTotalTicketsSold(): Promise<number>;
+  // Event config
   getEventConfig(): Promise<EventConfig>;
   saveEventConfig(config: EventConfig): Promise<EventConfig>;
+  // Users
+  createUser(email: string, passwordHash: string, role: UserRole, tier: UserTier): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
 }
 
 export class MemStorage implements IStorage {
   private orders: Map<string, Order>;
   private eventConfig: EventConfig;
+  private users: Map<string, User>;
+  private usersByEmail: Map<string, string>; // email → id
 
   constructor() {
     this.orders = new Map();
     this.eventConfig = { ...DEFAULT_CONFIG };
+    this.users = new Map();
+    this.usersByEmail = new Map();
   }
+
+  // ── Orders ───────────────────────────────────────────────────────────────
 
   async createOrder(insertOrder: InsertOrder, status = "confirmed"): Promise<Order> {
     const id = randomUUID();
-    const order: Order = {
-      ...insertOrder,
-      id,
-      status,
-      createdAt: new Date(),
-    };
+    const order: Order = { ...insertOrder, id, status, createdAt: new Date() };
     this.orders.set(id, order);
     return order;
   }
@@ -83,9 +90,10 @@ export class MemStorage implements IStorage {
   }
 
   async getTotalTicketsSold(): Promise<number> {
-    const orders = Array.from(this.orders.values());
-    return orders.reduce((sum, o) => sum + o.quantity, 0);
+    return Array.from(this.orders.values()).reduce((sum, o) => sum + o.quantity, 0);
   }
+
+  // ── Event Config ─────────────────────────────────────────────────────────
 
   async getEventConfig(): Promise<EventConfig> {
     return { ...this.eventConfig };
@@ -94,6 +102,26 @@ export class MemStorage implements IStorage {
   async saveEventConfig(config: EventConfig): Promise<EventConfig> {
     this.eventConfig = { ...config };
     return { ...this.eventConfig };
+  }
+
+  // ── Users ─────────────────────────────────────────────────────────────────
+
+  async createUser(email: string, passwordHash: string, role: UserRole, tier: UserTier): Promise<User> {
+    const id = randomUUID();
+    const user: User = { id, email, passwordHash, role, tier, createdAt: new Date() };
+    this.users.set(id, user);
+    this.usersByEmail.set(email.toLowerCase(), id);
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const id = this.usersByEmail.get(email.toLowerCase());
+    if (!id) return undefined;
+    return this.users.get(id);
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.users.get(id);
   }
 }
 
