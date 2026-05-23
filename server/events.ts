@@ -214,6 +214,7 @@ export function registerEventsRoutes(app: Express) {
         },
         paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || "",
         stripePublicKey: process.env.STRIPE_PUBLIC_KEY || "",
+        flutterwavePublicKey: (organizer?.tier === "pro" && organizer.flutterwavePublicKey) ? organizer.flutterwavePublicKey : "",
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -403,6 +404,114 @@ export function registerEventsRoutes(app: Express) {
       await storage.incrementTicketTypeSold(ticketType.id, qty);
 
       return res.status(201).json(order);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── POST /api/public/events/:id/purchase/flutterwave ─────────────────────
+  app.post("/api/public/events/:id/purchase/flutterwave", async (req, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+
+      const organizer = await storage.getOrganizerById(event.organizerId);
+      if (!organizer || organizer.tier !== "pro") {
+        return res.status(403).json({ message: "Flutterwave payments not available for this event" });
+      }
+      if (!organizer.flutterwaveSecretKey) {
+        return res.status(503).json({ message: "Flutterwave not configured for this event" });
+      }
+
+      const { transactionId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle } = req.body;
+      if (!transactionId) return res.status(400).json({ message: "Missing transactionId" });
+
+      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
+      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
+      const { ticketType, qty, totalAmount } = resolved;
+
+      // Verify with Flutterwave using organizer's secret key
+      const fwRes = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
+        headers: { Authorization: `Bearer ${organizer.flutterwaveSecretKey}` },
+      });
+      if (!fwRes.ok) return res.status(400).json({ message: "Flutterwave verification failed" });
+
+      const fwData: any = await fwRes.json();
+      if (fwData.status !== "success" || fwData.data?.status !== "successful") {
+        return res.status(400).json({ message: "Payment was not successful" });
+      }
+
+      // Server-authoritative amount check (FW amounts are in full units, not kobo)
+      if (fwData.data.amount < totalAmount) {
+        return res.status(400).json({ message: "Paid amount is less than ticket price" });
+      }
+
+      const parsed = insertOrderSchema.safeParse({
+        eventId: event.id,
+        ticketTypeId: ticketType.id,
+        customerName,
+        customerEmail,
+        customerPhone,
+        instagramHandle: instagramHandle || null,
+        ticketType: ticketType.name,
+        quantity: qty,
+        totalAmount,
+      });
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+      const order = await storage.createOrder(parsed.data, "confirmed");
+      await storage.incrementTicketTypeSold(ticketType.id, qty);
+
+      return res.status(201).json(order);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── GET /api/orders/pending-transfers ─────────────────────────────────────
+  app.get("/api/orders/pending-transfers", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
+
+      const orgEvents = await storage.getEventsByOrganizerId(organizer.id);
+      const eventIds = new Set(orgEvents.map((e) => e.id));
+
+      const allOrders = await storage.getAllOrders();
+      const pending = allOrders
+        .filter((o) => o.status === "awaiting_transfer" && o.eventId && eventIds.has(o.eventId))
+        .map((o) => ({
+          ...o,
+          eventTitle: orgEvents.find((e) => e.id === o.eventId)?.title ?? "Unknown event",
+        }))
+        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+
+      return res.json(pending);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PATCH /api/orders/:orderId/confirm-transfer ────────────────────────────
+  app.patch("/api/orders/:orderId/confirm-transfer", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
+
+      const order = await storage.getOrder(req.params.orderId);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      if (!order.eventId) return res.status(400).json({ message: "Order has no associated event" });
+
+      const event = await storage.getEventById(order.eventId);
+      if (!event || event.organizerId !== organizer.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      if (order.status !== "awaiting_transfer") {
+        return res.status(400).json({ message: "Order is not awaiting transfer" });
+      }
+
+      await storage.updateOrderStatus(order.id, "confirmed");
+      return res.json({ message: "Transfer confirmed" });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }

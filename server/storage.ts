@@ -60,6 +60,7 @@ export interface IStorage {
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
   getTotalTicketsSold(): Promise<number>;
+  updateOrderStatus(id: string, status: string): Promise<Order>;
   // Event config
   getEventConfig(): Promise<EventConfig>;
   saveEventConfig(config: EventConfig): Promise<EventConfig>;
@@ -75,6 +76,7 @@ export interface IStorage {
   getOrganizerById(id: string): Promise<Organizer | undefined>;
   updateOrganizerTier(organizerId: string, tier: UserTier): Promise<Organizer>;
   updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null }): Promise<Organizer>;
+  updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer>;
   // Events
   createEvent(data: CreateEventData): Promise<Event>;
   getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
@@ -114,6 +116,12 @@ export class DbStorage implements IStorage {
   async getTotalTicketsSold(): Promise<number> {
     const [result] = await db.select({ total: sql<number>`coalesce(sum(${orders.quantity}), 0)` }).from(orders);
     return Number(result.total);
+  }
+
+  async updateOrderStatus(id: string, status: string): Promise<Order> {
+    const [row] = await db.update(orders).set({ status }).where(eq(orders.id, id)).returning();
+    if (!row) throw new Error("Order not found");
+    return row;
   }
 
   // ── Event Config ─────────────────────────────────────────────────────────
@@ -217,11 +225,22 @@ export class DbStorage implements IStorage {
       tier: row.tier as UserTier,
       customBrandName: row.customBrandName ?? null,
       customLogoUrl: row.customLogoUrl ?? null,
+      flutterwavePublicKey: row.flutterwavePublicKey ?? null,
+      flutterwaveSecretKey: row.flutterwaveSecretKey ?? null,
       createdAt: row.createdAt,
     };
   }
 
   async updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null }): Promise<Organizer> {
+    const [row] = await db.update(organizers)
+      .set(data)
+      .where(eq(organizers.id, organizerId))
+      .returning();
+    if (!row) throw new Error("Organizer not found");
+    return this._mapOrganizer(row);
+  }
+
+  async updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer> {
     const [row] = await db.update(organizers)
       .set(data)
       .where(eq(organizers.id, organizerId))

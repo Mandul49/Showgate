@@ -4,6 +4,7 @@ import type { Organizer, Event } from "@shared/schema";
 export const FREE_MAX_ACTIVE_EVENTS = 2;
 export const FREE_MAX_TICKETS_PER_EVENT = 100;
 export const FREE_ALLOWED_PAYMENT_METHODS = ["paystack"];
+export const PRO_PAYMENT_METHODS = ["paystack", "flutterwave", "stripe", "paypal", "bank_transfer"];
 
 interface TierCheckResult {
   allowed: boolean;

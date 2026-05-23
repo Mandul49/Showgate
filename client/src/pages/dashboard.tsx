@@ -13,7 +13,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
-  Paintbrush, Image, Type, BarChart2
+  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ const newEventSchema = z.object({
   date: z.string().min(1, "Date is required"),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.coerce.number().min(1, "Must be at least 1"),
-  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer"]),
+  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer", "flutterwave"]),
   isActive: z.boolean(),
 });
 type NewEventForm = z.infer<typeof newEventSchema>;
@@ -80,7 +80,7 @@ function fmtPrice(n: number) {
 }
 
 const PM_LABELS: Record<string, string> = {
-  paystack: "Paystack", stripe: "Stripe", paypal: "PayPal", bank_transfer: "Bank Transfer",
+  paystack: "Paystack", stripe: "Stripe", paypal: "PayPal", bank_transfer: "Bank Transfer", flutterwave: "Flutterwave",
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -221,6 +221,7 @@ function NewEventPanel({
                 className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-10 text-sm outline-none focus:border-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed appearance-none">
                 <option value="paystack">Paystack</option>
                 {!isFree && <>
+                  <option value="flutterwave">Flutterwave</option>
                   <option value="stripe">Stripe</option>
                   <option value="paypal">PayPal</option>
                   <option value="bank_transfer">Bank Transfer</option>
@@ -515,6 +516,283 @@ function EventCard({
 
 const FREE_MAX_ACTIVE_EVENTS = 2;
 
+// ─── Flutterwave Section ──────────────────────────────────────────────────────
+
+const fwFormSchema = z.object({
+  flutterwavePublicKey: z.string().min(1, "Public key is required"),
+  flutterwaveSecretKey: z.string().min(1, "Secret key is required"),
+});
+type FwForm = z.infer<typeof fwFormSchema>;
+
+interface PaymentSettings {
+  tier: "free" | "pro";
+  bankName: string;
+  accountNumber: string;
+  businessName: string;
+  flutterwavePublicKey: string;
+  flutterwaveSecretKey: string;
+  hasFlutterwave: boolean;
+}
+
+function FlutterwaveSection({ tier }: { tier: "free" | "pro" }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const { data: settings, isLoading } = useQuery<PaymentSettings>({
+    queryKey: ["/api/organizer/payment-settings"],
+    enabled: tier === "pro",
+  });
+
+  const form = useForm<FwForm>({
+    resolver: zodResolver(fwFormSchema),
+    defaultValues: { flutterwavePublicKey: "", flutterwaveSecretKey: "" },
+  });
+
+  useEffect(() => {
+    if (settings) {
+      form.reset({
+        flutterwavePublicKey: settings.flutterwavePublicKey || "",
+        flutterwaveSecretKey: "",
+      });
+    }
+  }, [settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: FwForm) => {
+      const res = await apiRequest("PUT", "/api/organizer/payment-settings", values);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to save");
+      return json;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/organizer/payment-settings"] });
+      toast({ title: "Flutterwave keys saved", description: "Your events can now accept Flutterwave payments." });
+      form.reset({ flutterwavePublicKey: form.getValues("flutterwavePublicKey"), flutterwaveSecretKey: "" });
+    },
+    onError: (err: any) => toast({ title: "Save failed", description: err.message, variant: "destructive" }),
+  });
+
+  if (tier !== "pro") {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4">
+          <div className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 flex-shrink-0">
+            <Wallet className="w-4 h-4 text-zinc-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-zinc-400 font-semibold text-sm flex items-center gap-2">
+              Flutterwave Payments <Lock className="w-3.5 h-3.5 text-zinc-600" />
+            </p>
+            <p className="text-zinc-600 text-xs mt-0.5">
+              Accept card, bank transfer and USSD via Flutterwave. Pro plan only.
+            </p>
+          </div>
+          <a href="/pricing"
+            className="flex-shrink-0 px-3 py-1.5 rounded-lg border border-violet-500/40 text-violet-400 hover:bg-violet-500/10 text-xs font-semibold transition-colors">
+            Upgrade
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-zinc-900 transition-colors">
+        <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
+          <Wallet className="w-4 h-4 text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm">Flutterwave Payments</p>
+          <p className="text-zinc-500 text-xs mt-0.5">
+            {settings?.hasFlutterwave
+              ? "Keys configured — events can accept Flutterwave payments"
+              : "Add your API keys to enable Flutterwave checkout on events"}
+          </p>
+        </div>
+        {settings?.hasFlutterwave && <CheckCheck className="w-4 h-4 text-green-400 mr-1" />}
+        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : (
+            <>
+              <p className="text-zinc-500 text-xs mb-4">
+                Get your API keys from the{" "}
+                <a href="https://dashboard.flutterwave.com/dashboard/settings/apis" target="_blank" rel="noopener noreferrer"
+                  className="text-amber-400 hover:text-amber-300 underline">
+                  Flutterwave dashboard
+                </a>.
+                {" "}Secret key is write-only — paste a new one to update.
+              </p>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
+                  <FormField control={form.control} name="flutterwavePublicKey" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Public Key (FLWPUBK-…)</FormLabel>
+                      <FormControl>
+                        <input {...field} placeholder="FLWPUBK-xxxxxxxx"
+                          className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors" />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-xs" />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="flutterwaveSecretKey" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Secret Key (FLWSECK-…)</FormLabel>
+                      <FormControl>
+                        <input {...field} type="password" placeholder={settings?.hasFlutterwave ? "Paste new key to update" : "FLWSECK-xxxxxxxx"}
+                          className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors" />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-xs" />
+                    </FormItem>
+                  )} />
+                  <button type="submit" disabled={saveMutation.isPending}
+                    className="flex items-center gap-2 px-5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold transition-colors disabled:opacity-60">
+                    {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Save Keys
+                  </button>
+                </form>
+              </Form>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Pending Transfers Section ────────────────────────────────────────────────
+
+interface PendingOrder {
+  id: string;
+  eventId: string | null;
+  eventTitle: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  ticketType: string;
+  quantity: number;
+  totalAmount: number;
+  createdAt: string | null;
+  status: string;
+}
+
+function PendingTransfersSection({ tier }: { tier: "free" | "pro" }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const token = getToken();
+
+  const { data: pending = [], isLoading } = useQuery<PendingOrder[]>({
+    queryKey: ["/api/orders/pending-transfers"],
+    enabled: tier === "pro" && open,
+    refetchInterval: open ? 30000 : false,
+    queryFn: async () => {
+      const res = await fetch("/api/orders/pending-transfers", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load");
+      return res.json();
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const res = await apiRequest("PATCH", `/api/orders/${orderId}/confirm-transfer`, {});
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed");
+      return json;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/orders/pending-transfers"] });
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Transfer confirmed", description: "Ticket is now fully confirmed." });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  if (tier !== "pro") return null;
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-zinc-900 transition-colors">
+        <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
+          <Clock className="w-4 h-4 text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm">Pending Bank Transfers</p>
+          <p className="text-zinc-500 text-xs mt-0.5">
+            Buyers who selected bank transfer — confirm when payment arrives
+          </p>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : pending.length === 0 ? (
+            <div className="text-center py-6">
+              <CheckCheck className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+              <p className="text-zinc-600 text-sm">No pending transfers</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pending.map((order) => (
+                <div key={order.id} className="flex items-start gap-4 bg-zinc-950 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-white font-semibold text-sm">{order.customerName}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                        {order.quantity} × {order.ticketType}
+                      </span>
+                    </div>
+                    <p className="text-zinc-500 text-xs">{order.customerEmail} · {order.customerPhone}</p>
+                    <p className="text-zinc-600 text-xs">{order.eventTitle}</p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-amber-400 font-bold text-sm">
+                        ₦{new Intl.NumberFormat("en-NG").format(order.totalAmount)}
+                      </span>
+                      {order.createdAt && (
+                        <span className="text-zinc-700 text-xs">
+                          {new Date(order.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => confirmMutation.mutate(order.id)}
+                    disabled={confirmMutation.isPending}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 text-xs font-bold transition-colors disabled:opacity-50">
+                    {confirmMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
+                    Confirm
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Branding Section ─────────────────────────────────────────────────────────
 
 const brandingFormSchema = z.object({
@@ -791,6 +1069,12 @@ export default function Dashboard() {
 
         {/* Branding */}
         <BrandingSection tier={tier} />
+
+        {/* Flutterwave payment gateway */}
+        <FlutterwaveSection tier={tier} />
+
+        {/* Pending bank transfers — Pro only */}
+        <PendingTransfersSection tier={tier} />
 
         {/* Pro upgrade banner — free tier only */}
         {tier === "free" && (

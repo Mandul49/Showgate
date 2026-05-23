@@ -77,6 +77,8 @@ export const organizers = pgTable("organizers", {
   tier: text("tier").notNull().default("free"),
   customBrandName: text("custom_brand_name"),
   customLogoUrl: text("custom_logo_url"),
+  flutterwavePublicKey: text("flutterwave_public_key"),
+  flutterwaveSecretKey: text("flutterwave_secret_key"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -92,6 +94,8 @@ export type Organizer = {
   tier: UserTier;
   customBrandName: string | null;
   customLogoUrl: string | null;
+  flutterwavePublicKey: string | null;
+  flutterwaveSecretKey: string | null;
   createdAt: Date;
 };
 
@@ -120,7 +124,7 @@ export interface PublicOrganizer {
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 export type EventStatus = "active" | "inactive" | "draft";
-export type PaymentMethod = "paystack" | "stripe" | "paypal" | "bank_transfer";
+export type PaymentMethod = "paystack" | "stripe" | "paypal" | "bank_transfer" | "flutterwave";
 
 export const events = pgTable("events", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -174,7 +178,7 @@ export const createEventSchema = z.object({
   date: z.string().min(1, "Event date is required"),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.number().min(1, "Must have at least 1 ticket"),
-  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer"]),
+  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer", "flutterwave"]),
   isActive: z.boolean().default(true),
 });
 

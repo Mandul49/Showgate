@@ -17,6 +17,11 @@ let bankCache: any[] | null = null;
 let bankCacheTime = 0;
 const BANK_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+const flutterwaveSettingsSchema = z.object({
+  flutterwavePublicKey: z.string().min(1, "Public key is required"),
+  flutterwaveSecretKey: z.string().min(1, "Secret key is required"),
+});
+
 export function registerOnboardingRoutes(app: Express) {
   // ── List banks from Paystack ───────────────────────────────────────────────
   app.get("/api/onboarding/banks", requireAuth, async (_req, res) => {
@@ -142,6 +147,53 @@ export function registerOnboardingRoutes(app: Express) {
           tier: organizer.tier,
         },
       });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── GET /api/organizer/payment-settings ────────────────────────────────────
+  app.get("/api/organizer/payment-settings", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(404).json({ message: "Organizer not found" });
+
+      return res.json({
+        tier: organizer.tier,
+        bankName: organizer.bankName,
+        accountNumber: organizer.accountNumber,
+        businessName: organizer.businessName,
+        flutterwavePublicKey: organizer.flutterwavePublicKey || "",
+        flutterwaveSecretKey: organizer.flutterwaveSecretKey
+          ? `${organizer.flutterwaveSecretKey.slice(0, 8)}${"•".repeat(20)}`
+          : "",
+        hasFlutterwave: !!(organizer.flutterwavePublicKey && organizer.flutterwaveSecretKey),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PUT /api/organizer/payment-settings ────────────────────────────────────
+  app.put("/api/organizer/payment-settings", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(404).json({ message: "Organizer not found" });
+      if (organizer.tier !== "pro") {
+        return res.status(403).json({ message: "Flutterwave payments require Pro plan", code: "TIER_REQUIRED" });
+      }
+
+      const parsed = flutterwaveSettingsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0].message });
+      }
+
+      await storage.updateOrganizerGateways(organizer.id, {
+        flutterwavePublicKey: parsed.data.flutterwavePublicKey,
+        flutterwaveSecretKey: parsed.data.flutterwaveSecretKey,
+      });
+
+      return res.json({ message: "Flutterwave keys saved" });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
