@@ -596,6 +596,47 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
+  // ── GET /api/events/:id/orders ────────────────────────────────────────────
+  app.get("/api/events/:id/orders", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
+
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
+
+      const eventOrders = await storage.getOrdersByEventId(event.id);
+      return res.json(eventOrders);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PATCH /api/events/:id/orders/:orderId/confirm ─────────────────────────
+  app.patch("/api/events/:id/orders/:orderId/confirm", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
+
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
+
+      const order = await storage.getOrder(req.params.orderId);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      if (order.eventId !== event.id) return res.status(403).json({ message: "Order does not belong to this event" });
+      if (order.status !== "awaiting_transfer") {
+        return res.status(400).json({ message: "Order is not awaiting transfer confirmation" });
+      }
+
+      const updated = await storage.updateOrderStatus(order.id, "confirmed");
+      return res.json(updated);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── PATCH /api/events/:id/ticket-types/:typeId ────────────────────────────
   app.patch("/api/events/:id/ticket-types/:typeId", requireAuth, async (req: AuthRequest, res) => {
     try {

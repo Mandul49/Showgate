@@ -575,6 +575,136 @@ function EditEventPanel({
   );
 }
 
+// ─── Attendees Section ────────────────────────────────────────────────────────
+
+interface AttendeeOrder {
+  id: string;
+  eventId: string | null;
+  ticketTypeId: string | null;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  instagramHandle: string | null;
+  ticketType: string;
+  quantity: number;
+  totalAmount: number;
+  status: string;
+  createdAt: string | null;
+}
+
+function AttendeesSection({ event }: { event: EventData }) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const token = getToken();
+
+  const { data: attendees = [], isLoading } = useQuery<AttendeeOrder[]>({
+    queryKey: ["/api/events", event.id, "orders"],
+    enabled: open,
+    queryFn: async () => {
+      const res = await fetch(`/api/events/${event.id}/orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load attendees");
+      return res.json();
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const res = await apiRequest("PATCH", `/api/events/${event.id}/orders/${orderId}/confirm`, {});
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to confirm");
+      return json;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/events", event.id, "orders"] });
+      toast({ title: "Transfer confirmed", description: "Order is now fully confirmed." });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const statusConfig: Record<string, { label: string; cls: string }> = {
+    confirmed: { label: "Confirmed", cls: "text-green-400 bg-green-400/10 border-green-400/20" },
+    awaiting_transfer: { label: "Awaiting Transfer", cls: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+    failed: { label: "Failed", cls: "text-red-400 bg-red-400/10 border-red-400/20" },
+  };
+
+  return (
+    <div className="border-t border-zinc-800">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-zinc-800/40 transition-colors">
+        <Users className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+        <span className="flex-1 text-zinc-400 text-xs font-semibold uppercase tracking-widest">
+          Attendees
+          {!isLoading && open && attendees.length > 0 && (
+            <span className="ml-2 normal-case font-normal text-zinc-600">({attendees.length})</span>
+          )}
+        </span>
+        {open ? <ChevronUp className="w-4 h-4 text-zinc-600" /> : <ChevronDown className="w-4 h-4 text-zinc-600" />}
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-zinc-500 text-sm py-3">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading attendees…
+            </div>
+          ) : attendees.length === 0 ? (
+            <div className="text-center py-6">
+              <Users className="w-7 h-7 text-zinc-700 mx-auto mb-2" />
+              <p className="text-zinc-600 text-sm">No ticket purchases yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {attendees.map((a) => {
+                const sc = statusConfig[a.status] ?? { label: a.status, cls: "text-zinc-400 bg-zinc-800 border-zinc-700" };
+                return (
+                  <div key={a.id} className="flex items-start gap-3 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-white font-semibold text-sm">{a.customerName}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${sc.cls}`}>
+                          {sc.label}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400">
+                          {a.quantity} × {a.ticketType}
+                        </span>
+                      </div>
+                      <p className="text-zinc-500 text-xs">{a.customerEmail} · {a.customerPhone}</p>
+                      <div className="flex items-center gap-3">
+                        <span className="text-amber-400 font-bold text-sm">
+                          ₦{new Intl.NumberFormat("en-NG").format(a.totalAmount)}
+                        </span>
+                        {a.createdAt && (
+                          <span className="text-zinc-700 text-xs">
+                            {new Date(a.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {a.status === "awaiting_transfer" && (
+                      <button
+                        onClick={() => confirmMutation.mutate(a.id)}
+                        disabled={confirmMutation.isPending}
+                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 text-xs font-bold transition-colors disabled:opacity-50">
+                        {confirmMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
+                        Confirm
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
 function CopyLinkButton({ eventId }: { eventId: string }) {
@@ -771,6 +901,8 @@ function EventCard({
           )}
         </div>
       )}
+
+      <AttendeesSection event={event} />
     </div>
   );
 }

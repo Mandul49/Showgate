@@ -60,6 +60,7 @@ export interface IStorage {
   createOrder(order: InsertOrder, status?: string): Promise<Order>;
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
+  getOrdersByEventId(eventId: string): Promise<Order[]>;
   getTotalTicketsSold(): Promise<number>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   // Event config
@@ -93,6 +94,7 @@ export interface IStorage {
   createTicketPurchase(data: CreateTicketPurchaseData): Promise<TicketPurchase>;
   getTicketPurchaseByReference(reference: string): Promise<TicketPurchase | undefined>;
   getTicketPurchasesByEventId(eventId: string): Promise<TicketPurchase[]>;
+  updateTicketPurchaseStatus(id: string, status: PurchaseStatus): Promise<TicketPurchase>;
   // Subscription References (upgrade replay-attack prevention)
   hasSubscriptionReference(reference: string): Promise<boolean>;
   recordSubscriptionReference(reference: string, userId: string, plan: string): Promise<void>;
@@ -115,6 +117,13 @@ export class DbStorage implements IStorage {
 
   async getAllOrders(): Promise<Order[]> {
     return db.select().from(orders);
+  }
+
+  async getOrdersByEventId(eventId: string): Promise<Order[]> {
+    const rows = await db.select().from(orders)
+      .where(eq(orders.eventId, eventId))
+      .orderBy(sql`${orders.createdAt} DESC`);
+    return rows;
   }
 
   async getTotalTicketsSold(): Promise<number> {
@@ -366,6 +375,15 @@ export class DbStorage implements IStorage {
       .where(eq(ticketPurchases.eventId, eventId))
       .orderBy(sql`${ticketPurchases.createdAt} DESC`);
     return rows.map(this._mapPurchase);
+  }
+
+  async updateTicketPurchaseStatus(id: string, status: PurchaseStatus): Promise<TicketPurchase> {
+    const [row] = await db.update(ticketPurchases)
+      .set({ status })
+      .where(eq(ticketPurchases.id, id))
+      .returning();
+    if (!row) throw new Error("Purchase not found");
+    return this._mapPurchase(row);
   }
 
   private _mapPurchase(row: typeof ticketPurchases.$inferSelect): TicketPurchase {
