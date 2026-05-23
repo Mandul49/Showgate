@@ -295,27 +295,29 @@ function PurchaseForm({
         amount: total * 100,
         currency: "NGN",
         ref,
-        callback: async (response: any) => {
+        callback: (response: any) => {
           settled = true;
           clearTimeout(launchTimeout);
-          // Server verifies reference AND re-computes expected total from DB price
-          const res = await apiRequest("POST", `/api/public/events/${event.id}/purchase/paystack`, {
-            reference: response.reference,
-            ticketTypeId: ticket.id,
-            quantity: data.quantity,
-            customerName: data.customerName,
-            customerEmail: data.customerEmail,
-            customerPhone: data.customerPhone,
-            instagramHandle: data.instagramHandle || null,
-          });
-          const order = await res.json();
-          if (!res.ok) {
-            toast({ title: "Verification failed", description: order.message, variant: "destructive" });
-            setProcessing(false);
-            return;
-          }
-          qc.invalidateQueries({ queryKey: [`/api/public/events/${event.id}`] });
-          onSuccess(order.id, data.customerName, total, data.quantity);
+          // Paystack v1 requires a plain (non-async) callback — run async work in an IIFE
+          (async () => {
+            const res = await apiRequest("POST", `/api/public/events/${event.id}/purchase/paystack`, {
+              reference: response.reference,
+              ticketTypeId: ticket.id,
+              quantity: data.quantity,
+              customerName: data.customerName,
+              customerEmail: data.customerEmail,
+              customerPhone: data.customerPhone,
+              instagramHandle: data.instagramHandle || null,
+            });
+            const order = await res.json();
+            if (!res.ok) {
+              toast({ title: "Verification failed", description: order.message, variant: "destructive" });
+              setProcessing(false);
+              return;
+            }
+            qc.invalidateQueries({ queryKey: [`/api/public/events/${event.id}`] });
+            onSuccess(order.id, data.customerName, total, data.quantity);
+          })();
         },
         onClose: () => {
           settled = true;

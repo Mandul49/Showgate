@@ -242,15 +242,18 @@ function TicketForm({ ticket, config, onSuccess }: {
         window.PaystackPop.setup({
           key: pubKey, email: data.customerEmail,
           amount: total * 100, currency, ref,
-          callback: async (response: any) => {
+          callback: (response: any) => {
             settled = true;
             clearTimeout(launchTimeout);
-            const orderData = buildOrderData(data);
-            const res = await apiRequest("POST", "/api/payments/paystack/verify", { reference: response.reference, orderData });
-            const order = await res.json();
-            if (!res.ok) { toast({ title: "Verification failed", description: order.message, variant: "destructive" }); setProcessing(false); return; }
-            qc.invalidateQueries({ queryKey: ["/api/tickets/availability"] });
-            onSuccess(order.id, data.customerName, total, data.quantity * ticket.ticketsIncluded);
+            // Paystack v1 requires a plain (non-async) callback — run async work in an IIFE
+            (async () => {
+              const orderData = buildOrderData(data);
+              const res = await apiRequest("POST", "/api/payments/paystack/verify", { reference: response.reference, orderData });
+              const order = await res.json();
+              if (!res.ok) { toast({ title: "Verification failed", description: order.message, variant: "destructive" }); setProcessing(false); return; }
+              qc.invalidateQueries({ queryKey: ["/api/tickets/availability"] });
+              onSuccess(order.id, data.customerName, total, data.quantity * ticket.ticketsIncluded);
+            })();
           },
           onClose: () => {
             settled = true;
