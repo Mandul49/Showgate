@@ -211,6 +211,7 @@ export function registerEventsRoutes(app: Express) {
           name: (organizer?.tier === "pro" && organizer.customBrandName) ? organizer.customBrandName : (organizer?.businessName ?? "Showgate"),
           logoUrl: (organizer?.tier === "pro" && organizer.customLogoUrl) ? organizer.customLogoUrl : null,
           isPro: organizer?.tier === "pro" ?? false,
+          brandTheme: (organizer?.tier === "pro") ? (organizer.brandTheme ?? null) : null,
         },
         paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || "",
         stripePublicKey: process.env.STRIPE_PUBLIC_KEY || "",

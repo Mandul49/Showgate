@@ -46,3 +46,6 @@ VITE_PAYSTACK_PUBLIC_KEY = "pk_test_b881903a4ba02b855ccdd786a58bb354c26a12f6"
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[agent]
+integrations = ["javascript_object_storage:2.0.0"]

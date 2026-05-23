@@ -63,6 +63,16 @@ export interface PublicUser {
   tier: UserTier;
 }
 
+// ─── Brand Theme ─────────────────────────────────────────────────────────────
+
+export interface BrandTheme {
+  primary: string;
+  accent: string;
+  background: string;
+  surface: string;
+  text: string;
+}
+
 // ─── Organizers ───────────────────────────────────────────────────────────────
 
 export const organizers = pgTable("organizers", {
@@ -79,6 +89,7 @@ export const organizers = pgTable("organizers", {
   customLogoUrl: text("custom_logo_url"),
   flutterwavePublicKey: text("flutterwave_public_key"),
   flutterwaveSecretKey: text("flutterwave_secret_key"),
+  brandTheme: jsonb("brand_theme"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -96,6 +107,7 @@ export type Organizer = {
   customLogoUrl: string | null;
   flutterwavePublicKey: string | null;
   flutterwaveSecretKey: string | null;
+  brandTheme: BrandTheme | null;
   createdAt: Date;
 };
 

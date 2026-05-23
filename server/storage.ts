@@ -75,7 +75,7 @@ export interface IStorage {
   getOrganizerByUserId(userId: string): Promise<Organizer | undefined>;
   getOrganizerById(id: string): Promise<Organizer | undefined>;
   updateOrganizerTier(organizerId: string, tier: UserTier): Promise<Organizer>;
-  updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null }): Promise<Organizer>;
+  updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer>;
   updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer>;
   // Events
   createEvent(data: CreateEventData): Promise<Event>;
@@ -227,11 +227,12 @@ export class DbStorage implements IStorage {
       customLogoUrl: row.customLogoUrl ?? null,
       flutterwavePublicKey: row.flutterwavePublicKey ?? null,
       flutterwaveSecretKey: row.flutterwaveSecretKey ?? null,
+      brandTheme: (row.brandTheme as import("@shared/schema").BrandTheme | null) ?? null,
       createdAt: row.createdAt,
     };
   }
 
-  async updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null }): Promise<Organizer> {
+  async updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer> {
     const [row] = await db.update(organizers)
       .set(data)
       .where(eq(organizers.id, organizerId))

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -795,15 +795,61 @@ function PendingTransfersSection({ tier }: { tier: "free" | "pro" }) {
 
 // ─── Branding Section ─────────────────────────────────────────────────────────
 
+interface BrandTheme {
+  primary: string;
+  accent: string;
+  background: string;
+  surface: string;
+  text: string;
+}
+
+const COLOR_LABELS: Record<keyof BrandTheme, string> = {
+  primary: "Primary", accent: "Accent", background: "Background", surface: "Surface", text: "Text",
+};
+
+function extractThemeFromImage(imgEl: HTMLImageElement): BrandTheme {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(imgEl, 0, 0, size, size);
+  const { data } = ctx.getImageData(0, 0, size, size);
+  const toHex = (r: number, g: number, b: number) =>
+    "#" + [r, g, b].map((v) => Math.min(255, Math.max(0, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  const getSat = (r: number, g: number, b: number) => {
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    return max === 0 ? 0 : (max - min) / max;
+  };
+  const pixels: [number, number, number][] = [];
+  for (let i = 0; i < data.length; i += 4)
+    if (data[i + 3] > 128) pixels.push([data[i], data[i + 1], data[i + 2]]);
+  if (pixels.length === 0)
+    return { primary: "#F59E0B", accent: "#D97706", background: "#0d0d0d", surface: "#1c1c1e", text: "#ffffff" };
+  const vibrant = [...pixels].sort((a, b) => getSat(...b) - getSat(...a)).filter(([r, g, b]) => getSat(r, g, b) > 0.2);
+  const [pr, pg, pb] = vibrant[0] ?? pixels[Math.floor(pixels.length / 2)];
+  const primary = toHex(pr, pg, pb);
+  const accentPx = vibrant.find(([r, g, b]) => Math.sqrt((r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2) > 50)
+    ?? ([pr * 0.7, pg * 0.7, pb * 0.7] as [number, number, number]);
+  const accent = toHex(...(accentPx as [number, number, number]));
+  const avgR = pixels.reduce((s, [r]) => s + r, 0) / pixels.length;
+  const avgG = pixels.reduce((s, [, g]) => s + g, 0) / pixels.length;
+  const avgB = pixels.reduce((s, [, , b]) => s + b, 0) / pixels.length;
+  const background = toHex(avgR * 0.08, avgG * 0.08, avgB * 0.08);
+  const surface = toHex(avgR * 0.16, avgG * 0.16, avgB * 0.16);
+  const lum = (0.2126 * pr + 0.7152 * pg + 0.0722 * pb) / 255;
+  const text = lum > 0.45 ? "#111111" : "#ffffff";
+  return { primary, accent, background, surface, text };
+}
+
 const brandingFormSchema = z.object({
   customBrandName: z.string().max(80).optional(),
-  customLogoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
 });
 type BrandingForm = z.infer<typeof brandingFormSchema>;
 
 interface BrandingSettings {
   customBrandName: string | null;
   customLogoUrl: string | null;
+  brandTheme: BrandTheme | null;
   tier: "free" | "pro";
 }
 
@@ -811,6 +857,15 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [colorEditorOpen, setColorEditorOpen] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [theme, setTheme] = useState<BrandTheme | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewImgRef = useRef<HTMLImageElement>(null);
+  const token = getToken();
 
   const { data: branding, isLoading } = useQuery<BrandingSettings>({
     queryKey: ["/api/branding/settings"],
@@ -819,34 +874,73 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
 
   const form = useForm<BrandingForm>({
     resolver: zodResolver(brandingFormSchema),
-    defaultValues: { customBrandName: "", customLogoUrl: "" },
+    defaultValues: { customBrandName: "" },
   });
 
   useEffect(() => {
     if (branding) {
-      form.reset({
-        customBrandName: branding.customBrandName ?? "",
-        customLogoUrl: branding.customLogoUrl ?? "",
-      });
+      form.reset({ customBrandName: branding.customBrandName ?? "" });
+      if (branding.brandTheme && !theme) setTheme(branding.brandTheme);
+      if (branding.customLogoUrl && !logoPreviewUrl) setLogoPreviewUrl(branding.customLogoUrl);
     }
   }, [branding]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (values: BrandingForm) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Logo must be under 5 MB", variant: "destructive" }); return;
+    }
+    setLogoFile(file);
+    setLogoPreviewUrl(URL.createObjectURL(file));
+    setExtracting(true);
+    e.target.value = "";
+  };
+
+  const handleImageLoad = () => {
+    if (!previewImgRef.current || !logoFile) { setExtracting(false); return; }
+    try {
+      setTheme(extractThemeFromImage(previewImgRef.current));
+      setColorEditorOpen(false);
+    } catch { /* svg cross-origin fallback */ }
+    setExtracting(false);
+  };
+
+  const handleSave = async () => {
+    const values = form.getValues();
+    setSaving(true);
+    try {
+      let logoUrl: string | null = branding?.customLogoUrl ?? null;
+
+      if (logoFile) {
+        const urlRes = await fetch("/api/branding/logo-upload-url", {
+          method: "POST", headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!urlRes.ok) throw new Error((await urlRes.json()).message || "Failed to get upload URL");
+        const { uploadURL, objectPath } = await urlRes.json();
+        const uploadRes = await fetch(uploadURL, {
+          method: "PUT", body: logoFile, headers: { "Content-Type": logoFile.type || "image/png" },
+        });
+        if (!uploadRes.ok) throw new Error("Logo upload failed");
+        logoUrl = objectPath;
+        setLogoFile(null);
+      } else if (logoPreviewUrl === null) {
+        logoUrl = null;
+      }
+
       const res = await apiRequest("PUT", "/api/branding/settings", {
         customBrandName: values.customBrandName || null,
-        customLogoUrl: values.customLogoUrl || null,
+        customLogoUrl: logoUrl,
+        brandTheme: theme,
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Failed to save");
-      return json;
-    },
-    onSuccess: () => {
+      if (!res.ok) throw new Error(json.message || "Save failed");
       qc.invalidateQueries({ queryKey: ["/api/branding/settings"] });
-      toast({ title: "Branding saved", description: "Your brand settings are now live on event pages." });
-    },
-    onError: (err: any) => toast({ title: "Save failed", description: err.message, variant: "destructive" }),
-  });
+      toast({ title: "Branding saved", description: "Your brand and color theme are now live on event pages." });
+    } catch (err: any) {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    } finally { setSaving(false); }
+  };
 
   if (tier !== "pro") {
     return (
@@ -860,7 +954,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
               White-label Branding <Lock className="w-3.5 h-3.5 text-zinc-600" />
             </p>
             <p className="text-zinc-600 text-xs mt-0.5">
-              Your events show "Powered by Showgate". Upgrade to Pro to use your own logo and brand name.
+              Upload your logo · auto color theme · manual overrides. Pro plan only.
             </p>
           </div>
           <a href="/pricing"
@@ -874,9 +968,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
+      <button type="button" onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-zinc-900 transition-colors">
         <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
           <Paintbrush className="w-4 h-4 text-amber-400" />
@@ -885,78 +977,150 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
           <p className="text-white font-semibold text-sm">White-label Branding</p>
           <p className="text-zinc-500 text-xs mt-0.5">
             {branding?.customBrandName
-              ? `Brand: ${branding.customBrandName}${branding.customLogoUrl ? " · Logo set" : ""}`
-              : "Set your brand name and logo — no Showgate mention on event pages"}
+              ? `Brand: ${branding.customBrandName}${branding?.brandTheme ? " · Color theme active" : ""}`
+              : "Logo upload · auto color theme · manual overrides"}
           </p>
         </div>
+        {branding?.brandTheme && <CheckCheck className="w-4 h-4 text-green-400 mr-1" />}
         {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
       </button>
 
       {open && (
-        <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
+        <div className="border-t border-zinc-800 px-5 pb-5 pt-4 space-y-5">
           {isLoading ? (
             <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading…
             </div>
-          ) : (
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
-                <FormField control={form.control} name="customBrandName" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5">
-                      <Type className="w-3 h-3" /> Brand Name
-                    </FormLabel>
-                    <FormControl>
-                      <input
-                        {...field}
-                        placeholder="e.g. Afrobeats Lagos"
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors"
-                      />
-                    </FormControl>
-                    <FormMessage className="text-red-400 text-xs" />
-                    <p className="text-zinc-600 text-xs">Shown on event pages and confirmation emails instead of "Showgate"</p>
-                  </FormItem>
-                )} />
+          ) : (<>
+            {/* Brand Name */}
+            <div>
+              <label className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                <Type className="w-3 h-3" /> Brand Name
+              </label>
+              <input {...form.register("customBrandName")} placeholder="e.g. Afrobeats Lagos"
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors" />
+              <p className="text-zinc-600 text-xs mt-1">Shown on event pages instead of "Showgate"</p>
+            </div>
 
-                <FormField control={form.control} name="customLogoUrl" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5">
-                      <Image className="w-3 h-3" /> Logo URL
-                    </FormLabel>
-                    <FormControl>
-                      <input
-                        {...field}
-                        placeholder="https://yourdomain.com/logo.png"
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors"
-                      />
-                    </FormControl>
-                    <FormMessage className="text-red-400 text-xs" />
-                    <p className="text-zinc-600 text-xs">Your logo replaces the ticket icon at the top of each event page</p>
-                  </FormItem>
-                )} />
+            {/* Logo Upload */}
+            <div>
+              <label className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                <Image className="w-3 h-3" /> Logo
+              </label>
+              <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                className="hidden" onChange={handleFileChange} />
 
-                {form.watch("customLogoUrl") && (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-950 border border-zinc-800">
-                    <img
-                      src={form.watch("customLogoUrl")}
-                      alt="Logo preview"
-                      className="h-10 max-w-[120px] object-contain"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
-                    <p className="text-zinc-600 text-xs">Logo preview</p>
+              {logoPreviewUrl ? (
+                <div className="flex items-center gap-4 p-3 rounded-xl bg-zinc-950 border border-zinc-800">
+                  <img ref={previewImgRef} src={logoPreviewUrl} alt="Logo preview" crossOrigin="anonymous"
+                    className="h-14 max-w-[140px] object-contain rounded"
+                    onLoad={handleImageLoad} onError={() => setExtracting(false)} />
+                  <div className="flex-1 min-w-0">
+                    {extracting
+                      ? <div className="flex items-center gap-1.5 text-amber-400 text-xs"><Loader2 className="w-3 h-3 animate-spin" /> Extracting colors…</div>
+                      : theme
+                        ? <p className="text-green-400 text-xs font-semibold flex items-center gap-1"><CheckCheck className="w-3 h-3" /> Colors extracted</p>
+                        : null}
+                    <p className="text-zinc-600 text-xs mt-1">PNG, JPG, SVG · Max 5 MB</p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button type="button" onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white text-xs font-semibold transition-colors">
+                      Replace
+                    </button>
+                    <button type="button" onClick={() => { setLogoFile(null); setLogoPreviewUrl(null); setTheme(null); }}
+                      className="px-3 py-1.5 rounded-lg border border-red-900/40 text-red-400 hover:bg-red-500/10 text-xs font-semibold transition-colors">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex flex-col items-center gap-2 py-8 rounded-xl border border-dashed border-zinc-700 hover:border-amber-400/40 hover:bg-amber-400/5 transition-colors">
+                  <div className="p-2.5 rounded-lg bg-zinc-800"><Image className="w-5 h-5 text-zinc-500" /></div>
+                  <div className="text-center">
+                    <p className="text-zinc-400 text-sm font-semibold">Click to upload logo</p>
+                    <p className="text-zinc-600 text-xs mt-0.5">PNG, JPG, SVG · Max 5 MB · Colors auto-extracted</p>
+                  </div>
+                </button>
+              )}
+            </div>
+
+            {/* Color Theme */}
+            {theme && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5">
+                    <Paintbrush className="w-3 h-3" /> Color Theme
+                    <span className="normal-case text-zinc-600 text-xs font-normal ml-1">from logo</span>
+                  </label>
+                  <button type="button" onClick={() => setColorEditorOpen((v) => !v)}
+                    className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors flex items-center gap-1">
+                    Edit {colorEditorOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                {/* Swatches row */}
+                <div className="flex gap-2 flex-wrap mb-3">
+                  {(Object.entries(theme) as [keyof BrandTheme, string][]).map(([key, val]) => (
+                    <div key={key} className="flex flex-col items-center gap-1">
+                      <div className="w-9 h-9 rounded-lg border border-zinc-700 shadow-inner"
+                        style={{ backgroundColor: val }} />
+                      <span className="text-zinc-600 text-[10px]">{COLOR_LABELS[key]}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Live mini-preview */}
+                <div className="rounded-xl overflow-hidden border border-zinc-800 mb-3" style={{ backgroundColor: theme.background }}>
+                  <div className="px-4 py-3 flex items-center gap-3" style={{ backgroundColor: theme.surface }}>
+                    <div className="w-7 h-7 rounded-lg" style={{ backgroundColor: theme.primary }} />
+                    <div>
+                      <div className="text-xs font-bold" style={{ color: theme.text }}>Your Event Name</div>
+                      <div className="text-[10px] opacity-50" style={{ color: theme.text }}>Venue · Date</div>
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="text-xs font-semibold" style={{ color: theme.text }}>General Admission</div>
+                    <div className="px-3 py-1 rounded-lg text-xs font-bold"
+                      style={{ backgroundColor: theme.primary, color: theme.background }}>
+                      Buy ₦5,000
+                    </div>
+                  </div>
+                </div>
+
+                {/* Color override inputs */}
+                {colorEditorOpen && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-zinc-950 border border-zinc-800">
+                    {(Object.keys(theme) as (keyof BrandTheme)[]).map((key) => (
+                      <div key={key}>
+                        <label className="text-zinc-500 text-[10px] uppercase tracking-widest block mb-1.5">{COLOR_LABELS[key]}</label>
+                        <div className="flex items-center gap-2">
+                          <input type="color" value={theme[key]}
+                            onChange={(e) => setTheme((prev) => prev ? { ...prev, [key]: e.target.value } : prev)}
+                            className="w-8 h-8 rounded cursor-pointer bg-transparent border border-zinc-700 p-0.5 flex-shrink-0" />
+                          <input type="text" value={theme[key]} maxLength={7}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (/^#[0-9a-fA-F]{0,6}$/.test(v))
+                                setTheme((prev) => prev ? { ...prev, [key]: v } : prev);
+                            }}
+                            className="flex-1 min-w-0 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-white text-xs font-mono focus:outline-none focus:border-amber-400/50" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+              </div>
+            )}
 
-                <button
-                  type="submit"
-                  disabled={saveMutation.isPending}
-                  className="flex items-center gap-2 px-5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold transition-colors disabled:opacity-60">
-                  {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  Save Branding
-                </button>
-              </form>
-            </Form>
-          )}
+            {/* Save */}
+            <button type="button" onClick={handleSave} disabled={saving}
+              className="flex items-center gap-2 px-5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold transition-colors disabled:opacity-60">
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              Save Branding
+            </button>
+          </>)}
         </div>
       )}
     </div>

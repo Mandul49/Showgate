@@ -10,6 +10,7 @@ import { registerCheckoutRoutes } from "./checkout";
 import { registerUpgradeRoutes, startSubscriptionCron } from "./upgrade";
 import { registerBrandingRoutes } from "./branding";
 import { registerAnalyticsRoutes } from "./analytics";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
   const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
@@ -47,6 +48,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Analytics ────────────────────────────────────────────────────────────
   registerAnalyticsRoutes(app);
+
+  // ─── Object Storage (logo uploads) ───────────────────────────────────────
+  registerObjectStorageRoutes(app);
 
   // ─── Config (public read, protected write) ────────────────────────────────
 

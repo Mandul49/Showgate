@@ -50,6 +50,13 @@ interface PublicEvent {
     name: string;
     logoUrl: string | null;
     isPro: boolean;
+    brandTheme?: {
+      primary: string;
+      accent: string;
+      background: string;
+      surface: string;
+      text: string;
+    } | null;
   };
   paystackPublicKey: string;
   stripePublicKey: string;
@@ -670,12 +677,17 @@ export default function EventPage() {
   const totalSold = event.ticketTypes.reduce((s, t) => s + t.quantitySold, 0);
   const totalRemaining = event.ticketTypes.reduce((s, t) => s + t.remaining, 0);
   const pctSold = totalAvailable > 0 ? Math.min(100, Math.round((totalSold / totalAvailable) * 100)) : 0;
-  const primary = "#F59E0B";
+
+  const bt = event.branding?.brandTheme;
+  const primary = bt?.primary ?? "#F59E0B";
+  const bgColor = bt?.background ?? "#09090b";
+  const surfaceColor = bt?.surface ?? "#18181b";
+  const textColor = bt?.text ?? "#ffffff";
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor }}>
       {/* Hero */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-zinc-900 to-zinc-950">
+      <div className="relative overflow-hidden" style={{ background: `linear-gradient(to bottom, ${surfaceColor}, ${bgColor})` }}>
         <div className="absolute inset-0 opacity-5"
           style={{ backgroundImage: `radial-gradient(circle, ${primary} 1px, transparent 1px)`, backgroundSize: "40px 40px" }} />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-zinc-950" />
@@ -694,7 +706,7 @@ export default function EventPage() {
                 <Ticket className="w-8 h-8 text-amber-400" />
               </div>
             )}
-            <p className="text-xs font-bold uppercase tracking-[0.3em] mb-2 text-amber-400">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] mb-2" style={{ color: primary }}>
               {event.branding?.name ?? event.organizer?.businessName}
             </p>
             <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-4">
