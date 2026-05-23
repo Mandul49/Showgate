@@ -38,6 +38,12 @@ export function registerOnboardingRoutes(app: Express) {
       );
       const data: any = await r.json();
 
+      console.log(
+        "[banks] Paystack response status:", r.status,
+        "| banks returned:", data.data?.length ?? 0,
+        "| first 3:", JSON.stringify((data.data || []).slice(0, 3).map((b: any) => ({ id: b.id, name: b.name, code: b.code })))
+      );
+
       if (!r.ok || !data.status) {
         return res.status(502).json({ message: data.message || "Failed to fetch banks" });
       }

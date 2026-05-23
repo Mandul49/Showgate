@@ -11,7 +11,7 @@ import { isAuthenticated, getUser, authHeaders } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Building2, Landmark, Hash, ShieldCheck, CheckCircle2,
-  ArrowRight, Ticket, ChevronDown, Loader2, BadgeCheck
+  ArrowRight, Ticket, ChevronDown, Loader2, BadgeCheck, AlertCircle
 } from "lucide-react";
 
 interface PaystackBank {
@@ -51,9 +51,10 @@ export default function Onboarding() {
   }, []);
 
   // Fetch bank list
-  const { data: banks = [], isLoading: banksLoading } = useQuery<PaystackBank[]>({
+  const { data: banks = [], isLoading: banksLoading, isError: banksError } = useQuery<PaystackBank[]>({
     queryKey: ["/api/onboarding/banks"],
     staleTime: 60 * 60 * 1000,
+    retry: 2,
   });
 
   const form = useForm<FormValues>({
@@ -218,6 +219,10 @@ export default function Onboarding() {
                           {banksLoading
                             ? <div className="w-full bg-zinc-800 border border-zinc-600 rounded-md h-11 flex items-center gap-2 px-3 text-zinc-500 text-sm">
                                 <Loader2 className="w-4 h-4 animate-spin" /> Loading banks...
+                              </div>
+                            : banksError || banks.length === 0
+                            ? <div className="w-full bg-zinc-800 border border-red-500/60 rounded-md h-11 flex items-center gap-2 px-3 text-red-400 text-sm">
+                                <AlertCircle className="w-4 h-4 shrink-0" /> Failed to load banks — please refresh the page
                               </div>
                             : <>
                                 <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none z-10" />
