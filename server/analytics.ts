@@ -3,6 +3,53 @@ import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 
 export function registerAnalyticsRoutes(app: Express) {
+  // ── GET /api/organizer/events/:eventId/purchases/export ──────────────────
+  app.get("/api/organizer/events/:eventId/purchases/export", requireAuth, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+
+      const event = await storage.getEventById(eventId);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+
+      const organizer = await storage.getOrganizerByUserId(req.user.id);
+      if (!organizer || organizer.id !== event.organizerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const [ticketTypes, purchases] = await Promise.all([
+        storage.getTicketTypesByEventId(eventId),
+        storage.getTicketPurchasesByEventId(eventId),
+      ]);
+
+      const ticketTypeMap = new Map(ticketTypes.map((tt) => [tt.id, tt]));
+
+      const header = ["Name", "Email", "Phone", "Ticket Type", "Quantity", "Amount", "Reference", "Date", "Status"];
+      const rows = purchases
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map((p) => [
+          p.buyerName,
+          p.buyerEmail,
+          p.buyerPhone,
+          ticketTypeMap.get(p.ticketTypeId)?.name ?? "",
+          p.quantity,
+          p.amount,
+          p.reference,
+          new Date(p.createdAt).toLocaleString("en-GB"),
+          p.status,
+        ]);
+
+      const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const csv = [header, ...rows].map((row) => row.map(escape).join(",")).join("\n");
+
+      const filename = `${event.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_purchases.csv`;
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.send(csv);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── GET /api/analytics/:eventId ─────────────────────────────────────────
   app.get("/api/analytics/:eventId", requireAuth, async (req: any, res) => {
     try {

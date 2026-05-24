@@ -300,6 +300,24 @@ function exportCSV(buyers: AnalyticsData["recentBuyers"], eventTitle: string) {
   URL.revokeObjectURL(url);
 }
 
+async function downloadPurchasesCSV(eventId: string) {
+  const token = localStorage.getItem("authToken");
+  const res = await fetch(`/api/organizer/events/${eventId}/purchases/export`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match ? match[1] : "purchases.csv";
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Analytics page ───────────────────────────────────────────────────────────
 
 export default function Analytics() {
@@ -361,6 +379,13 @@ export default function Analytics() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => downloadPurchasesCSV(eventId!)}
+              title="Download all ticket purchases as CSV"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors">
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Download CSV</span>
+            </button>
             {isPro && data.recentBuyers && data.recentBuyers.length > 0 && (
               <button
                 onClick={() => exportCSV(data.recentBuyers, data.event.title)}
