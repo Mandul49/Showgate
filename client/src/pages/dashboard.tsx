@@ -46,7 +46,7 @@ interface EventsResponse {
   tier: "free" | "pro";
   limits: {
     maxActiveEvents: number | null;
-    maxTicketsPerEvent: number | null;
+    maxMonthlyTickets: number | null;
     allowedPaymentMethods: string[] | null;
   };
 }
@@ -219,7 +219,6 @@ function NewEventPanel({
   });
 
   const isFree = tier === "free";
-  const maxTicketsLimit = limits.maxTicketsPerEvent;
 
   return (
     <div className="bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden mb-6">
@@ -258,9 +257,8 @@ function NewEventPanel({
             <div>
               <label className="text-zinc-400 text-xs uppercase tracking-widest block mb-1.5">
                 Max Tickets *
-                {maxTicketsLimit && <span className="normal-case text-zinc-600 ml-1.5">(Free: max {maxTicketsLimit})</span>}
               </label>
-              <input {...form.register("maxTickets")} type="number" min={1} max={maxTicketsLimit ?? undefined}
+              <input {...form.register("maxTickets")} type="number" min={1}
                 className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-10 text-sm outline-none focus:border-amber-400 transition-colors" />
               {form.formState.errors.maxTickets && <p className="text-red-400 text-xs mt-1">{form.formState.errors.maxTickets.message}</p>}
             </div>
@@ -331,7 +329,7 @@ function NewEventPanel({
             <div className="flex gap-3 bg-amber-400/5 border border-amber-400/15 rounded-lg p-3.5">
               <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
               <p className="text-zinc-400 text-xs leading-relaxed">
-                Free plan: max <strong className="text-zinc-300">{FREE_MAX_ACTIVE_EVENTS} active events</strong> &amp; <strong className="text-zinc-300">{maxTicketsLimit} tickets per event</strong>. Paystack payments only.
+                Free plan: <strong className="text-zinc-300">1 active event</strong>, <strong className="text-zinc-300">500 tickets per month</strong>. Paystack payments only.
               </p>
             </div>
           )}
@@ -1079,7 +1077,7 @@ function EventCard({
   );
 }
 
-const FREE_MAX_ACTIVE_EVENTS = 2;
+const FREE_MAX_ACTIVE_EVENTS = 1;
 
 // ─── Flutterwave Section ──────────────────────────────────────────────────────
 
@@ -1739,7 +1737,7 @@ export default function Dashboard() {
 
   const events = data?.events ?? [];
   const tier = data?.tier ?? "free";
-  const limits = data?.limits ?? { maxActiveEvents: FREE_MAX_ACTIVE_EVENTS, maxTicketsPerEvent: 100, allowedPaymentMethods: ["paystack"] };
+  const limits = data?.limits ?? { maxActiveEvents: FREE_MAX_ACTIVE_EVENTS, maxMonthlyTickets: 500, allowedPaymentMethods: ["paystack"] };
   const activeCount = events.filter((e) => e.isActive).length;
   const atEventLimit = tier === "free" && activeCount >= FREE_MAX_ACTIVE_EVENTS;
   const totalSold = events.reduce((s, e) => s + e.ticketTypes.reduce((ss, t) => ss + t.quantitySold, 0), 0);
@@ -1827,8 +1825,8 @@ export default function Dashboard() {
           <div className="flex items-center gap-3 bg-amber-400/5 border border-amber-400/15 rounded-xl p-4 mb-6">
             <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
             <p className="text-zinc-400 text-sm flex-1">
-              You've reached the <strong className="text-zinc-200">Free plan limit</strong> of {FREE_MAX_ACTIVE_EVENTS} active events.
-              Deactivate one to create another, or upgrade to Pro for unlimited events.
+              You've reached the <strong className="text-zinc-200">Free plan limit</strong> of 1 active event.
+              Deactivate it to create a new one, or upgrade to Pro for unlimited events.
             </p>
           </div>
         )}

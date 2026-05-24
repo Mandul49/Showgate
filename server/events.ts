@@ -9,7 +9,8 @@ import {
 } from "@shared/schema";
 import {
   checkEventTierLimits,
-  checkTicketTypeTierLimits,
+  checkMonthlyTicketLimit,
+  FREE_MAX_MONTHLY_TICKETS,
 } from "./tierLimits";
 import { sendConfirmationEmail } from "./email";
 
@@ -28,14 +29,14 @@ export function registerEventsRoutes(app: Express) {
         }))
       );
 
-      const { FREE_MAX_ACTIVE_EVENTS, FREE_MAX_TICKETS_PER_EVENT, FREE_ALLOWED_PAYMENT_METHODS } = await import("./tierLimits");
+      const { FREE_MAX_ACTIVE_EVENTS, FREE_MAX_MONTHLY_TICKETS: FREE_MONTHLY, FREE_ALLOWED_PAYMENT_METHODS } = await import("./tierLimits");
 
       return res.json({
         events: eventsWithTypes,
         tier: organizer.tier,
         limits: {
           maxActiveEvents: organizer.tier === "free" ? FREE_MAX_ACTIVE_EVENTS : null,
-          maxTicketsPerEvent: organizer.tier === "free" ? FREE_MAX_TICKETS_PER_EVENT : null,
+          maxMonthlyTickets: organizer.tier === "free" ? FREE_MONTHLY : null,
           allowedPaymentMethods: organizer.tier === "free" ? FREE_ALLOWED_PAYMENT_METHODS : null,
         },
       });
@@ -59,7 +60,6 @@ export function registerEventsRoutes(app: Express) {
 
       const tierCheck = await checkEventTierLimits(organizer, {
         paymentMethod,
-        maxTickets,
         activating: isActive,
       });
       if (!tierCheck.allowed) {
@@ -116,7 +116,6 @@ export function registerEventsRoutes(app: Express) {
 
       const tierCheck = await checkEventTierLimits(organizer, {
         paymentMethod: updates.paymentMethod,
-        maxTickets: updates.maxTickets,
         activating: updates.isActive === true && !event.isActive,
         excludeEventId: event.id,
       });
@@ -190,12 +189,6 @@ export function registerEventsRoutes(app: Express) {
         return res.status(400).json({
           message: `Adding ${quantityAvailable} tickets would exceed this event's capacity of ${event.maxTickets}. Available: ${event.maxTickets - currentTotal}.`,
         });
-      }
-
-      // Free-tier hard cap: total across all types must not exceed FREE_MAX_TICKETS_PER_EVENT
-      const tierCheck = await checkTicketTypeTierLimits(organizer, event, { quantityAvailable });
-      if (!tierCheck.allowed) {
-        return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });
       }
 
       const ticketType = await storage.createTicketType({ eventId: event.id, name, price, quantityAvailable });
@@ -315,10 +308,15 @@ export function registerEventsRoutes(app: Express) {
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+      const organizer = await storage.getOrganizerById(event.organizerId);
+      const monthlyCheck = await checkMonthlyTicketLimit(organizer!, qty);
+      if (!monthlyCheck.allowed) {
+        return res.status(403).json({ message: monthlyCheck.message, code: monthlyCheck.code });
+      }
+
       const order = await storage.createOrder(parsed.data, "confirmed");
       await storage.incrementTicketTypeSold(ticketType.id, qty);
 
-      const organizer = await storage.getOrganizerById(event.organizerId);
       const isPro = organizer?.tier === "pro";
       sendConfirmationEmail({
         to: customerEmail,
@@ -417,11 +415,16 @@ export function registerEventsRoutes(app: Express) {
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+      const stripeOrganizer = await storage.getOrganizerById(event.organizerId);
+      const monthlyCheck = await checkMonthlyTicketLimit(stripeOrganizer!, qty);
+      if (!monthlyCheck.allowed) {
+        return res.status(403).json({ message: monthlyCheck.message, code: monthlyCheck.code });
+      }
+
       const order = await storage.createOrder(parsed.data, "confirmed");
       await storage.incrementTicketTypeSold(ticketType.id, qty);
 
-      const organizer = await storage.getOrganizerById(event.organizerId);
-      const isPro = organizer?.tier === "pro";
+      const isPro = stripeOrganizer?.tier === "pro";
       sendConfirmationEmail({
         to: customerEmail,
         buyerName: customerName,
@@ -432,8 +435,8 @@ export function registerEventsRoutes(app: Express) {
         quantity: qty,
         amount: totalAmount,
         reference: order.id,
-        brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
-        brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+        brandName: (isPro && stripeOrganizer?.customBrandName) ? stripeOrganizer.customBrandName : undefined,
+        brandLogoUrl: (isPro && stripeOrganizer?.customLogoUrl) ? stripeOrganizer.customLogoUrl : null,
         isPro,
       }).catch(console.error);
 
@@ -533,6 +536,11 @@ export function registerEventsRoutes(app: Express) {
       // Server-authoritative amount check (FW amounts are in full units, not kobo)
       if (fwData.data.amount < totalAmount) {
         return res.status(400).json({ message: "Paid amount is less than ticket price" });
+      }
+
+      const fwMonthlyCheck = await checkMonthlyTicketLimit(organizer, qty);
+      if (!fwMonthlyCheck.allowed) {
+        return res.status(403).json({ message: fwMonthlyCheck.message, code: fwMonthlyCheck.code });
       }
 
       const parsed = insertOrderSchema.safeParse({

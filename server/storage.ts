@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
@@ -96,6 +96,8 @@ export interface IStorage {
   getTicketPurchaseByReference(reference: string): Promise<TicketPurchase | undefined>;
   getTicketPurchasesByEventId(eventId: string): Promise<TicketPurchase[]>;
   updateTicketPurchaseStatus(id: string, status: PurchaseStatus): Promise<TicketPurchase>;
+  // Monthly ticket count for free-tier limit
+  getMonthlyTicketCountByOrganizerId(organizerId: string): Promise<number>;
   // Subscription References (upgrade replay-attack prevention)
   hasSubscriptionReference(reference: string): Promise<boolean>;
   recordSubscriptionReference(reference: string, userId: string, plan: string): Promise<void>;
@@ -406,6 +408,23 @@ export class DbStorage implements IStorage {
       status: row.status as PurchaseStatus,
       createdAt: row.createdAt,
     };
+  }
+
+  // ── Monthly ticket count ──────────────────────────────────────────────────
+
+  async getMonthlyTicketCountByOrganizerId(organizerId: string): Promise<number> {
+    const [result] = await db
+      .select({ total: sql<number>`coalesce(sum(${orders.quantity}), 0)` })
+      .from(orders)
+      .innerJoin(events, eq(orders.eventId, events.id))
+      .where(
+        and(
+          eq(events.organizerId, organizerId),
+          sql`date_trunc('month', ${orders.createdAt}) = date_trunc('month', now())`,
+          eq(orders.status, "confirmed")
+        )
+      );
+    return Number(result.total);
   }
 
   // ── Subscription References ────────────────────────────────────────────────

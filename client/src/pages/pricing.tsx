@@ -22,8 +22,8 @@ function fmtNGN(n: number) {
 }
 
 const FEATURES: { label: string; free: string | boolean; pro: string | boolean }[] = [
-  { label: "Active events",       free: "2",             pro: "Unlimited" },
-  { label: "Tickets per event",   free: "100",           pro: "Unlimited" },
+  { label: "Active events",       free: "1",             pro: "Unlimited" },
+  { label: "Tickets per month",   free: "500",           pro: "Unlimited" },
   { label: "Payment methods",     free: "Paystack only", pro: "All providers" },
   { label: "Platform fee",        free: "2.5%",          pro: "0%" },
   { label: "Paystack subaccount", free: true,            pro: true },
