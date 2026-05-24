@@ -137,7 +137,7 @@ function PurchaseForm({
   const stripeCardRef = useRef<HTMLDivElement>(null);
 
   const paymentMethod = event.paymentMethod;
-  const primary = "#F59E0B";
+  const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
 
   const form = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
@@ -600,7 +600,7 @@ function TicketCard({ ticket, event, onSuccess }: {
 }) {
   const [open, setOpen] = useState(false);
   const soldOut = ticket.remaining <= 0;
-  const primary = "#F59E0B";
+  const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
 
   return (
     <div className="rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden">

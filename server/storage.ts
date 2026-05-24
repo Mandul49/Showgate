@@ -84,6 +84,7 @@ export interface IStorage {
   getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
   getEventById(id: string): Promise<Event | undefined>;
   updateEvent(id: string, updates: UpdateEventData): Promise<Event>;
+  deleteEvent(id: string): Promise<void>;
   // Ticket Types
   createTicketType(data: CreateTicketTypeData): Promise<TicketType>;
   getTicketTypesByEventId(eventId: string): Promise<TicketType[]>;
@@ -290,6 +291,11 @@ export class DbStorage implements IStorage {
       .returning();
     if (!row) throw new Error("Event not found");
     return this._mapEvent(row);
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    await db.delete(ticketTypes).where(eq(ticketTypes.eventId, id));
+    await db.delete(events).where(eq(events.id, id));
   }
 
   private _mapEvent(row: typeof events.$inferSelect): Event {

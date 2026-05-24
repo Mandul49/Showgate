@@ -13,7 +13,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
-  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil
+  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -739,8 +739,34 @@ function EventCard({
   const [addingTicketType, setAddingTicketType] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
+
+  async function handleDelete() {
+    setIsDeleting(true);
+    try {
+      const res = await apiRequest("DELETE", `/api/events/${event.id}`);
+      if (res.status === 409) {
+        const body = await res.json();
+        toast({ title: "Cannot delete event", description: body.message, variant: "destructive" });
+        setConfirmDelete(false);
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || "Failed to delete event");
+      }
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Event deleted", description: `"${event.title}" has been removed.` });
+      setConfirmDelete(false);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   function copyPublicLink() {
     const url = `${window.location.origin}/e/${event.id}`;
@@ -823,6 +849,12 @@ function EventCard({
               }
               <span className="hidden sm:inline">{event.isActive ? "Active" : "Activate"}</span>
             </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              title="Delete event"
+              className="p-1.5 rounded-lg text-zinc-700 hover:text-red-400 hover:bg-red-400/10 transition-colors">
+              <Trash2 className="w-4 h-4" />
+            </button>
             <button onClick={() => setExpanded((v) => !v)}
               className="p-1.5 rounded-lg text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition-colors">
               {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -903,6 +935,43 @@ function EventCard({
       )}
 
       <AttendeesSection event={event} />
+
+      {/* Delete confirmation dialog */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-base">Delete this event?</h3>
+                <p className="text-zinc-500 text-xs mt-0.5">This cannot be undone. All ticket data will be lost.</p>
+              </div>
+            </div>
+            <p className="text-zinc-400 text-sm mb-5 bg-zinc-800 rounded-lg px-3 py-2 truncate">
+              {event.title}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-sm font-semibold transition-colors disabled:opacity-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {isDeleting
+                  ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Deleting...</>
+                  : <><Trash2 className="w-4 h-4" /> Confirm Delete</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

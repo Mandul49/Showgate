@@ -140,6 +140,32 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
+  // ── DELETE /api/events/:id ────────────────────────────────────────────────
+  app.delete("/api/events/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
+
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
+
+      const ticketTypeList = await storage.getTicketTypesByEventId(event.id);
+      const totalSold = ticketTypeList.reduce((sum, t) => sum + t.quantitySold, 0);
+      if (totalSold > 0) {
+        return res.status(409).json({
+          message: "Cannot delete an event with purchased tickets. Archive it instead.",
+          code: "TICKETS_SOLD",
+        });
+      }
+
+      await storage.deleteEvent(event.id);
+      return res.status(204).send();
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── POST /api/events/:id/ticket-types ────────────────────────────────────
   app.post("/api/events/:id/ticket-types", requireAuth, async (req: AuthRequest, res) => {
     try {
