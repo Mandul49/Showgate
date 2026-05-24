@@ -61,6 +61,7 @@ interface PublicEvent {
     } | null;
   };
   paystackPublicKey: string;
+  paystackEnv?: "test" | "live";
   stripePublicKey: string;
   flutterwavePublicKey: string;
 }
@@ -724,8 +725,15 @@ export default function EventPage() {
   const surfaceColor = bt?.surface ?? "#18181b";
   const textColor = bt?.text ?? "#ffffff";
 
+  const isTestMode = event.paystackEnv === "test" || import.meta.env.VITE_PAYSTACK_ENV === "test";
+
   return (
     <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor }}>
+      {isTestMode && (
+        <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide">
+          TEST MODE — No real payments will be processed
+        </div>
+      )}
       {/* Hero */}
       <div className="relative overflow-hidden" style={{ background: `linear-gradient(to bottom, ${surfaceColor}, ${bgColor})` }}>
         <div className="absolute inset-0 opacity-5"

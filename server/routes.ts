@@ -9,6 +9,7 @@ import { registerEventsRoutes } from "./events";
 import { registerCheckoutRoutes } from "./checkout";
 import { registerUpgradeRoutes, startSubscriptionCron } from "./upgrade";
 import { registerBrandingRoutes } from "./branding";
+import { getPaystackSecretKey } from "./paystackConfig";
 import { registerAnalyticsRoutes } from "./analytics";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendConfirmationEmail } from "./email";
@@ -105,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!reference || !orderData) return res.status(400).json({ message: "Missing reference or order data" });
 
       const config = await storage.getEventConfig();
-      const secretKey = config.paystackSecretKey || process.env.PAYSTACK_SECRET_KEY;
+      const secretKey = config.paystackSecretKey || getPaystackSecretKey();
       if (!secretKey) return res.status(500).json({ message: "Paystack secret key not configured" });
 
       const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {

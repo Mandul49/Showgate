@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
+import { getPaystackSecretKey } from "./paystackConfig";
 
 
 const setupSchema = z.object({
@@ -29,7 +30,7 @@ export function registerOnboardingRoutes(app: Express) {
         return res.json(bankCache);
       }
 
-      const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
+      const PAYSTACK_KEY = getPaystackSecretKey();
       if (!PAYSTACK_KEY) return res.status(500).json({ message: "Paystack API key not configured" });
 
       const r = await fetch(
@@ -102,7 +103,7 @@ export function registerOnboardingRoutes(app: Express) {
 
       const { businessName, bankCode, bankName, accountNumber, bvn } = parsed.data;
 
-      const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
+      const PAYSTACK_KEY = getPaystackSecretKey();
       if (!PAYSTACK_KEY) {
         return res.status(500).json({ message: "Paystack API key not configured" });
       }

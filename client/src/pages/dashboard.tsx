@@ -1773,6 +1773,12 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {import.meta.env.VITE_PAYSTACK_ENV === "test" && (
+        <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide">
+          TEST MODE — No real payments will be processed
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-4 mb-8">

@@ -13,6 +13,7 @@ import {
   FREE_MAX_MONTHLY_TICKETS,
 } from "./tierLimits";
 import { sendConfirmationEmail } from "./email";
+import { getPaystackSecretKey, getPaystackPublicKey, isTestMode } from "./paystackConfig";
 
 export function registerEventsRoutes(app: Express) {
   // ── GET /api/events ───────────────────────────────────────────────────────
@@ -239,7 +240,8 @@ export function registerEventsRoutes(app: Express) {
           isPro: organizer?.tier === "pro" ?? false,
           brandTheme: (organizer?.tier === "pro") ? (organizer.brandTheme ?? null) : null,
         },
-        paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || "",
+        paystackPublicKey: getPaystackPublicKey(),
+        paystackEnv: isTestMode() ? "test" : "live",
         stripePublicKey: process.env.STRIPE_PUBLIC_KEY || "",
         flutterwavePublicKey: (organizer?.tier === "pro" && organizer.flutterwavePublicKey) ? organizer.flutterwavePublicKey : "",
       });
@@ -279,7 +281,7 @@ export function registerEventsRoutes(app: Express) {
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
       const { ticketType, qty, totalAmount } = resolved;
 
-      const secretKey = process.env.PAYSTACK_SECRET_KEY;
+      const secretKey = getPaystackSecretKey();
       if (!secretKey) return res.status(500).json({ message: "Payment not configured" });
 
       const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {

@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { checkoutSchema } from "@shared/schema";
 import { fulfillUpgrade } from "./upgrade";
 import { sendConfirmationEmail } from "./email";
+import { getPaystackSecretKey } from "./paystackConfig";
 
 const PLATFORM_FEE_PCT = 0.025; // 2.5% charged to organizer's subaccount on free tier
 
@@ -44,7 +45,7 @@ export function registerCheckoutRoutes(app: Express) {
   // ── POST /api/checkout ────────────────────────────────────────────────────
   app.post("/api/checkout", async (req, res) => {
     try {
-      const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
+      const PAYSTACK_KEY = getPaystackSecretKey();
       if (!PAYSTACK_KEY) {
         return res.status(500).json({ message: "Payment system not configured" });
       }
@@ -136,7 +137,7 @@ export function registerCheckoutRoutes(app: Express) {
   // ── POST /webhook/paystack ────────────────────────────────────────────────
   app.post("/webhook/paystack", async (req: any, res) => {
     try {
-      const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
+      const PAYSTACK_KEY = getPaystackSecretKey();
       if (!PAYSTACK_KEY) return res.sendStatus(200);
 
       // req.rawBody is captured in server/index.ts via express.json() verify callback
