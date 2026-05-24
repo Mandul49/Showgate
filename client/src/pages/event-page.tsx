@@ -45,6 +45,7 @@ interface PublicEvent {
   organizer: {
     businessName: string;
     subaccountCode: string;
+    testSubaccountCode: string | null;
     bankName: string;
     accountNumber: string;
   } | null;

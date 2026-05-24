@@ -164,6 +164,42 @@ export function registerOnboardingRoutes(app: Express) {
     }
   });
 
+  // ── POST /api/onboarding/setup-test-subaccount ────────────────────────────
+  app.post("/api/onboarding/setup-test-subaccount", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(404).json({ message: "Organizer not found. Complete onboarding first." });
+
+      const PAYSTACK_KEY = getPaystackSecretKey();
+      if (!PAYSTACK_KEY) return res.status(500).json({ message: "Paystack test key not configured" });
+
+      const payload: Record<string, any> = {
+        business_name: organizer.businessName,
+        settlement_bank: organizer.bankCode,
+        account_number: organizer.accountNumber,
+        percentage_charge: 2.5,
+      };
+
+      const paystackRes = await fetch("https://api.paystack.co/subaccount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PAYSTACK_KEY}` },
+        body: JSON.stringify(payload),
+      });
+
+      const paystackData: any = await paystackRes.json();
+      if (!paystackRes.ok || !paystackData.status) {
+        return res.status(400).json({ message: paystackData.message || "Test subaccount creation failed" });
+      }
+
+      const testSubaccountCode: string = paystackData.data.subaccount_code;
+      await storage.updateOrganizerTestSubaccount(organizer.id, testSubaccountCode);
+
+      return res.json({ testSubaccountCode });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── GET /api/organizer/payment-settings ────────────────────────────────────
   app.get("/api/organizer/payment-settings", requireAuth, async (req: AuthRequest, res) => {
     try {

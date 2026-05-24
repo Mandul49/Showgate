@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { checkoutSchema } from "@shared/schema";
 import { fulfillUpgrade } from "./upgrade";
 import { sendConfirmationEmail } from "./email";
-import { getPaystackSecretKey } from "./paystackConfig";
+import { getPaystackSecretKey, isTestMode } from "./paystackConfig";
 
 const PLATFORM_FEE_PCT = 0.025; // 2.5% charged to organizer's subaccount on free tier
 
@@ -77,8 +77,12 @@ export function registerCheckoutRoutes(app: Express) {
       }
 
       const organizer = await storage.getOrganizerById(event.organizerId);
-      if (!organizer?.subaccountCode) {
-        return res.status(500).json({ message: "Organizer payment account not set up" });
+      const activeSubaccountCode = isTestMode()
+        ? (organizer?.testSubaccountCode || organizer?.subaccountCode)
+        : organizer?.subaccountCode;
+
+      if (!activeSubaccountCode) {
+        return res.status(500).json({ message: isTestMode() ? "Test payment account not set up. Please set up your test payment account from the dashboard." : "Organizer payment account not set up" });
       }
 
       const amountKobo = ticketType.price * quantity * 100;
@@ -88,7 +92,7 @@ export function registerCheckoutRoutes(app: Express) {
       const payload: Record<string, any> = {
         email: buyerEmail,
         amount: amountKobo,
-        subaccount: organizer.subaccountCode,
+        subaccount: activeSubaccountCode,
         bearer: "subaccount",
         callback_url: callbackUrl,
         metadata: {

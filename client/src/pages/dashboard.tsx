@@ -44,6 +44,11 @@ interface EventData {
 interface EventsResponse {
   events: EventData[];
   tier: "free" | "pro";
+  paystackMode: "test" | "live";
+  organizer: {
+    testSubaccountCode: string | null;
+    hasTestSubaccount: boolean;
+  } | null;
   limits: {
     maxActiveEvents: number | null;
     maxMonthlyTickets: number | null;
@@ -1737,10 +1742,37 @@ export default function Dashboard() {
 
   const events = data?.events ?? [];
   const tier = data?.tier ?? "free";
+  const paystackMode = data?.paystackMode ?? (import.meta.env.VITE_PAYSTACK_ENV === "test" ? "test" : "live");
+  const organizerInfo = data?.organizer ?? null;
   const limits = data?.limits ?? { maxActiveEvents: FREE_MAX_ACTIVE_EVENTS, maxMonthlyTickets: 500, allowedPaymentMethods: ["paystack"] };
   const activeCount = events.filter((e) => e.isActive).length;
   const atEventLimit = tier === "free" && activeCount >= FREE_MAX_ACTIVE_EVENTS;
   const totalSold = events.reduce((s, e) => s + e.ticketTypes.reduce((ss, t) => ss + t.quantitySold, 0), 0);
+
+  const toggleModeMutation = useMutation({
+    mutationFn: async (mode: "test" | "live") => {
+      const res = await apiRequest("POST", "/api/admin/paystack-mode", { mode });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+      return json;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/events"] }),
+    onError: (err: any) => toast({ title: "Failed to switch mode", description: err.message, variant: "destructive" }),
+  });
+
+  const setupTestSubaccountMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/onboarding/setup-test-subaccount", {});
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+      return json;
+    },
+    onSuccess: () => {
+      toast({ title: "Test payment account created!", description: "You can now process test payments." });
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+    },
+    onError: (err: any) => toast({ title: "Setup failed", description: err.message, variant: "destructive" }),
+  });
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#0a0a0a" }}>
@@ -1773,9 +1805,28 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {import.meta.env.VITE_PAYSTACK_ENV === "test" && (
-        <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide">
-          TEST MODE — No real payments will be processed
+      {paystackMode === "test" && (
+        <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide flex items-center justify-center gap-3">
+          <span>TEST MODE — No real payments will be processed</span>
+          <button
+            onClick={() => toggleModeMutation.mutate("live")}
+            disabled={toggleModeMutation.isPending}
+            className="bg-black/20 hover:bg-black/30 text-black px-2.5 py-0.5 rounded text-xs font-bold transition-colors disabled:opacity-50"
+          >
+            Switch to Live
+          </button>
+        </div>
+      )}
+      {paystackMode === "live" && (
+        <div className="bg-green-500/10 border-b border-green-500/20 text-green-400 text-center text-xs font-bold py-1.5 px-4 tracking-wide flex items-center justify-center gap-3">
+          <span>LIVE MODE — Real payments are active</span>
+          <button
+            onClick={() => toggleModeMutation.mutate("test")}
+            disabled={toggleModeMutation.isPending}
+            className="bg-green-500/20 hover:bg-green-500/30 text-green-300 px-2.5 py-0.5 rounded text-xs font-bold transition-colors disabled:opacity-50"
+          >
+            Switch to Test
+          </button>
         </div>
       )}
 
@@ -1805,6 +1856,35 @@ export default function Dashboard() {
 
         {/* Flutterwave payment gateway */}
         <FlutterwaveSection tier={tier} />
+
+        {/* Test payment account setup */}
+        {paystackMode === "test" && !organizerInfo?.hasTestSubaccount && (
+          <div className="flex items-center gap-4 rounded-xl border border-yellow-400/20 bg-yellow-400/5 px-5 py-4 mb-6">
+            <div className="p-2 rounded-lg bg-yellow-400/10 border border-yellow-400/20 flex-shrink-0">
+              <Wallet className="w-4 h-4 text-yellow-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold text-sm">Test payment account required</p>
+              <p className="text-zinc-500 text-xs mt-0.5">Your live subaccount doesn't work in test mode. Create a separate test subaccount to process test payments.</p>
+            </div>
+            <button
+              onClick={() => setupTestSubaccountMutation.mutate()}
+              disabled={setupTestSubaccountMutation.isPending}
+              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              {setupTestSubaccountMutation.isPending
+                ? <><span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" /> Setting up...</>
+                : <><Wallet className="w-3.5 h-3.5" /> Set up test payment account</>
+              }
+            </button>
+          </div>
+        )}
+        {paystackMode === "test" && organizerInfo?.hasTestSubaccount && (
+          <div className="flex items-center gap-3 rounded-xl border border-green-500/20 bg-green-500/5 px-5 py-3 mb-6">
+            <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <p className="text-zinc-400 text-xs">Test payment account active · <span className="font-mono text-green-400">{organizerInfo.testSubaccountCode}</span></p>
+          </div>
+        )}
 
         {/* Pending bank transfers — Pro only */}
         <PendingTransfersSection tier={tier} />

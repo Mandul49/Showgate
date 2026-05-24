@@ -13,9 +13,20 @@ import {
   FREE_MAX_MONTHLY_TICKETS,
 } from "./tierLimits";
 import { sendConfirmationEmail } from "./email";
-import { getPaystackSecretKey, getPaystackPublicKey, isTestMode } from "./paystackConfig";
+import { getPaystackSecretKey, getPaystackPublicKey, isTestMode, getPaystackMode, setPaystackMode } from "./paystackConfig";
 
 export function registerEventsRoutes(app: Express) {
+
+  // ── POST /api/admin/paystack-mode ─────────────────────────────────────────
+  app.post("/api/admin/paystack-mode", requireAuth, async (req: AuthRequest, res) => {
+    const { mode } = req.body;
+    if (mode !== "test" && mode !== "live") {
+      return res.status(400).json({ message: "mode must be 'test' or 'live'" });
+    }
+    setPaystackMode(mode);
+    return res.json({ paystackMode: mode });
+  });
+
   // ── GET /api/events ───────────────────────────────────────────────────────
   app.get("/api/events", requireAuth, async (req: AuthRequest, res) => {
     try {
@@ -35,6 +46,11 @@ export function registerEventsRoutes(app: Express) {
       return res.json({
         events: eventsWithTypes,
         tier: organizer.tier,
+        paystackMode: getPaystackMode(),
+        organizer: {
+          testSubaccountCode: organizer.testSubaccountCode,
+          hasTestSubaccount: !!organizer.testSubaccountCode,
+        },
         limits: {
           maxActiveEvents: organizer.tier === "free" ? FREE_MAX_ACTIVE_EVENTS : null,
           maxMonthlyTickets: organizer.tier === "free" ? FREE_MONTHLY : null,
@@ -229,7 +245,10 @@ export function registerEventsRoutes(app: Express) {
         organizer: organizer
           ? {
               businessName: organizer.businessName,
-              subaccountCode: organizer.subaccountCode,
+              subaccountCode: isTestMode()
+                ? (organizer.testSubaccountCode || organizer.subaccountCode)
+                : organizer.subaccountCode,
+              testSubaccountCode: organizer.testSubaccountCode,
               bankName: organizer.bankName,
               accountNumber: organizer.accountNumber,
             }

@@ -79,6 +79,7 @@ export interface IStorage {
   updateOrganizerTier(organizerId: string, tier: UserTier): Promise<Organizer>;
   updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer>;
   updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer>;
+  updateOrganizerTestSubaccount(organizerId: string, testSubaccountCode: string): Promise<Organizer>;
   // Events
   createEvent(data: CreateEventData): Promise<Event>;
   getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
@@ -237,6 +238,7 @@ export class DbStorage implements IStorage {
       bankCode: row.bankCode,
       accountNumber: row.accountNumber,
       subaccountCode: row.subaccountCode,
+      testSubaccountCode: row.testSubaccountCode ?? null,
       bvn: row.bvn ?? null,
       tier: row.tier as UserTier,
       customBrandName: row.customBrandName ?? null,
@@ -246,6 +248,15 @@ export class DbStorage implements IStorage {
       brandTheme: (row.brandTheme as import("@shared/schema").BrandTheme | null) ?? null,
       createdAt: row.createdAt,
     };
+  }
+
+  async updateOrganizerTestSubaccount(organizerId: string, testSubaccountCode: string): Promise<Organizer> {
+    const [row] = await db.update(organizers)
+      .set({ testSubaccountCode })
+      .where(eq(organizers.id, organizerId))
+      .returning();
+    if (!row) throw new Error("Organizer not found");
+    return this._mapOrganizer(row);
   }
 
   async updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer> {

@@ -83,6 +83,7 @@ export const organizers = pgTable("organizers", {
   bankCode: text("bank_code").notNull(),
   accountNumber: text("account_number").notNull(),
   subaccountCode: text("subaccount_code").notNull(),
+  testSubaccountCode: text("test_subaccount_code"),
   bvn: text("bvn"),
   tier: text("tier").notNull().default("free"),
   customBrandName: text("custom_brand_name"),
@@ -101,6 +102,7 @@ export type Organizer = {
   bankCode: string;
   accountNumber: string;
   subaccountCode: string;
+  testSubaccountCode: string | null;
   bvn: string | null;
   tier: UserTier;
   customBrandName: string | null;
