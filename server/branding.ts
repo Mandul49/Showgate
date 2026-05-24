@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { requireAuth } from "./auth";
+import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { z } from "zod";
 import { ObjectStorageService } from "./replit_integrations/object_storage";
@@ -22,9 +22,10 @@ const brandingSchema = z.object({
 
 export function registerBrandingRoutes(app: Express) {
   // ── GET /api/branding/settings ──────────────────────────────────────────
-  app.get("/api/branding/settings", requireAuth, async (req: any, res) => {
+  app.get("/api/branding/settings", requireAuth, async (req: AuthRequest, res) => {
     try {
-      const organizer = await storage.getOrganizerByUserId(req.user.id);
+      console.log("[branding] GET settings for userId:", req.userId);
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
       if (!organizer) return res.status(404).json({ message: "Organizer not found" });
       return res.json({
         customBrandName: organizer.customBrandName,
@@ -38,9 +39,10 @@ export function registerBrandingRoutes(app: Express) {
   });
 
   // ── PUT /api/branding/settings (Pro only) ───────────────────────────────
-  app.put("/api/branding/settings", requireAuth, async (req: any, res) => {
+  app.put("/api/branding/settings", requireAuth, async (req: AuthRequest, res) => {
     try {
-      const organizer = await storage.getOrganizerByUserId(req.user.id);
+      console.log("[branding] PUT settings for userId:", req.userId);
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
       if (!organizer) return res.status(404).json({ message: "Organizer not found" });
       if (organizer.tier !== "pro") {
         return res.status(403).json({ message: "Upgrade to Pro to use custom branding" });
@@ -69,10 +71,10 @@ export function registerBrandingRoutes(app: Express) {
   });
 
   // ── POST /api/branding/logo-upload-url (Pro only) ───────────────────────
-  // Returns a presigned PUT URL for uploading a logo directly to object storage.
-  app.post("/api/branding/logo-upload-url", requireAuth, async (req: any, res) => {
+  app.post("/api/branding/logo-upload-url", requireAuth, async (req: AuthRequest, res) => {
     try {
-      const organizer = await storage.getOrganizerByUserId(req.user.id);
+      console.log("[branding] logo-upload-url for userId:", req.userId);
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
       if (!organizer) return res.status(404).json({ message: "Organizer not found" });
       if (organizer.tier !== "pro") {
         return res.status(403).json({ message: "Logo upload requires Pro plan", code: "TIER_REQUIRED" });
