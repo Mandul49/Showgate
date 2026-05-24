@@ -685,6 +685,12 @@ export function registerEventsRoutes(app: Express) {
 
       const updates = parsed.data;
 
+      if (updates.quantityAvailable !== undefined && updates.quantityAvailable < ticketType.quantitySold) {
+        return res.status(400).json({
+          message: `Quantity cannot be lower than tickets already sold (${ticketType.quantitySold}).`,
+        });
+      }
+
       if (updates.quantityAvailable !== undefined) {
         // Capacity check: all tiers
         const allTypes = await storage.getTicketTypesByEventId(event.id);

@@ -352,6 +352,91 @@ function NewEventPanel({
   );
 }
 
+// ─── Edit Ticket Type Panel ───────────────────────────────────────────────────
+
+const editTicketTypeSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  price: z.coerce.number().min(0, "Price cannot be negative"),
+  quantityAvailable: z.coerce.number().min(1, "Must have at least 1 ticket"),
+});
+type EditTicketTypeForm = z.infer<typeof editTicketTypeSchema>;
+
+function EditTicketTypePanel({
+  tt, event, onClose, onSaved,
+}: { tt: TicketTypeData; event: EventData; onClose: () => void; onSaved: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const form = useForm<EditTicketTypeForm>({
+    resolver: zodResolver(editTicketTypeSchema),
+    defaultValues: { name: tt.name, price: tt.price, quantityAvailable: tt.quantityAvailable },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (values: EditTicketTypeForm) => {
+      if (values.quantityAvailable < tt.quantitySold) {
+        throw new Error(`Quantity cannot be less than tickets already sold (${tt.quantitySold}).`);
+      }
+      const res = await apiRequest("PATCH", `/api/events/${event.id}/ticket-types/${tt.id}`, values);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update ticket type");
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Ticket type updated!" });
+      onSaved();
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="bg-zinc-800/80 border border-amber-400/20 rounded-lg px-4 py-3 space-y-3">
+      {event.isActive && (
+        <div className="flex items-center gap-2 bg-amber-400/8 border border-amber-400/20 rounded-lg px-3 py-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+          <p className="text-amber-300 text-xs">This event is live — changes will take effect immediately for new purchases.</p>
+        </div>
+      )}
+      <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-3 sm:col-span-1">
+            <label className="text-zinc-500 text-xs block mb-1">Name *</label>
+            <input {...form.register("name")} placeholder="e.g. Regular"
+              className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600" />
+            {form.formState.errors.name && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.name.message}</p>}
+          </div>
+          <div>
+            <label className="text-zinc-500 text-xs block mb-1">Price (₦)</label>
+            <input {...form.register("price")} type="number" min={0} placeholder="5000"
+              className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors" />
+            {form.formState.errors.price && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.price.message}</p>}
+          </div>
+          <div>
+            <label className="text-zinc-500 text-xs block mb-1">
+              Qty <span className="text-zinc-600">(min {tt.quantitySold} sold)</span>
+            </label>
+            <input {...form.register("quantityAvailable")} type="number" min={tt.quantitySold || 1}
+              className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors" />
+            {form.formState.errors.quantityAvailable && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.quantityAvailable.message}</p>}
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose}
+            className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">Cancel</button>
+          <button type="submit" disabled={mutation.isPending}
+            className="px-3 py-1.5 rounded-lg bg-amber-400/90 hover:bg-amber-400 text-black font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5">
+            {mutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ─── Add Ticket Type Form ─────────────────────────────────────────────────────
 
 function AddTicketTypePanel({
@@ -741,6 +826,7 @@ function EventCard({
   const [linkCopied, setLinkCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingTicketTypeId, setEditingTicketTypeId] = useState<string | null>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -906,19 +992,36 @@ function EventCard({
           ) : (
             <div className="space-y-2">
               {event.ticketTypes.map((tt) => (
-                <div key={tt.id} className="flex items-center justify-between bg-zinc-800/60 rounded-lg px-4 py-2.5 gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-                    <span className="text-zinc-300 text-sm font-semibold">{tt.name}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-zinc-500">
-                    <span className="font-mono text-zinc-300">₦{fmtPrice(tt.price)}</span>
-                    <span>{tt.quantitySold} / {tt.quantityAvailable} sold</span>
-                    <div className="w-16 h-1 bg-zinc-700 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-amber-400 transition-all"
-                        style={{ width: `${tt.quantityAvailable > 0 ? (tt.quantitySold / tt.quantityAvailable) * 100 : 0}%` }} />
+                <div key={tt.id}>
+                  {editingTicketTypeId === tt.id ? (
+                    <EditTicketTypePanel
+                      tt={tt}
+                      event={event}
+                      onClose={() => setEditingTicketTypeId(null)}
+                      onSaved={() => setEditingTicketTypeId(null)}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between bg-zinc-800/60 rounded-lg px-4 py-2.5 gap-4">
+                      <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                        <span className="text-zinc-300 text-sm font-semibold">{tt.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-zinc-500">
+                        <span className="font-mono text-zinc-300">₦{fmtPrice(tt.price)}</span>
+                        <span>{tt.quantitySold} / {tt.quantityAvailable} sold</span>
+                        <div className="w-16 h-1 bg-zinc-700 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-amber-400 transition-all"
+                            style={{ width: `${tt.quantityAvailable > 0 ? (tt.quantitySold / tt.quantityAvailable) * 100 : 0}%` }} />
+                        </div>
+                        <button
+                          onClick={() => { setEditingTicketTypeId(tt.id); setAddingTicketType(false); }}
+                          title="Edit ticket type"
+                          className="p-1 rounded text-zinc-600 hover:text-amber-400 hover:bg-amber-400/10 transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
