@@ -53,6 +53,8 @@ export const users = pgTable("users", {
   cancelledAt: timestamp("cancelled_at"),
   resetToken: text("reset_token"),
   resetTokenExpires: timestamp("reset_token_expires"),
+  emailVerified: boolean("email_verified").notNull().default(true),
+  emailVerificationToken: text("email_verification_token"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -67,6 +69,8 @@ export type User = {
   cancelledAt: Date | null;
   resetToken: string | null;
   resetTokenExpires: Date | null;
+  emailVerified: boolean;
+  emailVerificationToken: string | null;
   createdAt: Date;
 };
 

@@ -80,6 +80,9 @@ export interface IStorage {
   updateUserPassword(userId: string, passwordHash: string): Promise<void>;
   updateUserEmail(userId: string, email: string): Promise<void>;
   deleteUserAccount(userId: string): Promise<void>;
+  setEmailVerificationToken(userId: string, token: string): Promise<void>;
+  getUserByEmailVerificationToken(token: string): Promise<User | undefined>;
+  markEmailVerified(userId: string): Promise<void>;
   // Organizers
   createOrganizer(data: CreateOrganizerData): Promise<Organizer>;
   getOrganizerByUserId(userId: string): Promise<Organizer | undefined>;
@@ -182,7 +185,7 @@ export class DbStorage implements IStorage {
 
   async createUser(email: string, passwordHash: string, role: UserRole, tier: UserTier): Promise<User> {
     const id = randomUUID();
-    const [row] = await db.insert(users).values({ id, email: email.toLowerCase(), passwordHash, role, tier }).returning();
+    const [row] = await db.insert(users).values({ id, email: email.toLowerCase(), passwordHash, role, tier, emailVerified: false }).returning();
     return this._mapUser(row);
   }
 
@@ -252,6 +255,19 @@ export class DbStorage implements IStorage {
     await db.delete(users).where(eq(users.id, userId));
   }
 
+  async setEmailVerificationToken(userId: string, token: string): Promise<void> {
+    await db.update(users).set({ emailVerificationToken: token }).where(eq(users.id, userId));
+  }
+
+  async getUserByEmailVerificationToken(token: string): Promise<User | undefined> {
+    const [row] = await db.select().from(users).where(eq(users.emailVerificationToken, token));
+    return row ? this._mapUser(row) : undefined;
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    await db.update(users).set({ emailVerified: true, emailVerificationToken: null }).where(eq(users.id, userId));
+  }
+
   private _mapUser(row: typeof users.$inferSelect): User {
     return {
       id: row.id,
@@ -264,6 +280,8 @@ export class DbStorage implements IStorage {
       cancelledAt: row.cancelledAt ?? null,
       resetToken: row.resetToken ?? null,
       resetTokenExpires: row.resetTokenExpires ?? null,
+      emailVerified: row.emailVerified,
+      emailVerificationToken: row.emailVerificationToken ?? null,
       createdAt: row.createdAt,
     };
   }

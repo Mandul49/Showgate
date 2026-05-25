@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
+import { isAuthenticated, clearToken, getUser, getToken, isEmailVerified } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
@@ -2496,6 +2496,13 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {!isEmailVerified() && (
+        <div className="bg-amber-400/10 border-b border-amber-400/30 text-amber-300 text-xs font-semibold py-2.5 px-4 flex items-center justify-center gap-3">
+          <span>Your email is not verified. Check your inbox or</span>
+          <a href="/check-your-email" className="underline underline-offset-2 hover:text-amber-200 transition-colors">resend the confirmation</a>.
+        </div>
+      )}
 
       {paystackMode === "test" && (
         <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide flex items-center justify-center gap-3">

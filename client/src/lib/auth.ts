@@ -42,3 +42,14 @@ export function authHeaders(): Record<string, string> {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
+
+export function isEmailVerified(): boolean {
+  const token = getToken();
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.emailVerified !== false;
+  } catch {
+    return true;
+  }
+}

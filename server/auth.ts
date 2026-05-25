@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
-import { sendPasswordResetEmail } from "./email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "./email";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 const JWT_EXPIRES = "7d";
@@ -22,7 +22,13 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   }
   const token = authHeader.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string };
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string; emailVerified?: boolean };
+    if (payload.emailVerified === false) {
+      return res.status(403).json({
+        message: "Please verify your email to continue.",
+        redirectTo: "/check-your-email",
+      });
+    }
     req.userId = payload.userId;
     req.userRole = payload.role;
     req.userTier = payload.tier;
@@ -42,6 +48,14 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+// In-memory resend cooldown (60 seconds per email)
+const resendCooldown = new Map<string, number>();
+
+function buildTrustedBase(): string | null {
+  return process.env.APP_BASE_URL
+    || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}` : null);
+}
+
 export function registerAuthRoutes(app: Express) {
   app.post("/api/auth/signup", async (req, res) => {
     try {
@@ -59,15 +73,30 @@ export function registerAuthRoutes(app: Express) {
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await storage.createUser(email, passwordHash, "organizer", "free");
 
+      // Generate and store verification token
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+      await storage.setEmailVerificationToken(user.id, verificationToken);
+
+      // Send verification email (fire-and-forget, never log the token)
+      const trustedBase = buildTrustedBase();
+      if (trustedBase) {
+        const verifyUrl = `${trustedBase}/verify-email?token=${verificationToken}`;
+        sendVerificationEmail({ to: email, verifyUrl }).catch((err) =>
+          console.error("[auth] Failed to send verification email:", err.message)
+        );
+      } else {
+        console.warn("[auth] Cannot send verification email: APP_BASE_URL and REPLIT_DOMAINS are both unset");
+      }
+
       const token = jwt.sign(
-        { userId: user.id, role: user.role, tier: user.tier },
+        { userId: user.id, role: user.role, tier: user.tier, emailVerified: false },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES }
       );
 
       return res.status(201).json({
         token,
-        user: { id: user.id, email: user.email, role: user.role, tier: user.tier },
+        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: false },
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -93,16 +122,90 @@ export function registerAuthRoutes(app: Express) {
       }
 
       const token = jwt.sign(
-        { userId: user.id, role: user.role, tier: user.tier },
+        { userId: user.id, role: user.role, tier: user.tier, emailVerified: user.emailVerified },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES }
       );
 
       return res.json({
         token,
-        user: { id: user.id, email: user.email, role: user.role, tier: user.tier },
+        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: user.emailVerified },
       });
     } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Verify email ─────────────────────────────────────────────────────────────
+  app.get("/api/auth/verify-email", async (req, res) => {
+    try {
+      const { token } = req.query as { token?: string };
+      if (!token) {
+        return res.status(400).json({ message: "Verification token is missing." });
+      }
+
+      const user = await storage.getUserByEmailVerificationToken(token);
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or already-used verification link." });
+      }
+
+      await storage.markEmailVerified(user.id);
+      console.log(`[auth] Email verified for userId=${user.id}`);
+
+      const newJwt = jwt.sign(
+        { userId: user.id, role: user.role, tier: user.tier, emailVerified: true },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES }
+      );
+
+      return res.json({
+        token: newJwt,
+        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: true },
+      });
+    } catch (err: any) {
+      console.error("[auth] verify-email error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Resend verification email ─────────────────────────────────────────────────
+  const resendSchema = z.object({ email: z.string().email() });
+
+  app.post("/api/auth/resend-verification", async (req, res) => {
+    try {
+      const parsed = resendSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Please provide a valid email address." });
+      }
+      const { email } = parsed.data;
+
+      // Rate limit: 60 seconds between resends per email
+      const lastSent = resendCooldown.get(email);
+      if (lastSent && Date.now() - lastSent < 60_000) {
+        const wait = Math.ceil((60_000 - (Date.now() - lastSent)) / 1000);
+        return res.status(429).json({ message: `Please wait ${wait}s before requesting another email.` });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user || user.emailVerified) {
+        return res.json({ message: "If that email is pending verification, a new link has been sent." });
+      }
+
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+      await storage.setEmailVerificationToken(user.id, verificationToken);
+      resendCooldown.set(email, Date.now());
+
+      const trustedBase = buildTrustedBase();
+      if (trustedBase) {
+        const verifyUrl = `${trustedBase}/verify-email?token=${verificationToken}`;
+        sendVerificationEmail({ to: email, verifyUrl }).catch((err) =>
+          console.error("[auth] Failed to resend verification email:", err.message)
+        );
+      }
+
+      return res.json({ message: "If that email is pending verification, a new link has been sent." });
+    } catch (err: any) {
+      console.error("[auth] resend-verification error:", err);
       return res.status(500).json({ message: err.message });
     }
   });
@@ -184,7 +287,6 @@ export function registerAuthRoutes(app: Express) {
       const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
       if (!valid) return res.status(400).json({ message: "Password is incorrect" });
 
-      // Check for active events that have confirmed ticket purchases
       const organizer = await storage.getOrganizerByUserId(req.userId!);
       if (organizer) {
         const orgEvents = await storage.getEventsByOrganizerId(organizer.id);
@@ -227,10 +329,7 @@ export function registerAuthRoutes(app: Express) {
         const expires = new Date(Date.now() + 60 * 60 * 1000);
         await storage.setPasswordResetToken(user.id, token, expires);
 
-        // Build reset URL ONLY from trusted server-side config — never from request headers,
-        // to prevent Host/Origin header poisoning attacks that would email attacker-controlled links.
-        const trustedBase = process.env.APP_BASE_URL
-          || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}` : null);
+        const trustedBase = buildTrustedBase();
 
         if (!trustedBase) {
           console.error("[auth] Cannot send reset email: neither APP_BASE_URL nor REPLIT_DOMAINS is set");

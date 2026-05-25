@@ -3,6 +3,17 @@ import { getToken } from "./auth";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    if (res.status === 403) {
+      try {
+        const body = await res.clone().json();
+        if (body.redirectTo) {
+          window.location.href = body.redirectTo;
+          throw new Error("Email verification required");
+        }
+      } catch (e: any) {
+        if (e.message === "Email verification required") throw e;
+      }
+    }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }

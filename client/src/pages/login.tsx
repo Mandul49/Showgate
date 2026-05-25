@@ -83,6 +83,10 @@ export default function Login() {
       queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
+      if (json.user.emailVerified === false) {
+        navigate(`/check-your-email?email=${encodeURIComponent(data.email)}`);
+        return;
+      }
       await checkOnboardingAndNavigate(json.token);
     } catch (err: any) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
@@ -104,8 +108,7 @@ export default function Login() {
       queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
-      toast({ title: "Account created!", description: "Almost there — set up your payments next." });
-      navigate("/onboarding");
+      navigate(`/check-your-email?email=${encodeURIComponent(data.email)}`);
     } catch (err: any) {
       toast({ title: "Sign up failed", description: err.message, variant: "destructive" });
     } finally {

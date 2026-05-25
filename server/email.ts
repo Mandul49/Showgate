@@ -17,6 +17,46 @@ export interface ConfirmationEmailOptions {
   accountName?: string;
 }
 
+export async function sendVerificationEmail(opts: { to: string; verifyUrl: string }): Promise<void> {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+
+  if (!host || !user || !pass) {
+    console.warn(`[email] Verification NOT sent to ${opts.to}: SMTP_HOST/SMTP_USER/SMTP_PASS not configured.`);
+    return;
+  }
+
+  try {
+    const nodemailer = (await import("nodemailer")).default;
+    const transporter = nodemailer.createTransport({ host, port: 587, secure: false, auth: { user, pass } });
+    await transporter.sendMail({
+      from: `"Showgate" <${from}>`,
+      to: opts.to,
+      subject: "Confirm your Showgate email",
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
+            <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
+            <h1 style="margin:8px 0 0;font-size:20px;color:#000;font-weight:900;">Confirm your email</h1>
+          </div>
+          <div style="padding:24px 28px;">
+            <p style="margin:0 0 16px;color:#a1a1aa;">Welcome to Showgate! Click the button below to verify your email address and activate your account.</p>
+            <p style="margin:24px 0;text-align:center;">
+              <a href="${opts.verifyUrl}" style="display:inline-block;background:#f59e0b;color:#000;font-weight:900;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;text-transform:uppercase;letter-spacing:0.05em;">Verify Email</a>
+            </p>
+            <p style="margin:16px 0 0;font-size:12px;color:#71717a;">Or copy this link: <span style="word-break:break-all;color:#f59e0b;">${opts.verifyUrl}</span></p>
+            <p style="margin:24px 0 0;font-size:12px;color:#52525b;">If you didn't create a Showgate account, you can safely ignore this email.</p>
+          </div>
+        </div>`,
+    });
+    console.log(`[email] Verification email sent to ${opts.to}`);
+  } catch (err: any) {
+    console.error(`[email] Verification send failed:`, err.message);
+  }
+}
+
 export async function sendPasswordResetEmail(opts: { to: string; resetUrl: string }): Promise<void> {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
