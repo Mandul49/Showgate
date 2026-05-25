@@ -125,7 +125,7 @@ export default function Login() {
             <span className="text-white font-bold text-sm">TicketForge</span>
           </div>
           <a href="/" className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to event
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
           </a>
         </div>
       </div>
