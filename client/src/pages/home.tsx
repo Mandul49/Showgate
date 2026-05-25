@@ -250,7 +250,7 @@ export default function Home() {
             ].map((step, i) => (
               <FadeSection key={step.num}>
                 <div className="relative p-7 rounded-2xl border border-zinc-800 bg-zinc-900/60 h-full hover:border-zinc-700 transition-colors group">
-                  <div className="text-5xl font-black text-amber-500/30 group-hover:text-amber-500/60 transition-colors mb-5 leading-none select-none">
+                  <div className="text-5xl font-black text-amber-400 group-hover:text-amber-300 transition-colors mb-5 leading-none select-none">
                     {step.num}
                   </div>
                   <h3 className="text-lg font-bold mb-3">{step.title}</h3>
@@ -352,7 +352,7 @@ export default function Home() {
 
             {/* Pro */}
             <FadeSection>
-              <div className="pricing-pro-card relative p-7 rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-500/5 to-zinc-900/60 h-full flex flex-col overflow-hidden">
+              <div className="pricing-pro-card relative p-7 rounded-2xl border border-amber-500/40 bg-zinc-950 h-full flex flex-col overflow-hidden">
                 <div className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
                   Most Popular
                 </div>
