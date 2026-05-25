@@ -2051,6 +2051,7 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [showCancelSubModal, setShowCancelSubModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [showProPopover, setShowProPopover] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const user = getUser();
@@ -2082,7 +2083,7 @@ export default function Dashboard() {
 
   const cancelSubMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/upgrade/cancel", {});
+      const res = await apiRequest("POST", "/api/upgrade/cancel", { reason: cancelReason || null });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Cancellation failed");
       return json;
@@ -2091,6 +2092,7 @@ export default function Dashboard() {
       qc.invalidateQueries({ queryKey: ["/api/upgrade/status"] });
       qc.invalidateQueries({ queryKey: ["/api/events"] });
       setShowCancelSubModal(false);
+      setCancelReason("");
       toast({ title: "Subscription cancelled", description: "Your plan has been downgraded to Free." });
     },
     onError: (err: any) => toast({ title: "Cancellation failed", description: err.message, variant: "destructive" }),
@@ -2328,16 +2330,34 @@ export default function Dashboard() {
                   <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
                   <h3 className="text-white font-semibold text-base">Cancel Pro subscription?</h3>
                 </div>
-                <button onClick={() => setShowCancelSubModal(false)} className="text-zinc-500 hover:text-white transition-colors ml-2">
+                <button onClick={() => { setShowCancelSubModal(false); setCancelReason(""); }} className="text-zinc-500 hover:text-white transition-colors ml-2">
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-zinc-400 text-sm mb-6">
+              <p className="text-zinc-400 text-sm mb-4">
                 Your plan will be immediately downgraded to <strong className="text-zinc-200">Free</strong>. You'll lose access to 0% platform fee, unlimited events, and all Pro features right away.
               </p>
+              <div className="mb-5">
+                <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Why are you cancelling? <span className="normal-case text-zinc-600">(optional)</span></p>
+                <div className="flex flex-col gap-1.5">
+                  {["Too expensive", "Not using it enough", "Missing features", "Switching to another tool", "Other"].map((reason) => (
+                    <label key={reason} className="flex items-center gap-2.5 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="cancelReason"
+                        value={reason}
+                        checked={cancelReason === reason}
+                        onChange={() => setCancelReason(reason)}
+                        className="accent-red-500"
+                      />
+                      <span className={`text-sm transition-colors ${cancelReason === reason ? "text-white" : "text-zinc-400 group-hover:text-zinc-300"}`}>{reason}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowCancelSubModal(false)}
+                  onClick={() => { setShowCancelSubModal(false); setCancelReason(""); }}
                   disabled={cancelSubMutation.isPending}
                   className="flex-1 px-4 py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-sm font-semibold transition-colors disabled:opacity-50"
                 >

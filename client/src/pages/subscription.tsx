@@ -61,6 +61,7 @@ export default function SubscriptionPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -81,12 +82,13 @@ export default function SubscriptionPage() {
   }, [data]);
 
   const cancelMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/subscription/cancel", {}),
+    mutationFn: () => apiRequest("POST", "/api/subscription/cancel", { reason: cancelReason || null }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["/api/subscription"] });
       await qc.invalidateQueries({ queryKey: ["/api/upgrade/status"] });
       toast({ title: "Subscription cancelled", description: "You'll keep Pro access until your renewal date." });
       setShowCancelDialog(false);
+      setCancelReason("");
     },
     onError: (err: any) => {
       toast({ title: "Cancellation failed", description: err.message, variant: "destructive" });
@@ -279,7 +281,7 @@ export default function SubscriptionPage() {
       </div>
 
       {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+      <AlertDialog open={showCancelDialog} onOpenChange={(open) => { setShowCancelDialog(open); if (!open) setCancelReason(""); }}>
         <AlertDialogContent className="bg-zinc-900 border border-zinc-800 text-white">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">Cancel Pro plan?</AlertDialogTitle>
@@ -289,6 +291,24 @@ export default function SubscriptionPage() {
               Your events and data will not be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-1 pb-2">
+            <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Why are you cancelling? <span className="normal-case text-zinc-600">(optional)</span></p>
+            <div className="flex flex-col gap-1.5">
+              {["Too expensive", "Not using it enough", "Missing features", "Switching to another tool", "Other"].map((reason) => (
+                <label key={reason} className="flex items-center gap-2.5 cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="cancelReasonSub"
+                    value={reason}
+                    checked={cancelReason === reason}
+                    onChange={() => setCancelReason(reason)}
+                    className="accent-red-500"
+                  />
+                  <span className={`text-sm transition-colors ${cancelReason === reason ? "text-white" : "text-zinc-400 group-hover:text-zinc-300"}`}>{reason}</span>
+                </label>
+              ))}
+            </div>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-white">
               Keep Plan

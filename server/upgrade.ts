@@ -370,6 +370,10 @@ export function registerUpgradeRoutes(app: Express): void {
       if (!user) return res.status(404).json({ message: "User not found" });
       if (user.tier !== "pro") return res.status(400).json({ message: "No active Pro subscription" });
 
+      const reason: string | null = typeof req.body.reason === "string" && req.body.reason.trim()
+        ? req.body.reason.trim()
+        : null;
+
       await storage.updateUserTier(req.userId!, "free", new Date());
 
       const organizer = await storage.getOrganizerByUserId(req.userId!);
@@ -382,7 +386,7 @@ export function registerUpgradeRoutes(app: Express): void {
         }
       }
 
-      console.log(`[cancel] User ${req.userId!} (${user.email}) immediately downgraded to free`);
+      console.log(`[cancel] User ${req.userId!} (${user.email}) immediately downgraded to free — reason: ${reason ?? "No reason given"}`);
       return res.json({ success: true, tier: "free" });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -397,7 +401,12 @@ export function registerUpgradeRoutes(app: Express): void {
       if (user.tier !== "pro") return res.status(400).json({ message: "No active Pro subscription" });
       if (user.cancelledAt) return res.status(400).json({ message: "Subscription already cancelled" });
 
+      const reason: string | null = typeof req.body.reason === "string" && req.body.reason.trim()
+        ? req.body.reason.trim()
+        : null;
+
       const updated = await storage.cancelSubscription(req.userId!);
+      console.log(`[cancel] User ${req.userId!} (${user.email}) cancelled subscription — reason: ${reason ?? "No reason given"}`);
       return res.json({ cancelledAt: updated.cancelledAt, proExpiresAt: updated.proExpiresAt });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
