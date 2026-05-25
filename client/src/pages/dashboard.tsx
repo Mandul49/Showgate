@@ -25,6 +25,8 @@ interface TicketTypeData {
   price: number;
   quantityAvailable: number;
   quantitySold: number;
+  groupSize: number;
+  groupLabel: string | null;
 }
 
 interface EventData {
@@ -83,8 +85,19 @@ const newTicketTypeSchema = z.object({
   name: z.string().min(1, "Name is required"),
   price: z.coerce.number().min(0, "Price must be 0 or more"),
   quantityAvailable: z.coerce.number().min(1, "Must be at least 1"),
+  groupSize: z.coerce.number().int().min(1).default(1),
+  groupLabel: z.string().optional().nullable(),
 });
 type NewTicketTypeForm = z.infer<typeof newTicketTypeSchema>;
+
+const editTicketTypeSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  price: z.coerce.number().min(0, "Price must be 0 or more"),
+  quantityAvailable: z.coerce.number().min(1, "Must be at least 1"),
+  groupSize: z.coerce.number().int().min(1).default(1),
+  groupLabel: z.string().optional().nullable(),
+});
+type EditTicketTypeForm = z.infer<typeof editTicketTypeSchema>;
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
 
@@ -374,22 +387,22 @@ function NewEventPanel({
 
 // ─── Edit Ticket Type Panel ───────────────────────────────────────────────────
 
-const editTicketTypeSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  price: z.coerce.number().min(0, "Price cannot be negative"),
-  quantityAvailable: z.coerce.number().min(1, "Must have at least 1 ticket"),
-});
-type EditTicketTypeForm = z.infer<typeof editTicketTypeSchema>;
-
 function EditTicketTypePanel({
   tt, event, onClose, onSaved,
 }: { tt: TicketTypeData; event: EventData; onClose: () => void; onSaved: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [isGroup, setIsGroup] = useState((tt.groupSize ?? 1) > 1);
 
   const form = useForm<EditTicketTypeForm>({
     resolver: zodResolver(editTicketTypeSchema),
-    defaultValues: { name: tt.name, price: tt.price, quantityAvailable: tt.quantityAvailable },
+    defaultValues: {
+      name: tt.name,
+      price: tt.price,
+      quantityAvailable: tt.quantityAvailable,
+      groupSize: tt.groupSize ?? 1,
+      groupLabel: tt.groupLabel ?? "",
+    },
   });
 
   const mutation = useMutation({
@@ -420,7 +433,7 @@ function EditTicketTypePanel({
           <p className="text-amber-300 text-xs">This event is live — changes will take effect immediately for new purchases.</p>
         </div>
       )}
-      <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-2">
+      <form onSubmit={form.handleSubmit((v) => mutation.mutate({ ...v, groupSize: isGroup ? v.groupSize : 1, groupLabel: isGroup ? v.groupLabel : null }))} className="space-y-2">
         <div className="grid grid-cols-3 gap-2">
           <div className="col-span-3 sm:col-span-1">
             <label className="text-zinc-500 text-xs block mb-1">Name *</label>
@@ -443,6 +456,28 @@ function EditTicketTypePanel({
             {form.formState.errors.quantityAvailable && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.quantityAvailable.message}</p>}
           </div>
         </div>
+        {/* Group ticket toggle */}
+        <div className="flex items-center gap-2 pt-1">
+          <button type="button" onClick={() => setIsGroup((v) => !v)}
+            className={`w-8 h-4 rounded-full transition-colors flex items-center ${isGroup ? "bg-amber-400" : "bg-zinc-700"}`}>
+            <span className={`w-3 h-3 rounded-full bg-white shadow transition-transform mx-0.5 ${isGroup ? "translate-x-4" : "translate-x-0"}`} />
+          </button>
+          <span className="text-zinc-400 text-xs">Group ticket</span>
+        </div>
+        {isGroup && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-zinc-500 text-xs block mb-1">People per ticket</label>
+              <input {...form.register("groupSize")} type="number" min={2} max={50} placeholder="4"
+                className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors" />
+            </div>
+            <div>
+              <label className="text-zinc-500 text-xs block mb-1">Label <span className="text-zinc-600">(optional)</span></label>
+              <input {...form.register("groupLabel")} placeholder="e.g. Table, Couple"
+                className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600" />
+            </div>
+          </div>
+        )}
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose}
             className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">Cancel</button>
@@ -464,13 +499,14 @@ function AddTicketTypePanel({
 }: { event: EventData; onClose: () => void; onAdded: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [isGroup, setIsGroup] = useState(false);
 
   const usedCapacity = event.ticketTypes.reduce((s, t) => s + t.quantityAvailable, 0);
   const remaining = event.maxTickets - usedCapacity;
 
   const form = useForm<NewTicketTypeForm>({
     resolver: zodResolver(newTicketTypeSchema),
-    defaultValues: { name: "", price: 0, quantityAvailable: Math.min(remaining, 50) },
+    defaultValues: { name: "", price: 0, quantityAvailable: Math.min(remaining, 50), groupSize: 1, groupLabel: "" },
   });
 
   const mutation = useMutation({
@@ -496,7 +532,7 @@ function AddTicketTypePanel({
         <span className="text-zinc-300 text-sm font-semibold">Add Ticket Type</span>
         <button onClick={onClose} className="text-zinc-600 hover:text-zinc-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
       </div>
-      <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-3">
+      <form onSubmit={form.handleSubmit((v) => mutation.mutate({ ...v, groupSize: isGroup ? v.groupSize : 1, groupLabel: isGroup ? v.groupLabel : null }))} className="space-y-3">
         <div className="grid grid-cols-3 gap-2">
           <div className="col-span-3 sm:col-span-1">
             <label className="text-zinc-500 text-xs block mb-1">Name *</label>
@@ -516,6 +552,29 @@ function AddTicketTypePanel({
             {form.formState.errors.quantityAvailable && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.quantityAvailable.message}</p>}
           </div>
         </div>
+        {/* Group ticket toggle */}
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setIsGroup((v) => !v)}
+            className={`w-8 h-4 rounded-full transition-colors flex items-center ${isGroup ? "bg-amber-400" : "bg-zinc-700"}`}>
+            <span className={`w-3 h-3 rounded-full bg-white shadow transition-transform mx-0.5 ${isGroup ? "translate-x-4" : "translate-x-0"}`} />
+          </button>
+          <span className="text-zinc-400 text-xs">Group ticket</span>
+        </div>
+        {isGroup && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-zinc-500 text-xs block mb-1">People per ticket</label>
+              <input {...form.register("groupSize")} type="number" min={2} max={50} placeholder="4"
+                className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-9 text-sm outline-none focus:border-amber-400 transition-colors" />
+              <p className="text-zinc-600 text-xs mt-0.5">Deducts this many seats per ticket sold</p>
+            </div>
+            <div>
+              <label className="text-zinc-500 text-xs block mb-1">Label <span className="text-zinc-600">(optional)</span></label>
+              <input {...form.register("groupLabel")} placeholder="e.g. Table, Couple"
+                className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-9 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600" />
+            </div>
+          </div>
+        )}
         <div className="flex gap-2">
           <button type="button" onClick={onClose}
             className="px-4 py-1.5 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">Cancel</button>
@@ -867,6 +926,234 @@ function CopyLinkButton({ eventId }: { eventId: string }) {
   );
 }
 
+// ─── Discount Codes Panel ─────────────────────────────────────────────────────
+
+interface DiscountCodeData {
+  id: string;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  appliesTo: "all" | "specific";
+  appliesToTicketTypeId: string | null;
+  usageLimit: number | null;
+  timesUsed: number;
+  expiresAt: string | null;
+}
+
+const newDiscountSchema = z.object({
+  code: z.string().min(3, "Code must be at least 3 characters").max(20),
+  type: z.enum(["percent", "fixed"]),
+  value: z.coerce.number().min(1, "Value must be at least 1"),
+  appliesTo: z.enum(["all", "specific"]).default("all"),
+  appliesToTicketTypeId: z.string().nullable().optional(),
+  usageLimit: z.coerce.number().nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
+});
+type NewDiscountForm = z.infer<typeof newDiscountSchema>;
+
+function DiscountCodesPanel({ event }: { event: EventData }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  const { data: codes = [], isLoading } = useQuery<DiscountCodeData[]>({
+    queryKey: ["/api/events", event.id, "discount-codes"],
+    queryFn: async () => {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`/api/events/${event.id}/discount-codes`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load discount codes");
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const form = useForm<NewDiscountForm>({
+    resolver: zodResolver(newDiscountSchema),
+    defaultValues: { code: "", type: "percent", value: 10, appliesTo: "all", usageLimit: null, expiresAt: null },
+  });
+  const watchType = form.watch("type");
+  const watchAppliesTo = form.watch("appliesTo");
+
+  const createMutation = useMutation({
+    mutationFn: async (values: NewDiscountForm) => {
+      const res = await apiRequest("POST", `/api/events/${event.id}/discount-codes`, {
+        ...values,
+        code: values.code.toUpperCase(),
+        usageLimit: values.usageLimit || null,
+        expiresAt: values.expiresAt || null,
+        appliesToTicketTypeId: values.appliesTo === "specific" ? (values.appliesToTicketTypeId || null) : null,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to create code");
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/events", event.id, "discount-codes"] });
+      toast({ title: "Discount code created!" });
+      form.reset({ code: "", type: "percent", value: 10, appliesTo: "all", usageLimit: null, expiresAt: null });
+      setAdding(false);
+    },
+    onError: (err: any) => toast({ title: "Failed", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/discount-codes/${id}`, undefined);
+      if (!res.ok && res.status !== 204) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to delete");
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/events", event.id, "discount-codes"] });
+      toast({ title: "Code deleted" });
+    },
+    onError: (err: any) => toast({ title: "Failed", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="mt-4 border-t border-zinc-800 pt-4">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 text-zinc-400 hover:text-white text-sm font-semibold w-full text-left transition-colors">
+        <Tag className="w-3.5 h-3.5 text-amber-400" />
+        Discount Codes
+        <span className="text-zinc-600 font-normal text-xs ml-1">{codes.length > 0 ? `(${codes.length})` : ""}</span>
+        {open ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-2">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-zinc-600 text-xs py-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading codes...
+            </div>
+          ) : codes.length === 0 && !adding ? (
+            <p className="text-zinc-600 text-xs py-1">No discount codes yet.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {codes.map((dc) => (
+                <div key={dc.id} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-white font-mono font-bold text-sm">{dc.code}</span>
+                    <span className="text-amber-400 text-xs font-semibold">
+                      {dc.type === "percent" ? `${dc.value}%` : `₦${dc.value.toLocaleString()}`} off
+                    </span>
+                    {dc.usageLimit && (
+                      <span className="text-zinc-600 text-xs">{dc.timesUsed}/{dc.usageLimit} used</span>
+                    )}
+                    {!dc.usageLimit && dc.timesUsed > 0 && (
+                      <span className="text-zinc-600 text-xs">{dc.timesUsed} used</span>
+                    )}
+                    {dc.expiresAt && (
+                      <span className="text-zinc-600 text-xs hidden sm:inline">· exp {new Date(dc.expiresAt).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => deleteMutation.mutate(dc.id)}
+                    disabled={deleteMutation.isPending}
+                    className="p-1 rounded text-zinc-700 hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {adding ? (
+            <div className="bg-zinc-800/60 border border-zinc-700 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-zinc-300 text-sm font-semibold">New Discount Code</span>
+                <button onClick={() => setAdding(false)} className="text-zinc-600 hover:text-zinc-400"><X className="w-3.5 h-3.5" /></button>
+              </div>
+              <form onSubmit={form.handleSubmit((v) => createMutation.mutate(v))} className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-zinc-500 text-xs block mb-1">Code *</label>
+                    <input {...form.register("code")} placeholder="SAVE20" maxLength={20}
+                      onChange={(e) => form.setValue("code", e.target.value.toUpperCase())}
+                      className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm font-mono outline-none focus:border-amber-400 transition-colors uppercase placeholder:text-zinc-600 placeholder:normal-case" />
+                    {form.formState.errors.code && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.code.message}</p>}
+                  </div>
+                  <div>
+                    <label className="text-zinc-500 text-xs block mb-1">Type</label>
+                    <select {...form.register("type")}
+                      className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors">
+                      <option value="percent">Percentage</option>
+                      <option value="fixed">Fixed amount</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-zinc-500 text-xs block mb-1">
+                      Value {watchType === "percent" ? "(%)" : "(₦)"}
+                    </label>
+                    <input {...form.register("value")} type="number" min={1} max={watchType === "percent" ? 100 : undefined}
+                      className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors" />
+                    {form.formState.errors.value && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.value.message}</p>}
+                  </div>
+                  <div>
+                    <label className="text-zinc-500 text-xs block mb-1">Usage limit <span className="text-zinc-600">(opt)</span></label>
+                    <input {...form.register("usageLimit")} type="number" min={1} placeholder="∞"
+                      className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600" />
+                  </div>
+                  <div>
+                    <label className="text-zinc-500 text-xs block mb-1">Expiry <span className="text-zinc-600">(opt)</span></label>
+                    <input {...form.register("expiresAt")} type="date"
+                      className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors" />
+                  </div>
+                </div>
+                {event.ticketTypes.length > 1 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-zinc-500 text-xs block mb-1">Applies to</label>
+                      <select {...form.register("appliesTo")}
+                        className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors">
+                        <option value="all">All ticket types</option>
+                        <option value="specific">Specific ticket type</option>
+                      </select>
+                    </div>
+                    {watchAppliesTo === "specific" && (
+                      <div>
+                        <label className="text-zinc-500 text-xs block mb-1">Ticket type</label>
+                        <select {...form.register("appliesToTicketTypeId")}
+                          className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-8 text-sm outline-none focus:border-amber-400 transition-colors">
+                          <option value="">Select...</option>
+                          {event.ticketTypes.map((tt) => (
+                            <option key={tt.id} value={tt.id}>{tt.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setAdding(false)}
+                    className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">Cancel</button>
+                  <button type="submit" disabled={createMutation.isPending}
+                    className="px-3 py-1.5 rounded-lg bg-amber-400/90 hover:bg-amber-400 text-black font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                    {createMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Tag className="w-3 h-3" />}
+                    Create Code
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <button onClick={() => setAdding(true)}
+              className="flex items-center gap-1.5 text-zinc-600 hover:text-amber-400 text-xs transition-colors mt-1">
+              <Plus className="w-3.5 h-3.5" /> Add discount code
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EventCard({
   event, tier, onToggle, isToggling,
 }: {
@@ -1093,6 +1380,8 @@ function EventCard({
       )}
 
       <AttendeesSection event={event} />
+
+      <DiscountCodesPanel event={event} />
 
       {/* Delete confirmation dialog */}
       {confirmDelete && (

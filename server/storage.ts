@@ -2,7 +2,7 @@ import { eq, sql, and } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
-  subscriptionReferences,
+  subscriptionReferences, discountCodes,
   type Order, type InsertOrder, type EventConfig,
   type User, type UserRole, type UserTier,
   type Organizer, type CreateOrganizerData,
@@ -10,6 +10,7 @@ import {
   type TicketType, type CreateTicketTypeData, type UpdateTicketTypeData,
   type TicketPurchase, type CreateTicketPurchaseData, type PurchaseStatus,
   type SubscriptionReference,
+  type DiscountCode, type CreateDiscountCodeData,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -108,6 +109,13 @@ export interface IStorage {
   updateUserBillingCycle(userId: string, billingCycle: string): Promise<User>;
   cancelSubscription(userId: string): Promise<User>;
   reinstateSubscription(userId: string): Promise<User>;
+  // Discount Codes
+  createDiscountCode(data: CreateDiscountCodeData): Promise<DiscountCode>;
+  getDiscountCodesByEventId(eventId: string): Promise<DiscountCode[]>;
+  getDiscountCodeByCode(eventId: string, code: string): Promise<DiscountCode | undefined>;
+  getDiscountCodeById(id: string): Promise<DiscountCode | undefined>;
+  incrementDiscountCodeUsed(id: string): Promise<DiscountCode>;
+  deleteDiscountCode(id: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -341,7 +349,13 @@ export class DbStorage implements IStorage {
 
   async createTicketType(data: CreateTicketTypeData): Promise<TicketType> {
     const id = randomUUID();
-    const [row] = await db.insert(ticketTypes).values({ ...data, id, quantitySold: 0 }).returning();
+    const [row] = await db.insert(ticketTypes).values({
+      ...data,
+      id,
+      quantitySold: 0,
+      groupSize: data.groupSize ?? 1,
+      groupLabel: data.groupLabel ?? null,
+    }).returning();
     return this._mapTicketType(row);
   }
 
@@ -381,6 +395,8 @@ export class DbStorage implements IStorage {
       price: row.price,
       quantityAvailable: row.quantityAvailable,
       quantitySold: row.quantitySold,
+      groupSize: row.groupSize ?? 1,
+      groupLabel: row.groupLabel ?? null,
       createdAt: row.createdAt,
     };
   }
@@ -496,6 +512,72 @@ export class DbStorage implements IStorage {
       .returning();
     if (!row) throw new Error("User not found");
     return this._mapUser(row);
+  }
+
+  // ── Discount Codes ────────────────────────────────────────────────────────
+
+  async createDiscountCode(data: CreateDiscountCodeData): Promise<DiscountCode> {
+    const id = randomUUID();
+    const [row] = await db.insert(discountCodes).values({
+      id,
+      eventId: data.eventId,
+      code: data.code,
+      type: data.type,
+      value: data.value,
+      appliesTo: data.appliesTo,
+      appliesToTicketTypeId: data.appliesToTicketTypeId ?? null,
+      usageLimit: data.usageLimit ?? null,
+      timesUsed: 0,
+      expiresAt: data.expiresAt ?? null,
+    }).returning();
+    return this._mapDiscountCode(row);
+  }
+
+  async getDiscountCodesByEventId(eventId: string): Promise<DiscountCode[]> {
+    const rows = await db.select().from(discountCodes)
+      .where(eq(discountCodes.eventId, eventId))
+      .orderBy(sql`${discountCodes.createdAt} DESC`);
+    return rows.map(this._mapDiscountCode);
+  }
+
+  async getDiscountCodeByCode(eventId: string, code: string): Promise<DiscountCode | undefined> {
+    const [row] = await db.select().from(discountCodes)
+      .where(and(eq(discountCodes.eventId, eventId), eq(discountCodes.code, code.toUpperCase())));
+    return row ? this._mapDiscountCode(row) : undefined;
+  }
+
+  async getDiscountCodeById(id: string): Promise<DiscountCode | undefined> {
+    const [row] = await db.select().from(discountCodes).where(eq(discountCodes.id, id));
+    return row ? this._mapDiscountCode(row) : undefined;
+  }
+
+  async incrementDiscountCodeUsed(id: string): Promise<DiscountCode> {
+    const [row] = await db.update(discountCodes)
+      .set({ timesUsed: sql`${discountCodes.timesUsed} + 1` })
+      .where(eq(discountCodes.id, id))
+      .returning();
+    if (!row) throw new Error("Discount code not found");
+    return this._mapDiscountCode(row);
+  }
+
+  async deleteDiscountCode(id: string): Promise<void> {
+    await db.delete(discountCodes).where(eq(discountCodes.id, id));
+  }
+
+  private _mapDiscountCode(row: typeof discountCodes.$inferSelect): DiscountCode {
+    return {
+      id: row.id,
+      eventId: row.eventId,
+      code: row.code,
+      type: row.type as "percent" | "fixed",
+      value: row.value,
+      appliesTo: row.appliesTo as "all" | "specific",
+      appliesToTicketTypeId: row.appliesToTicketTypeId ?? null,
+      usageLimit: row.usageLimit ?? null,
+      timesUsed: row.timesUsed,
+      expiresAt: row.expiresAt ?? null,
+      createdAt: row.createdAt,
+    };
   }
 }
 

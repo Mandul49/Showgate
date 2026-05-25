@@ -16,6 +16,9 @@ export const orders = pgTable("orders", {
   quantity: integer("quantity").notNull(),
   totalAmount: integer("total_amount").notNull(),
   status: text("status").notNull().default("confirmed"),
+  attendeeDetails: jsonb("attendee_details"),
+  discountCode: text("discount_code"),
+  discountAmount: integer("discount_amount").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -26,6 +29,9 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
 }).extend({
   eventId: z.string().optional().nullable(),
   ticketTypeId: z.string().optional().nullable(),
+  attendeeDetails: z.array(z.object({ name: z.string(), email: z.string().optional() })).optional().nullable(),
+  discountCode: z.string().optional().nullable(),
+  discountAmount: z.number().optional().default(0),
 });
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
@@ -226,6 +232,8 @@ export const ticketTypes = pgTable("ticket_types", {
   price: integer("price").notNull(),
   quantityAvailable: integer("quantity_available").notNull(),
   quantitySold: integer("quantity_sold").notNull().default(0),
+  groupSize: integer("group_size").notNull().default(1),
+  groupLabel: text("group_label"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -236,6 +244,8 @@ export type TicketType = {
   price: number;
   quantityAvailable: number;
   quantitySold: number;
+  groupSize: number;
+  groupLabel: string | null;
   createdAt: Date;
 };
 
@@ -244,21 +254,78 @@ export interface CreateTicketTypeData {
   name: string;
   price: number;
   quantityAvailable: number;
+  groupSize?: number;
+  groupLabel?: string | null;
 }
 
 export interface UpdateTicketTypeData {
   name?: string;
   price?: number;
   quantityAvailable?: number;
+  groupSize?: number;
+  groupLabel?: string | null;
 }
 
 export const createTicketTypeSchema = z.object({
   name: z.string().min(1, "Name is required"),
   price: z.number().min(0, "Price must be non-negative"),
   quantityAvailable: z.number().min(1, "Must have at least 1 ticket"),
+  groupSize: z.number().int().min(1).optional().default(1),
+  groupLabel: z.string().optional().nullable(),
 });
 
 export const updateTicketTypeSchema = createTicketTypeSchema.partial();
+
+// ─── Discount Codes ───────────────────────────────────────────────────────────
+
+export const discountCodes = pgTable("discount_codes", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  eventId: varchar("event_id", { length: 36 }).notNull(),
+  code: text("code").notNull(),
+  type: text("type").notNull(), // "percent" | "fixed"
+  value: integer("value").notNull(),
+  appliesTo: text("applies_to").notNull().default("all"), // "all" | "specific"
+  appliesToTicketTypeId: varchar("applies_to_ticket_type_id", { length: 36 }),
+  usageLimit: integer("usage_limit"),
+  timesUsed: integer("times_used").notNull().default(0),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type DiscountCode = {
+  id: string;
+  eventId: string;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  appliesTo: "all" | "specific";
+  appliesToTicketTypeId: string | null;
+  usageLimit: number | null;
+  timesUsed: number;
+  expiresAt: Date | null;
+  createdAt: Date;
+};
+
+export interface CreateDiscountCodeData {
+  eventId: string;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  appliesTo: "all" | "specific";
+  appliesToTicketTypeId?: string | null;
+  usageLimit?: number | null;
+  expiresAt?: Date | null;
+}
+
+export const createDiscountCodeSchema = z.object({
+  code: z.string().min(1, "Code is required").max(50).transform((v) => v.trim().toUpperCase()),
+  type: z.enum(["percent", "fixed"]),
+  value: z.number().min(1, "Value must be at least 1"),
+  appliesTo: z.enum(["all", "specific"]).default("all"),
+  appliesToTicketTypeId: z.string().optional().nullable(),
+  usageLimit: z.number().int().min(1).optional().nullable(),
+  expiresAt: z.string().optional().nullable(),
+});
 
 // ─── Ticket Purchases ─────────────────────────────────────────────────────────
 

@@ -16,8 +16,54 @@ export function registerAnalyticsRoutes(app: Express) {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const orders = await storage.getOrdersByEventId(eventId);
-      const confirmed = orders.filter((o) => o.status === "confirmed");
+      const ticketTypeList = await storage.getTicketTypesByEventId(eventId);
+      const groupSizeMap = new Map(ticketTypeList.map((tt) => [tt.id, tt.groupSize]));
+
+      const allOrders = await storage.getOrdersByEventId(eventId);
+      const confirmed = allOrders.filter((o) => o.status === "confirmed");
+
+      // Expand group tickets — one row per attendee
+      const rows: string[][] = [];
+      for (const o of confirmed.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())) {
+        const attendees = (o.attendeeDetails as { name: string; email?: string }[] | null) ?? [];
+        const groupSize = o.ticketTypeId ? (groupSizeMap.get(o.ticketTypeId) ?? 1) : 1;
+
+        if (attendees.length > 0) {
+          attendees.forEach((a, i) => {
+            rows.push([
+              o.id.toUpperCase(),
+              o.customerName,
+              o.customerEmail,
+              o.customerPhone,
+              o.ticketType,
+              String(o.quantity),
+              String(o.totalAmount),
+              new Date(o.createdAt!).toLocaleString("en-GB"),
+              event.title,
+              a.name || "",
+              a.email || "",
+              String(i + 1),
+              String(groupSize),
+            ]);
+          });
+        } else {
+          rows.push([
+            o.id.toUpperCase(),
+            o.customerName,
+            o.customerEmail,
+            o.customerPhone,
+            o.ticketType,
+            String(o.quantity),
+            String(o.totalAmount),
+            new Date(o.createdAt!).toLocaleString("en-GB"),
+            event.title,
+            o.customerName,
+            o.customerEmail,
+            "1",
+            String(groupSize),
+          ]);
+        }
+      }
 
       const header = [
         "Order Reference",
@@ -25,25 +71,15 @@ export function registerAnalyticsRoutes(app: Express) {
         "Buyer Email",
         "Buyer Phone",
         "Ticket Type",
-        "Quantity",
+        "Tickets Purchased",
         "Amount Paid",
         "Purchase Date",
         "Event Name",
+        "Attendee Name",
+        "Attendee Email",
+        "Attendee #",
+        "Group Size",
       ];
-
-      const rows = confirmed
-        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
-        .map((o) => [
-          o.id.toUpperCase(),
-          o.customerName,
-          o.customerEmail,
-          o.customerPhone,
-          o.ticketType,
-          o.quantity,
-          o.totalAmount,
-          new Date(o.createdAt!).toLocaleString("en-GB"),
-          event.title,
-        ]);
 
       const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const csv = [header, ...rows].map((row) => row.map(escape).join(",")).join("\n");
@@ -70,20 +106,22 @@ export function registerAnalyticsRoutes(app: Express) {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const [ticketTypes, orders] = await Promise.all([
+      const [ticketTypeList, allOrders, discountCodeList] = await Promise.all([
         storage.getTicketTypesByEventId(eventId),
         storage.getOrdersByEventId(eventId),
+        storage.getDiscountCodesByEventId(eventId),
       ]);
 
       // Source of truth: orders table (confirmed status)
-      const confirmed = orders.filter((o) => o.status === "confirmed");
+      const confirmed = allOrders.filter((o) => o.status === "confirmed");
 
       const totalSold = confirmed.reduce((s, o) => s + o.quantity, 0);
       const totalRevenue = confirmed.reduce((s, o) => s + o.totalAmount, 0);
-      const remaining = ticketTypes.reduce((s, tt) => s + Math.max(0, tt.quantityAvailable - tt.quantitySold), 0);
+      const totalDiscountGiven = confirmed.reduce((s, o) => s + (o.discountAmount ?? 0), 0);
+      const remaining = ticketTypeList.reduce((s, tt) => s + Math.max(0, tt.quantityAvailable - tt.quantitySold), 0);
 
       // Per-ticket-type breakdown: join orders to ticket types via ticketTypeId or ticketType name
-      const ticketTypeSummary = ticketTypes.map((tt) => {
+      const ticketTypeSummary = ticketTypeList.map((tt) => {
         const sales = confirmed.filter((o) =>
           o.ticketTypeId === tt.id || o.ticketType === tt.name
         );
@@ -94,10 +132,28 @@ export function registerAnalyticsRoutes(app: Express) {
           name: tt.name,
           price: tt.price,
           quantityAvailable: tt.quantityAvailable,
+          groupSize: tt.groupSize,
+          groupLabel: tt.groupLabel,
           sold,
           remaining: Math.max(0, tt.quantityAvailable - tt.quantitySold),
           revenue,
           pct: totalSold > 0 ? Math.round((sold / totalSold) * 100) : 0,
+        };
+      });
+
+      // Discount code usage stats
+      const discountStats = discountCodeList.map((dc) => {
+        const usedOrders = confirmed.filter((o) => o.discountCode === dc.code);
+        const totalDiscount = usedOrders.reduce((s, o) => s + (o.discountAmount ?? 0), 0);
+        return {
+          id: dc.id,
+          code: dc.code,
+          type: dc.type,
+          value: dc.value,
+          timesUsed: dc.timesUsed,
+          usageLimit: dc.usageLimit,
+          totalDiscountGiven: totalDiscount,
+          expiresAt: dc.expiresAt ? dc.expiresAt.toISOString() : null,
         };
       });
 
@@ -114,16 +170,11 @@ export function registerAnalyticsRoutes(app: Express) {
         },
         totalSold,
         totalRevenue,
+        totalDiscountGiven,
         remaining,
         ticketTypeSummary,
+        discountStats,
       };
-
-      console.log("[analytics] Final response for event", eventId, {
-        totalSold,
-        totalRevenue,
-        confirmedOrders: confirmed.length,
-        ticketTypeSummary: ticketTypeSummary.map((t) => ({ name: t.name, sold: t.sold, revenue: t.revenue })),
-      });
 
       if (organizer.tier !== "pro") {
         return res.json(base);
@@ -162,6 +213,9 @@ export function registerAnalyticsRoutes(app: Express) {
           ticketType: o.ticketType,
           quantity: o.quantity,
           amount: o.totalAmount,
+          discountCode: o.discountCode ?? null,
+          discountAmount: o.discountAmount ?? 0,
+          attendeeDetails: (o.attendeeDetails as { name: string; email?: string }[] | null) ?? [],
           reference: o.id,
           date: new Date(o.createdAt!).toISOString(),
           status: o.status,

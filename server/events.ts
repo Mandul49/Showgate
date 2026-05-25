@@ -197,7 +197,7 @@ export function registerEventsRoutes(app: Express) {
         return res.status(400).json({ message: parsed.error.errors[0].message });
       }
 
-      const { name, price, quantityAvailable } = parsed.data;
+      const { name, price, quantityAvailable, groupSize, groupLabel } = parsed.data;
 
       // Capacity check: cannot exceed event.maxTickets (all tiers)
       const existingTypes = await storage.getTicketTypesByEventId(event.id);
@@ -208,7 +208,11 @@ export function registerEventsRoutes(app: Express) {
         });
       }
 
-      const ticketType = await storage.createTicketType({ eventId: event.id, name, price, quantityAvailable });
+      const ticketType = await storage.createTicketType({
+        eventId: event.id, name, price, quantityAvailable,
+        groupSize: groupSize ?? 1,
+        groupLabel: groupLabel ?? null,
+      });
       return res.status(201).json(ticketType);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -235,14 +239,21 @@ export function registerEventsRoutes(app: Express) {
         paymentMethod: event.paymentMethod,
         description: event.description ?? null,
         coverImageUrl: event.coverImageUrl ?? null,
-        ticketTypes: ticketTypes.map((tt) => ({
-          id: tt.id,
-          name: tt.name,
-          price: tt.price,
-          quantityAvailable: tt.quantityAvailable,
-          quantitySold: tt.quantitySold,
-          remaining: Math.max(0, tt.quantityAvailable - tt.quantitySold),
-        })),
+        ticketTypes: ticketTypes.map((tt) => {
+          const groupSize = tt.groupSize ?? 1;
+          const remainingSeats = Math.max(0, tt.quantityAvailable - tt.quantitySold);
+          return {
+            id: tt.id,
+            name: tt.name,
+            price: tt.price,
+            quantityAvailable: tt.quantityAvailable,
+            quantitySold: tt.quantitySold,
+            groupSize,
+            groupLabel: tt.groupLabel ?? null,
+            remaining: groupSize > 1 ? Math.floor(remainingSeats / groupSize) : remainingSeats,
+            remainingSeats,
+          };
+        }),
         organizer: organizer
           ? {
               businessName: organizer.businessName,
@@ -282,10 +293,31 @@ export function registerEventsRoutes(app: Express) {
     const tt = await storage.getTicketTypeById(ticketTypeId);
     if (!tt) return { error: "Ticket type not found" } as const;
     if (tt.eventId !== eventId) return { error: "Ticket type does not belong to this event" } as const;
+    const groupSize = tt.groupSize ?? 1;
+    const seatDeduction = qty * groupSize;
     const remaining = tt.quantityAvailable - tt.quantitySold;
-    if (remaining < qty) return { error: "Not enough tickets remaining for this type" } as const;
+    if (remaining < seatDeduction) return { error: "Not enough tickets remaining for this type" } as const;
     const totalAmount = tt.price * qty;
-    return { ticketType: tt, qty, totalAmount } as const;
+    return { ticketType: tt, qty, totalAmount, seatDeduction } as const;
+  }
+
+  // ── Shared helper: validate discount code and compute discounted total ────
+  async function resolveDiscount(eventId: string, discountCode: string | undefined, ticketTypeId: string, baseTotal: number) {
+    if (!discountCode) return { discountAmount: 0, discountCodeId: null };
+    const dc = await storage.getDiscountCodeByCode(eventId, discountCode.trim().toUpperCase());
+    if (!dc) return { discountAmount: 0, discountCodeId: null };
+    if (dc.expiresAt && new Date() > dc.expiresAt) return { discountAmount: 0, discountCodeId: null };
+    if (dc.usageLimit !== null && dc.timesUsed >= dc.usageLimit) return { discountAmount: 0, discountCodeId: null };
+    if (dc.appliesTo === "specific" && dc.appliesToTicketTypeId && dc.appliesToTicketTypeId !== ticketTypeId) {
+      return { discountAmount: 0, discountCodeId: null };
+    }
+    let discountAmount = 0;
+    if (dc.type === "percent") {
+      discountAmount = Math.round(baseTotal * dc.value / 100);
+    } else {
+      discountAmount = Math.min(baseTotal, dc.value);
+    }
+    return { discountAmount, discountCodeId: dc.id, discountCodeStr: dc.code };
   }
 
   // ── POST /api/public/events/:id/purchase/paystack ─────────────────────────
@@ -294,12 +326,15 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle } = req.body;
+      const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails } = req.body;
       if (!reference) return res.status(400).json({ message: "Missing payment reference" });
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount } = resolved;
+      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
+
+      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
+      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
 
       const secretKey = getPaystackSecretKey();
       if (!secretKey) return res.status(500).json({ message: "Payment not configured" });
@@ -314,7 +349,7 @@ export function registerEventsRoutes(app: Express) {
         return res.status(400).json({ message: "Payment was not successful" });
 
       // Server-authoritative amount check (Paystack amounts are in kobo)
-      if (paystackData.data.amount < totalAmount * 100)
+      if (paystackData.data.amount < chargedAmount * 100)
         return res.status(400).json({ message: "Paid amount is less than ticket price" });
 
       const parsed = insertOrderSchema.safeParse({
@@ -326,7 +361,10 @@ export function registerEventsRoutes(app: Express) {
         instagramHandle: instagramHandle || null,
         ticketType: ticketType.name,
         quantity: qty,
-        totalAmount,
+        totalAmount: chargedAmount,
+        discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
+        discountAmount: discount.discountAmount,
+        attendeeDetails: attendeeDetails || null,
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
@@ -337,7 +375,8 @@ export function registerEventsRoutes(app: Express) {
       }
 
       const order = await storage.createOrder(parsed.data, "confirmed");
-      await storage.incrementTicketTypeSold(ticketType.id, qty);
+      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
+      if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
       const isPro = organizer?.tier === "pro";
       sendConfirmationEmail({
@@ -368,29 +407,33 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { ticketTypeId, quantity, customerEmail } = req.body;
+      const { ticketTypeId, quantity, customerEmail, discountCode } = req.body;
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { qty, totalAmount } = resolved;
+      const { ticketType, qty, totalAmount } = resolved;
+
+      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
+      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
 
       const secretKey = process.env.STRIPE_SECRET_KEY;
       if (!secretKey) return res.status(500).json({ message: "Stripe not configured" });
 
       const stripe = new Stripe(secretKey);
       const intent = await stripe.paymentIntents.create({
-        // Amount is authoritative: computed from DB price, not client-provided
-        amount: Math.round(totalAmount * 100),
+        // Amount is authoritative: computed from DB price (minus discount), not client-provided
+        amount: Math.round(chargedAmount * 100),
         currency: "usd",
         receipt_email: customerEmail || undefined,
         metadata: {
           eventId: event.id,
           ticketTypeId: String(ticketTypeId),
           quantity: String(qty),
+          discountCode: discountCode || "",
         },
       });
 
-      return res.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id });
+      return res.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id, chargedAmount });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
@@ -402,12 +445,15 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { paymentIntentId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle } = req.body;
+      const { paymentIntentId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails } = req.body;
       if (!paymentIntentId) return res.status(400).json({ message: "Missing paymentIntentId" });
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount } = resolved;
+      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
+
+      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
+      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
 
       const secretKey = process.env.STRIPE_SECRET_KEY;
       if (!secretKey) return res.status(500).json({ message: "Stripe not configured" });
@@ -416,11 +462,9 @@ export function registerEventsRoutes(app: Express) {
       const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
       if (intent.status !== "succeeded") return res.status(400).json({ message: "Payment not completed" });
 
-      // Verify paid amount matches server-authoritative total
-      if (intent.amount < Math.round(totalAmount * 100))
+      if (intent.amount < Math.round(chargedAmount * 100))
         return res.status(400).json({ message: "Paid amount is less than ticket price" });
 
-      // Verify the intent's metadata event/ticket type matches (if metadata was set by our intent endpoint)
       if (intent.metadata.eventId && intent.metadata.eventId !== event.id)
         return res.status(400).json({ message: "Payment intent event mismatch" });
 
@@ -433,7 +477,10 @@ export function registerEventsRoutes(app: Express) {
         instagramHandle: instagramHandle || null,
         ticketType: ticketType.name,
         quantity: qty,
-        totalAmount,
+        totalAmount: chargedAmount,
+        discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
+        discountAmount: discount.discountAmount,
+        attendeeDetails: attendeeDetails || null,
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
@@ -444,7 +491,8 @@ export function registerEventsRoutes(app: Express) {
       }
 
       const order = await storage.createOrder(parsed.data, "confirmed");
-      await storage.incrementTicketTypeSold(ticketType.id, qty);
+      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
+      if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
       const isPro = stripeOrganizer?.tier === "pro";
       sendConfirmationEmail({
@@ -474,11 +522,14 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle } = req.body;
+      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails } = req.body;
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount } = resolved;
+      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
+
+      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
+      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
 
       const parsed = insertOrderSchema.safeParse({
         eventId: event.id,
@@ -489,12 +540,16 @@ export function registerEventsRoutes(app: Express) {
         instagramHandle: instagramHandle || null,
         ticketType: ticketType.name,
         quantity: qty,
-        totalAmount,
+        totalAmount: chargedAmount,
+        discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
+        discountAmount: discount.discountAmount,
+        attendeeDetails: attendeeDetails || null,
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
       const order = await storage.createOrder(parsed.data, "awaiting_transfer");
-      await storage.incrementTicketTypeSold(ticketType.id, qty);
+      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
+      if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
       const organizer = await storage.getOrganizerById(event.organizerId);
       const isPro = organizer?.tier === "pro";
@@ -537,12 +592,15 @@ export function registerEventsRoutes(app: Express) {
         return res.status(503).json({ message: "Flutterwave not configured for this event" });
       }
 
-      const { transactionId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle } = req.body;
+      const { transactionId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails } = req.body;
       if (!transactionId) return res.status(400).json({ message: "Missing transactionId" });
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount } = resolved;
+      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
+
+      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
+      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
 
       // Verify with Flutterwave using organizer's secret key
       const fwRes = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
@@ -556,7 +614,7 @@ export function registerEventsRoutes(app: Express) {
       }
 
       // Server-authoritative amount check (FW amounts are in full units, not kobo)
-      if (fwData.data.amount < totalAmount) {
+      if (fwData.data.amount < chargedAmount) {
         return res.status(400).json({ message: "Paid amount is less than ticket price" });
       }
 
@@ -574,12 +632,16 @@ export function registerEventsRoutes(app: Express) {
         instagramHandle: instagramHandle || null,
         ticketType: ticketType.name,
         quantity: qty,
-        totalAmount,
+        totalAmount: chargedAmount,
+        discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
+        discountAmount: discount.discountAmount,
+        attendeeDetails: attendeeDetails || null,
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
       const order = await storage.createOrder(parsed.data, "confirmed");
-      await storage.incrementTicketTypeSold(ticketType.id, qty);
+      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
+      if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
       const isPro = organizer.tier === "pro";
       sendConfirmationEmail({

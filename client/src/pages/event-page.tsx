@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Instagram,
-  ShieldCheck, ArrowLeft, Building2, CreditCard, Crown, AlertCircle, Copy, Check
+  ShieldCheck, ArrowLeft, Building2, CreditCard, Crown, AlertCircle, Copy, Check,
+  Tag, Users, X, CheckCircle2
 } from "lucide-react";
 
 declare global {
@@ -29,7 +30,10 @@ interface PublicTicketType {
   price: number;
   quantityAvailable: number;
   quantitySold: number;
+  groupSize: number;
+  groupLabel: string | null;
   remaining: number;
+  remainingSeats: number;
 }
 
 interface PublicEvent {
@@ -189,6 +193,15 @@ const registrationSchema = z.object({
 });
 type RegistrationForm = z.infer<typeof registrationSchema>;
 
+interface DiscountResult {
+  valid: boolean;
+  codeId: string;
+  code: string;
+  discountAmount: number;
+  newTotal: number;
+  description: string;
+}
+
 // ─── Input component ──────────────────────────────────────────────────────────
 
 function DarkInput({ icon: Icon, field, placeholder, type = "text" }: any) {
@@ -222,15 +235,68 @@ function PurchaseForm({
   const [clientSecret, setClientSecret] = useState<string>("");
   const stripeCardRef = useRef<HTMLDivElement>(null);
 
+  // Discount code state
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountResult, setDiscountResult] = useState<DiscountResult | null>(null);
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+
+  // Attendee names (for group tickets)
+  const [attendeeNames, setAttendeeNames] = useState<string[]>([]);
+
   const paymentMethod = event.paymentMethod;
   const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
+  const groupSize = ticket.groupSize ?? 1;
+  const isGroupTicket = groupSize > 1;
 
   const form = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
     defaultValues: { customerName: "", customerEmail: "", customerPhone: "", instagramHandle: "", quantity: 1 },
   });
   const quantity = form.watch("quantity");
-  const total = ticket.price * quantity;
+  const baseTotal = ticket.price * quantity;
+  const total = discountResult ? discountResult.newTotal : baseTotal;
+
+  // Sync attendeeNames length to quantity * groupSize
+  useEffect(() => {
+    if (!isGroupTicket) return;
+    const totalAttendees = quantity * groupSize;
+    setAttendeeNames((prev) => {
+      const arr = [...prev];
+      while (arr.length < totalAttendees) arr.push("");
+      return arr.slice(0, totalAttendees);
+    });
+  }, [quantity, groupSize, isGroupTicket]);
+
+  // Reset discount when quantity changes
+  useEffect(() => {
+    setDiscountResult(null);
+  }, [quantity]);
+
+  async function applyDiscount() {
+    const code = discountInput.trim();
+    if (!code) return;
+    setApplyingDiscount(true);
+    try {
+      const res = await apiRequest("POST", "/api/discount/validate", {
+        code,
+        eventId: event.id,
+        ticketTypeId: ticket.id,
+        baseTotal,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Invalid code", description: data.message, variant: "destructive" });
+        setDiscountResult(null);
+        return;
+      }
+      setDiscountResult(data);
+      toast({ title: "Discount applied!", description: data.description });
+    } catch {
+      toast({ title: "Could not apply discount", variant: "destructive" });
+    } finally {
+      setApplyingDiscount(false);
+    }
+  }
 
   // ── Stripe init ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -251,6 +317,7 @@ function PurchaseForm({
           ticketTypeId: ticket.id,
           quantity: formData!.quantity,
           customerEmail: formData!.customerEmail,
+          discountCode: discountResult?.code || undefined,
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to create payment intent");
@@ -297,6 +364,8 @@ function PurchaseForm({
           customerEmail: formData!.customerEmail,
           customerPhone: formData!.customerPhone,
           instagramHandle: formData!.instagramHandle || null,
+          discountCode: discountResult?.code || undefined,
+          attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || formData!.customerName, email: i === 0 ? formData!.customerEmail : "" })) : undefined,
         });
         const order = await res.json();
         if (!res.ok) throw new Error(order.message);
@@ -323,6 +392,8 @@ function PurchaseForm({
         customerEmail: formData.customerEmail,
         customerPhone: formData.customerPhone,
         instagramHandle: formData.instagramHandle || null,
+        discountCode: discountResult?.code || undefined,
+        attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || formData.customerName, email: i === 0 ? formData.customerEmail : "" })) : undefined,
       });
       const order = await res.json();
       if (!res.ok) throw new Error(order.message);
@@ -394,6 +465,8 @@ function PurchaseForm({
               customerEmail: data.customerEmail,
               customerPhone: data.customerPhone,
               instagramHandle: data.instagramHandle || null,
+              discountCode: discountResult?.code || undefined,
+              attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
             });
             const order = await res.json();
             if (!res.ok) {
@@ -483,6 +556,8 @@ function PurchaseForm({
               customerEmail: data.customerEmail,
               customerPhone: data.customerPhone,
               instagramHandle: data.instagramHandle || null,
+              discountCode: discountResult?.code || undefined,
+              attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
             });
             const order = await res.json();
             if (!res.ok) {
@@ -565,7 +640,11 @@ function PurchaseForm({
             )} />
             <FormField control={form.control} name="quantity" render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Number of Tickets</FormLabel>
+                <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">
+                  {isGroupTicket
+                    ? `Number of ${ticket.groupLabel || "Group"}s`
+                    : "Number of Tickets"}
+                </FormLabel>
                 <FormControl>
                   <div className="flex items-center gap-4">
                     <button type="button"
@@ -575,14 +654,92 @@ function PurchaseForm({
                     <button type="button"
                       onClick={() => field.onChange(Math.min(Math.min(20, ticket.remaining), field.value + 1))}
                       className="w-9 h-9 rounded-full border border-zinc-600 text-zinc-300 hover:border-amber-400 hover:text-amber-400 transition-colors flex items-center justify-center text-xl font-bold">+</button>
+                    {isGroupTicket && (
+                      <span className="text-zinc-500 text-sm">= {field.value * groupSize} people</span>
+                    )}
                   </div>
                 </FormControl>
               </FormItem>
             )} />
 
-            <div className="flex items-center justify-between bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3">
-              <span className="text-zinc-400 text-sm">Total</span>
-              <span className="font-black text-xl" style={{ color: primary }}>{formatPrice(total)}</span>
+            {/* Attendee names for group tickets */}
+            {isGroupTicket && quantity > 0 && (
+              <div className="space-y-2">
+                <p className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" /> Attendee Names
+                  <span className="normal-case text-zinc-600">(optional but recommended)</span>
+                </p>
+                {Array.from({ length: quantity * groupSize }).map((_, i) => (
+                  <div key={i} className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <input
+                      value={attendeeNames[i] ?? ""}
+                      onChange={(e) => {
+                        const arr = [...attendeeNames];
+                        arr[i] = e.target.value;
+                        setAttendeeNames(arr);
+                      }}
+                      placeholder={`Attendee ${i + 1} name`}
+                      className="w-full pl-10 bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 h-11 rounded-md text-sm outline-none focus:border-amber-400 transition-colors"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Discount code input */}
+            <div>
+              <p className="text-zinc-400 text-xs uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5" /> Discount Code
+                <span className="normal-case text-zinc-600">(optional)</span>
+              </p>
+              {discountResult ? (
+                <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-400" />
+                    <span className="text-green-400 text-sm font-semibold">{discountResult.code}</span>
+                    <span className="text-green-400/70 text-xs">— {discountResult.description}</span>
+                  </div>
+                  <button type="button" onClick={() => { setDiscountResult(null); setDiscountInput(""); }}
+                    className="text-zinc-500 hover:text-zinc-300 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyDiscount())}
+                    placeholder="Enter code"
+                    className="flex-1 bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 h-10 rounded-md px-3 text-sm uppercase outline-none focus:border-amber-400 transition-colors"
+                  />
+                  <button type="button" onClick={applyDiscount} disabled={!discountInput.trim() || applyingDiscount}
+                    className="px-4 h-10 rounded-md border border-zinc-600 text-zinc-300 hover:border-amber-400 hover:text-amber-400 text-sm font-semibold transition-colors disabled:opacity-50">
+                    {applyingDiscount ? <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin inline-block" /> : "Apply"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 space-y-1.5">
+              {discountResult && (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-500">Subtotal</span>
+                    <span className="text-zinc-300">{formatPrice(baseTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-400">Discount ({discountResult.code})</span>
+                    <span className="text-green-400">−{formatPrice(discountResult.discountAmount)}</span>
+                  </div>
+                  <div className="border-t border-zinc-800 pt-1.5" />
+                </>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400 text-sm">Total</span>
+                <span className="font-black text-xl" style={{ color: primary }}>{formatPrice(total)}</span>
+              </div>
             </div>
 
             <button type="submit" disabled={processing}
@@ -703,11 +860,20 @@ function TicketCard({ ticket, event, onSuccess }: {
           }
         </div>
 
-        <h3 className="text-xl font-black uppercase tracking-wide text-white mb-1">{ticket.name}</h3>
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="text-xl font-black uppercase tracking-wide text-white">{ticket.name}</h3>
+          {(ticket.groupSize ?? 1) > 1 && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 flex items-center gap-1 whitespace-nowrap">
+              <Users className="w-3 h-3" /> {ticket.groupLabel || "Group"} of {ticket.groupSize}
+            </span>
+          )}
+        </div>
 
         <div className="mb-4">
           <span className="text-3xl font-black text-white">{formatPrice(ticket.price)}</span>
-          <span className="text-zinc-600 text-sm ml-2">· per ticket</span>
+          <span className="text-zinc-600 text-sm ml-2">
+            · per {(ticket.groupSize ?? 1) > 1 ? (ticket.groupLabel?.toLowerCase() || "group") : "ticket"}
+          </span>
         </div>
 
         <div className="mb-4">

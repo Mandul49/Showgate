@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft, BarChart2, TrendingUp, Ticket, DollarSign,
   Users, Download, Crown, Lock, Calendar, MapPin,
-  RefreshCw, ExternalLink
+  RefreshCw, ExternalLink, Tag
 } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
 
@@ -15,10 +15,23 @@ interface TicketTypeSummary {
   name: string;
   price: number;
   quantityAvailable: number;
+  groupSize: number;
+  groupLabel: string | null;
   sold: number;
   remaining: number;
   revenue: number;
   pct: number;
+}
+
+interface DiscountStat {
+  id: string;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  timesUsed: number;
+  usageLimit: number | null;
+  totalDiscountGiven: number;
+  expiresAt: string | null;
 }
 
 interface AnalyticsData {
@@ -34,8 +47,10 @@ interface AnalyticsData {
   };
   totalSold: number;
   totalRevenue: number;
+  totalDiscountGiven: number;
   remaining: number;
   ticketTypeSummary: TicketTypeSummary[];
+  discountStats: DiscountStat[];
   // Pro only
   salesOverTime?: { date: string; count: number; revenue: number }[];
   uniqueBuyers?: number;
@@ -47,6 +62,9 @@ interface AnalyticsData {
     ticketType: string;
     quantity: number;
     amount: number;
+    discountCode: string | null;
+    discountAmount: number;
+    attendeeDetails: { name: string; email?: string }[];
     reference: string;
     date: string;
     status: string;
@@ -521,6 +539,52 @@ export default function Analytics() {
             </div>
           )}
         </div>
+
+        {/* ── Discount codes ── */}
+        {data.discountStats.length > 0 && (
+          <div>
+            <h2 className="text-white font-bold mb-4 flex items-center gap-2">
+              <Tag className="w-4 h-4 text-amber-400" /> Discount Codes
+              {data.totalDiscountGiven > 0 && (
+                <span className="ml-auto text-zinc-500 text-sm font-normal">
+                  Total discounted: <span className="text-amber-400 font-semibold">{fmtMoney(data.totalDiscountGiven)}</span>
+                </span>
+              )}
+            </h2>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-800">
+                      {["Code", "Type", "Value", "Uses", "Discount Given", "Expires"].map((h) => (
+                        <th key={h} className="text-left text-zinc-500 text-xs uppercase tracking-widest px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/60">
+                    {data.discountStats.map((dc) => (
+                      <tr key={dc.id} className="hover:bg-zinc-800/30 transition-colors">
+                        <td className="px-4 py-3 text-white font-mono font-semibold">{dc.code}</td>
+                        <td className="px-4 py-3 text-zinc-400 text-xs capitalize">{dc.type}</td>
+                        <td className="px-4 py-3 text-amber-400 font-semibold text-xs">
+                          {dc.type === "percent" ? `${dc.value}%` : `₦${dc.value.toLocaleString()}`}
+                        </td>
+                        <td className="px-4 py-3 text-zinc-300 text-xs">
+                          {dc.timesUsed}
+                          {dc.usageLimit ? <span className="text-zinc-600"> / {dc.usageLimit}</span> : ""}
+                        </td>
+                        <td className="px-4 py-3 text-green-400 font-semibold text-xs">{fmtMoney(dc.totalDiscountGiven)}</td>
+                        <td className="px-4 py-3 text-zinc-500 text-xs">
+                          {dc.expiresAt ? new Date(dc.expiresAt).toLocaleDateString() : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Pro: charts ── */}
         {isPro ? (

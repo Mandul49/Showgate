@@ -13,6 +13,7 @@ import { getPaystackSecretKey } from "./paystackConfig";
 import { registerAnalyticsRoutes } from "./analytics";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { registerOgRoutes } from "./og";
+import { registerDiscountRoutes } from "./discounts";
 import { sendConfirmationEmail } from "./email";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
@@ -55,6 +56,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Analytics ────────────────────────────────────────────────────────────
   registerAnalyticsRoutes(app);
+
+  // ─── Discount Codes ───────────────────────────────────────────────────────
+  registerDiscountRoutes(app);
 
   // ─── Object Storage (logo uploads) ───────────────────────────────────────
   registerObjectStorageRoutes(app);

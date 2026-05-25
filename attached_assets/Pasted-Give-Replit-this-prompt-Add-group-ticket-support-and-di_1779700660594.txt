@@ -1,0 +1,52 @@
+Give Replit this prompt:
+
+---
+
+Add group ticket support and discount codes to the ticketing system:
+
+**1. Group Ticket Type**
+
+When creating or editing a ticket tier, add a new option called "Group Ticket" that the organizer can toggle on. When enabled, show these additional fields:
+- Group size: the number of people this ticket covers e.g. 4 means one purchase = 4 seats
+- Group label: optional custom name like "Table of 4" or "Couple" or "Family Pack"
+
+Store group_size on the ticket_types table. Add the column if it does not exist. Default is 1 for regular tickets.
+
+On the public event page, display group tickets clearly showing the group size e.g. "Table of 4 — ₦80,000" with a note saying "Covers 4 attendees."
+
+When a group ticket is purchased, deduct the full group_size from the available ticket count, not just 1.
+
+**2. Attendee Names and Emails for Group Tickets**
+
+When a buyer selects a group ticket, after filling in their own name, email, and phone, show an additional section called "Attendee Details" with fields for each person in the group:
+- Attendee 1: pre-filled with the buyer's name and email, not editable
+- Attendee 2 to N: First name required, email optional but show placeholder "Email (optional)"
+- If the buyer selects multiple group tickets e.g. 2 x Table of 4, show fields for all 8 attendees
+
+Store all attendee names and emails as a JSON array in the ticket_purchases table in a column called attendee_details. Add the column if it does not exist.
+
+Show attendee details in the organizer's attendees list on the dashboard so they can see every person coming, not just the buyer.
+
+Include all attendee names in the CSV export, one row per attendee not per purchase.
+
+**3. Discount Codes**
+
+Add a discount codes section to the organizer dashboard for each event. The organizer can create discount codes with these options:
+- Code: a custom string e.g. EARLYBIRD or VIPFRIEND
+- Discount type: percentage e.g. 20% off, or fixed amount e.g. ₦5,000 off
+- Discount value: the number
+- Applies to: all ticket types or specific ticket types only
+- Usage limit: maximum number of times the code can be used, leave blank for unlimited
+- Expiry date: optional
+
+Store codes in a new discount_codes table: id, event_id, code, type (percent or fixed), value, applies_to (all or ticket_type_id), usage_limit, times_used, expires_at, created_at.
+
+On the public event page, add a "Have a discount code?" link below the ticket selection. When clicked, show a text input where the buyer enters their code. On submit, validate the code against the backend at POST /api/discount/validate, return the discount amount and new total. Show the discount clearly on the order summary before payment.
+
+Apply the discount server-side when creating the Paystack transaction — never trust the discounted amount sent from the frontend. Always recalculate on the backend using the validated code.
+
+Track times_used on the discount_codes table and increment it on every successful purchase using that code. Block the code if times_used has reached usage_limit.
+
+Show discount code usage stats on the analytics page: code name, times used, total discount given, revenue impact.
+
+---
