@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Mail, RefreshCw, ArrowLeft, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { clearToken } from "@/lib/auth";
+import { clearToken, getUser } from "@/lib/auth";
 
 export default function CheckYourEmail() {
   const [location] = useLocation();
   const params = new URLSearchParams(location.split("?")[1] || "");
-  const email = params.get("email") || "";
+  // Prefer ?email= param; fall back to stored user email from localStorage
+  const email = params.get("email") || getUser()?.email || "";
 
   const [sending, setSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -80,6 +81,9 @@ export default function CheckYourEmail() {
           </p>
           {email && (
             <p className="text-amber-400 font-semibold text-sm mb-6 break-all">{email}</p>
+          )}
+          {!email && (
+            <p className="text-zinc-500 text-sm mb-6">your registered email address.</p>
           )}
           <p className="text-zinc-500 text-sm mb-8">
             Click the link in the email to activate your account. The link expires in 24 hours.

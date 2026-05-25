@@ -15,15 +15,19 @@ export interface AuthRequest extends Request {
   userTier?: string;
 }
 
-export function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
+export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Authentication required" });
   }
   const token = authHeader.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string; emailVerified?: boolean };
-    if (payload.emailVerified === false) {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string };
+    const user = await storage.getUserById(payload.userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found. Please log in again." });
+    }
+    if (!user.emailVerified) {
       return res.status(403).json({
         message: "Please verify your email to continue.",
         redirectTo: "/check-your-email",
@@ -96,6 +100,7 @@ export function registerAuthRoutes(app: Express) {
 
       return res.status(201).json({
         token,
+        redirectTo: "/check-your-email",
         user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: false },
       });
     } catch (err: any) {

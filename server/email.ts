@@ -34,7 +34,8 @@ export async function sendVerificationEmail(opts: { to: string; verifyUrl: strin
     await transporter.sendMail({
       from: `"Showgate" <${from}>`,
       to: opts.to,
-      subject: "Confirm your Showgate email",
+      subject: "Confirm your Showgate email address",
+      text: `Welcome to Showgate!\n\nPlease verify your email address by visiting this link:\n${opts.verifyUrl}\n\nIf you didn't create a Showgate account, you can safely ignore this email.`,
       html: `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
           <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">

@@ -124,6 +124,22 @@ const PM_LABELS: Record<string, string> = {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+function UnverifiedEmailBanner() {
+  const [dismissed, setDismissed] = useState(false);
+  const email = getUser()?.email || "";
+  if (dismissed) return null;
+  return (
+    <div className="bg-amber-400/10 border-b border-amber-400/30 text-amber-300 text-xs font-semibold py-2.5 px-4 flex items-center justify-center gap-3">
+      <span>Your email is not verified. Check your inbox or</span>
+      <a href={`/check-your-email${email ? `?email=${encodeURIComponent(email)}` : ""}`} className="underline underline-offset-2 hover:text-amber-200 transition-colors">resend the confirmation</a>
+      <span>.</span>
+      <button onClick={() => setDismissed(true)} className="ml-2 text-amber-400/60 hover:text-amber-300 transition-colors" aria-label="Dismiss">
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
 function TierBadge({ tier }: { tier: string }) {
   return (
     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${
@@ -2497,12 +2513,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {!isEmailVerified() && (
-        <div className="bg-amber-400/10 border-b border-amber-400/30 text-amber-300 text-xs font-semibold py-2.5 px-4 flex items-center justify-center gap-3">
-          <span>Your email is not verified. Check your inbox or</span>
-          <a href="/check-your-email" className="underline underline-offset-2 hover:text-amber-200 transition-colors">resend the confirmation</a>.
-        </div>
-      )}
+      {!isEmailVerified() && <UnverifiedEmailBanner />}
 
       {paystackMode === "test" && (
         <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide flex items-center justify-center gap-3">
