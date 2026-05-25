@@ -761,6 +761,33 @@ export default function EventPage() {
     refetchInterval: 30000,
   });
 
+  useEffect(() => {
+    if (!event) return;
+
+    document.title = `${event.title} — Tickets`;
+
+    function setMeta(property: string, content: string) {
+      let el = document.querySelector<HTMLMetaElement>(`meta[property="${property}"]`);
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute("property", property);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    }
+
+    const desc = event.description || `Get your tickets for ${event.title}`;
+    setMeta("og:title", event.title);
+    setMeta("og:description", desc);
+    setMeta("og:url", window.location.href);
+    if (event.coverImageUrl) setMeta("og:image", event.coverImageUrl);
+    setMeta("og:type", "website");
+
+    return () => {
+      document.title = "Showgate";
+    };
+  }, [event]);
+
   function handleSuccess(orderId: string, name: string, total: number, qty: number, status = "confirmed") {
     const eventTitle = event?.title || "";
     const venue = event?.location || "";

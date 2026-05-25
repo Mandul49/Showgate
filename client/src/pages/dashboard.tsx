@@ -1763,6 +1763,12 @@ export default function Dashboard() {
   const tier = data?.tier ?? "free";
   const paystackMode = data?.paystackMode ?? (import.meta.env.VITE_PAYSTACK_ENV === "test" ? "test" : "live");
   const organizerInfo = data?.organizer ?? null;
+
+  useEffect(() => {
+    const name = organizerInfo?.businessName;
+    document.title = name ? `Dashboard — ${name}` : "Dashboard — Showgate";
+    return () => { document.title = "Showgate"; };
+  }, [organizerInfo?.businessName]);
   const limits = data?.limits ?? { maxActiveEvents: FREE_MAX_ACTIVE_EVENTS, maxMonthlyTickets: 500, allowedPaymentMethods: ["paystack"] };
   const activeCount = events.filter((e) => e.isActive).length;
   const atEventLimit = tier === "free" && activeCount >= FREE_MAX_ACTIVE_EVENTS;

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, Clock, MapPin, Ticket, Download, CheckCircle2, Loader2, X, ArrowLeft } from "lucide-react";
 
@@ -51,6 +52,12 @@ export default function PurchaseSuccess() {
     retry: 3,
     retryDelay: 1500,
   });
+
+  useEffect(() => {
+    if (!purchase?.eventTitle) return;
+    document.title = `You're In — ${purchase.eventTitle}`;
+    return () => { document.title = "Showgate"; };
+  }, [purchase?.eventTitle]);
 
   if (!reference) {
     return (
