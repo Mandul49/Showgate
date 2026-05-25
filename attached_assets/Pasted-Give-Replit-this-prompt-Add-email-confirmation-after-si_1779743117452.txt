@@ -1,0 +1,69 @@
+Give Replit this prompt:
+
+Add email confirmation after signup. Do not touch any other features.
+
+Step 1 — Database changes
+
+Add two columns to the users table using ALTER TABLE — do not recreate the table:
+
+	•	email_verified (boolean, default false)
+	•	email_verification_token (text, nullable)
+
+Step 2 — Update signup flow
+
+In the POST /api/auth/signup route, after creating the new user:
+
+	1.	Generate a secure verification token using crypto.randomBytes(32).toString(‘hex’)
+	2.	Save it to email_verification_token on the new user’s row
+	3.	Set email_verified to false
+	4.	Send a confirmation email to the user with a link formatted as: https://[your domain]/verify-email?token=[token]
+	5.	Return a success response but redirect the user to a new page at /check-your-email instead of directly to /onboarding
+
+Step 3 — Check your email page
+
+Create a simple page at /check-your-email with:
+
+	•	Showgate logo with home link
+	•	Envelope icon
+	•	Heading: “Check your email”
+	•	Body: “We sent a confirmation link to [user’s email]. Click the link to activate your account.”
+	•	A “Resend confirmation email” button that calls POST /api/auth/resend-verification
+	•	Small note: “Wrong email? Go back and sign up again” linking to /signup
+	•	The page should show the email address the link was sent to — pass it as a query param or store it in session
+
+Step 4 — Verification endpoint
+
+Create GET /api/auth/verify-email?token=[token] that:
+
+	1.	Looks up the token in the users table
+	2.	If token not found, show error page: “This link is invalid or has already been used.”
+	3.	If token found, set email_verified to true and clear email_verification_token
+	4.	Redirect to /onboarding with a success message: “Email confirmed! Let’s set up your account.”
+
+Step 5 — Resend verification endpoint
+
+Create POST /api/auth/resend-verification that:
+
+	1.	Accepts the user’s email in the request body
+	2.	Generates a fresh token, updates email_verification_token in the database
+	3.	Sends the confirmation email again
+	4.	Returns “Confirmation email resent” — add a 60 second cooldown so it cannot be spammed
+
+Step 6 — Gate unverified users
+
+In the auth middleware, if a logged in user has email_verified set to false:
+
+	1.	Allow them to access /check-your-email and /verify-email only
+	2.	Redirect any other dashboard or protected route access to /check-your-email with a message: “Please verify your email to continue.”
+	3.	Show a dismissible yellow banner on the dashboard if somehow they get through: “Your email is not verified. Check your inbox or resend the confirmation.”
+
+Step 7 — Email template
+
+The confirmation email should be clean and on-brand:
+
+	•	Subject: “Confirm your Showgate account”
+	•	Body: Greeting with their name, one sentence explaining what Showgate is, a large gold “Confirm Email” button linking to the verification URL, and a note that the link expires in 24 hours
+	•	Plain text fallback for email clients that block HTML
+	•	Footer with the Showgate name and “You received this because you signed up at showgate”
+
+Use whatever email service is already configured in the codebase — check first before adding a new one.
