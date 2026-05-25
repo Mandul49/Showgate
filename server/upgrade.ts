@@ -3,49 +3,6 @@ import type { Express, Request, Response } from "express";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { getPaystackSecretKey } from "./paystackConfig";
-import { sendSecurityAlertEmail } from "./email";
-
-// ── Replay-attack rate limiter ────────────────────────────────────────────────
-// Tracks 409 hits per userId in memory. After BLOCK_THRESHOLD hits within
-// WINDOW_MS, the user is temporarily blocked for BLOCK_DURATION_MS.
-
-const WINDOW_MS = 15 * 60 * 1000;      // 15-minute sliding window
-const BLOCK_THRESHOLD = 3;              // hits before temporary block
-const BLOCK_DURATION_MS = 30 * 60 * 1000; // 30-minute block
-
-interface ReplayHitRecord {
-  hits: { at: number }[];
-  blockedUntil?: number;
-}
-
-const replayHits = new Map<string, ReplayHitRecord>();
-
-function recordReplayHit(userId: string): { blocked: boolean; blockedUntil?: Date; repeatCount: number } {
-  const now = Date.now();
-  let record = replayHits.get(userId) ?? { hits: [] };
-
-  // If currently blocked, keep block active
-  if (record.blockedUntil && record.blockedUntil > now) {
-    return { blocked: true, blockedUntil: new Date(record.blockedUntil), repeatCount: record.hits.length };
-  }
-
-  // Prune hits outside the sliding window
-  record.hits = record.hits.filter(h => now - h.at < WINDOW_MS);
-  record.hits.push({ at: now });
-
-  const repeatCount = record.hits.length;
-  let blocked = false;
-  let blockedUntil: Date | undefined;
-
-  if (repeatCount >= BLOCK_THRESHOLD) {
-    record.blockedUntil = now + BLOCK_DURATION_MS;
-    blocked = true;
-    blockedUntil = new Date(record.blockedUntil);
-  }
-
-  replayHits.set(userId, record);
-  return { blocked, blockedUntil, repeatCount };
-}
 
 export const PLANS = {
   monthly: { amountKobo: 1_200_000, label: "Monthly", durationDays: 31 },
@@ -309,44 +266,13 @@ export function registerUpgradeRoutes(app: Express): void {
       if (!user) return res.status(404).json({ message: "User not found" });
 
       // Check if this reference was already consumed by anyone
-      const existingRef = await storage.getSubscriptionReference(reference);
-      if (existingRef) {
+      const alreadyUsed = await storage.hasSubscriptionReference(reference);
+      if (alreadyUsed) {
         // Idempotent: if it was used by THIS user and they're still Pro, return success
         if (user.tier === "pro") {
           return res.json({ success: true, tier: "pro", proExpiresAt: user.proExpiresAt });
         }
-
-        // The reference was already used — this is a replay attempt
-        const isCrossUser = existingRef.userId !== userId;
-
-        // Record the hit and check if user should be temporarily blocked
-        const { blocked, blockedUntil, repeatCount } = recordReplayHit(userId);
-
-        // Look up both users' emails for the alert (best-effort)
-        const [originalUser] = await Promise.all([
-          storage.getUserById(existingRef.userId),
-        ]);
-        const originalEmail = originalUser?.email ?? "unknown";
-
-        // Fire security alert asynchronously — don't let it delay the response
-        sendSecurityAlertEmail({
-          reference,
-          requestingUserId: userId,
-          requestingUserEmail: user.email,
-          originalUserId: existingRef.userId,
-          originalUserEmail: originalEmail,
-          isCrossUser,
-          repeatCount,
-          blockedUntil,
-          detectedAt: new Date(),
-        }).catch((err) => console.error("[security-email] Alert dispatch failed:", err.message));
-
-        if (blocked) {
-          return res.status(429).json({
-            message: "Too many failed verification attempts. Your account has been temporarily restricted. Please try again later.",
-          });
-        }
-
+        // The reference was already used (possibly by this user previously when Pro, then expired)
         return res.status(409).json({ message: "This payment reference has already been used to activate a subscription." });
       }
 
