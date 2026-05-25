@@ -161,7 +161,7 @@ export default function Home() {
       </nav>
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <section className="relative min-h-[calc(100vh-64px)] flex items-center justify-center overflow-hidden">
+      <section className="hero-section relative min-h-[calc(100vh-64px)] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-[#0d0d0d] to-zinc-900" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_40%,rgba(245,158,11,0.09)_0%,transparent_65%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_80%,rgba(161,161,170,0.04)_0%,transparent_50%)]" />
@@ -216,7 +216,7 @@ export default function Home() {
                   {value.toLocaleString()}
                 </div>
                 <div className="text-zinc-400 font-semibold text-base mb-1">{label}</div>
-                <div className="text-zinc-600 text-xs">and growing every day</div>
+                <div className="text-amber-500/70 text-xs font-medium">and growing every day</div>
               </div>
             ))}
           </div>
@@ -227,7 +227,7 @@ export default function Home() {
       <section ref={howItWorksRef} className="py-24 px-5">
         <div className="max-w-6xl mx-auto">
           <FadeSection className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-black mb-4">How it works</h2>
+            <h2 className="text-3xl sm:text-4xl font-black mb-4"><span className="text-amber-400">How</span> it works</h2>
             <p className="text-zinc-400 max-w-xl mx-auto">Three steps from sign-up to sold out.</p>
           </FadeSection>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -250,7 +250,7 @@ export default function Home() {
             ].map((step, i) => (
               <FadeSection key={step.num}>
                 <div className="relative p-7 rounded-2xl border border-zinc-800 bg-zinc-900/60 h-full hover:border-zinc-700 transition-colors group">
-                  <div className="text-5xl font-black text-zinc-800 group-hover:text-amber-500/20 transition-colors mb-5 leading-none select-none">
+                  <div className="text-5xl font-black text-amber-500/30 group-hover:text-amber-500/60 transition-colors mb-5 leading-none select-none">
                     {step.num}
                   </div>
                   <h3 className="text-lg font-bold mb-3">{step.title}</h3>
@@ -400,7 +400,7 @@ export default function Home() {
       <section className="py-24 px-5 border-t border-zinc-800 bg-zinc-900/20">
         <div className="max-w-3xl mx-auto">
           <FadeSection>
-            <h2 className="text-3xl sm:text-4xl font-black mb-8">About Showgate</h2>
+            <h2 className="text-3xl sm:text-4xl font-black mb-8"><span className="text-amber-400">About</span> Showgate</h2>
             <div className="space-y-5 text-zinc-400 leading-relaxed text-base">
               <p>
                 Showgate was built for event organizers who are tired of complicated platforms that take a cut of everything and make buyers feel like they are on someone else's stage. We built the tools you need and got out of the way.
@@ -414,7 +414,7 @@ export default function Home() {
       </section>
 
       {/* ── Bottom CTA ────────────────────────────────────────────────────── */}
-      <section className="py-24 px-5 border-t border-zinc-800 bg-gradient-to-b from-zinc-900/30 to-[#0d0d0d]">
+      <section className="cta-section py-24 px-5 border-t border-zinc-800 bg-gradient-to-b from-zinc-900/30 to-[#0d0d0d]">
         <div className="max-w-2xl mx-auto text-center">
           <FadeSection>
             <h2 className="text-3xl sm:text-4xl font-black mb-4">Ready to run your next event?</h2>
@@ -439,15 +439,13 @@ export default function Home() {
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-zinc-800 py-10 px-5">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <span className="text-lg font-black">
-              Show<span className="text-amber-400">gate</span>
-            </span>
-            <p className="text-zinc-500 text-xs mt-1">The easiest way to run your event.</p>
-          </div>
-          <p className="text-zinc-600 text-xs">© {new Date().getFullYear()} Showgate. All rights reserved.</p>
+      <footer className="border-t border-amber-500/20 py-10 px-5">
+        <div className="max-w-6xl mx-auto flex flex-col items-center text-center gap-2">
+          <span className="text-lg font-black">
+            Show<span className="text-amber-400">gate</span>
+          </span>
+          <p className="text-zinc-500 text-xs">The easiest way to run your event.</p>
+          <p className="text-zinc-600 text-xs mt-1">© {new Date().getFullYear()} Showgate. All rights reserved.</p>
         </div>
       </footer>
 

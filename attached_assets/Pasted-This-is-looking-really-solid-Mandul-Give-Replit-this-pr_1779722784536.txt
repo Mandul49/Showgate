@@ -1,0 +1,37 @@
+This is looking really solid Mandul. Give Replit this prompt:
+
+Fix the homepage light mode styling. Do not touch any functionality, only CSS and colors:
+
+Hero section
+
+Keep the hero section dark in light mode — it should stay dark background with light text regardless of the mode. It is intentionally dark as a design choice. Make sure the headline and subheadline text are fully legible on the dark background.
+
+Gold accent text
+
+Add gold accent color to select text across the homepage in both modes. Specifically:
+
+	•	The word “event” in the hero headline should be gold
+	•	The step numbers 01, 02, 03 in the How It Works section should be gold
+	•	Section headings like “How it works” and “About Showgate” should have a subtle gold underline or the first word in gold
+	•	The “and growing every day” text under the counters should be gold
+
+Light mode color fixes
+
+In light mode, fix these sections so text is fully legible:
+
+	•	How it works cards: dark text on light card background, not washed out grey
+	•	Features section: same — ensure contrast is strong
+	•	Pricing cards: the Free card should have a light grey border, Pro card keeps its gold border, all text clearly readable
+	•	About section: dark text on white background, clean and simple
+
+Bottom CTA section
+
+The “Ready to run your next event?” section background is too light and the text is hard to read. In light mode make it a dark charcoal or deep navy background with white text and gold subtext — make it feel like a bold closing statement, not a faded box. The button should be gold with dark text.
+
+Footer
+
+Center all footer content — the Showgate logo, tagline, and copyright should all be centered horizontally. Add a thin top border in gold or light grey to separate it from the section above.
+
+General light mode polish
+
+Navbar in light mode should have a white background with dark text and the gold “Dashboard” or “Get Started” button unchanged. Ensure no section has white text on a white or near-white background anywhere.

@@ -142,3 +142,28 @@ input:focus, textarea:focus {
 .light-mode [role="menu"] {
   background-color: #ffffff !important;
 }
+
+/* ── Navbar: fix hover:text-white on light bg ── */
+.light-mode nav .hover\:text-white:hover {
+  color: #111111 !important;
+}
+
+/* ── Hero section: stays dark, restore text legibility ── */
+.light-mode .hero-section {
+  color: #f5f5f5 !important;
+}
+.light-mode .hero-section .text-zinc-400 { color: #a1a1aa !important; }
+.light-mode .hero-section .text-zinc-300 { color: #d4d4d8 !important; }
+.light-mode .hero-section [class*="border-zinc-7"] { border-color: #52525b !important; }
+.light-mode .hero-section [class*="border-zinc-8"] { border-color: #3f3f46 !important; }
+.light-mode .hero-section .hover\:text-white:hover { color: #ffffff !important; }
+.light-mode .hero-section .hover\:border-zinc-500:hover { border-color: #71717a !important; }
+
+/* ── CTA section: force dark charcoal in light mode ── */
+.light-mode .cta-section {
+  background: #18181b !important;
+  background-image: none !important;
+  color: #f5f5f5 !important;
+}
+.light-mode .cta-section .text-zinc-400 { color: #a1a1aa !important; }
+.light-mode .cta-section [class*="border-zinc-8"] { border-color: #3f3f46 !important; }
