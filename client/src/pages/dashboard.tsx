@@ -14,7 +14,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Settings, PauseCircle, RefreshCw,
+  Crown, Settings, PauseCircle, RefreshCw, Landmark,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1507,11 +1507,167 @@ type FwForm = z.infer<typeof fwFormSchema>;
 interface PaymentSettings {
   tier: "free" | "pro";
   bankName: string;
+  bankCode: string;
   accountNumber: string;
   businessName: string;
   flutterwavePublicKey: string;
   flutterwaveSecretKey: string;
   hasFlutterwave: boolean;
+}
+
+// ─── Edit Bank Account Section ────────────────────────────────────────────────
+
+interface PaystackBank { id: number; name: string; code: string; }
+
+const bankAccountSchema = z.object({
+  bankCode: z.string().min(1, "Please select your bank"),
+  bankName: z.string(),
+  accountNumber: z.string().regex(/^\d{10}$/, "Must be exactly 10 digits"),
+});
+type BankAccountForm = z.infer<typeof bankAccountSchema>;
+
+function EditBankAccountSection() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const { data: settings, isLoading: settingsLoading } = useQuery<PaymentSettings>({
+    queryKey: ["/api/organizer/payment-settings"],
+  });
+
+  const { data: banks = [], isLoading: banksLoading } = useQuery<PaystackBank[]>({
+    queryKey: ["/api/onboarding/banks"],
+    staleTime: 60 * 60 * 1000,
+    enabled: open,
+  });
+
+  const form = useForm<BankAccountForm>({
+    resolver: zodResolver(bankAccountSchema),
+    defaultValues: { bankCode: "", bankName: "", accountNumber: "" },
+  });
+
+  useEffect(() => {
+    if (open && settings) {
+      form.reset({
+        bankCode: settings.bankCode || "",
+        bankName: settings.bankName || "",
+        accountNumber: settings.accountNumber || "",
+      });
+    }
+  }, [open, settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: BankAccountForm) => {
+      const res = await apiRequest("PUT", "/api/organizer/bank-account", values);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to update bank account");
+      return json;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/organizer/payment-settings"] });
+      toast({ title: "Bank account updated", description: "Your settlement account has been updated on Paystack." });
+      setOpen(false);
+    },
+    onError: (err: any) => toast({ title: "Update failed", description: err.message, variant: "destructive" }),
+  });
+
+  const maskedAccount = settings
+    ? `${settings.bankName} \u2022\u2022\u2022\u2022 ${settings.accountNumber.slice(-4)}`
+    : "—";
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-zinc-900 transition-colors">
+        <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
+          <Landmark className="w-4 h-4 text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm">Settlement Bank Account</p>
+          <p className="text-zinc-500 text-xs mt-0.5 font-mono">
+            {settingsLoading ? "Loading…" : maskedAccount}
+          </p>
+        </div>
+        <Pencil className="w-3.5 h-3.5 text-zinc-500 mr-1" />
+        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
+          <p className="text-zinc-500 text-xs mb-4">
+            Changing your bank account will update your Paystack subaccount. Payouts will go to the new account.
+          </p>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
+              {/* Bank selector */}
+              <FormField control={form.control} name="bankCode" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Bank</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <select
+                        value={field.value}
+                        onChange={(e) => {
+                          const bank = banks.find((b) => b.code === e.target.value);
+                          field.onChange(e.target.value);
+                          form.setValue("bankName", bank?.name || "");
+                        }}
+                        className="w-full appearance-none bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-400/50 transition-colors pr-8"
+                      >
+                        <option value="">{banksLoading ? "Loading banks…" : "Select your bank"}</option>
+                        {banks.map((b) => (
+                          <option key={b.code} value={b.code}>{b.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+                    </div>
+                  </FormControl>
+                  <FormMessage className="text-red-400 text-xs" />
+                </FormItem>
+              )} />
+
+              {/* Account number */}
+              <FormField control={form.control} name="accountNumber" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Account Number</FormLabel>
+                  <FormControl>
+                    <input
+                      {...field}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="0123456789"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors"
+                    />
+                  </FormControl>
+                  <FormMessage className="text-red-400 text-xs" />
+                </FormItem>
+              )} />
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={saveMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold transition-colors disabled:opacity-50">
+                  {saveMutation.isPending
+                    ? <><span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" /> Saving…</>
+                    : <><Check className="w-3.5 h-3.5" /> Save Changes</>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setOpen(false); form.reset(); }}
+                  className="px-4 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white text-sm font-medium transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </Form>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FlutterwaveSection({ tier }: { tier: "free" | "pro" }) {
@@ -2383,6 +2539,9 @@ export default function Dashboard() {
 
         {/* Branding */}
         <BrandingSection tier={tier} />
+
+        {/* Bank account */}
+        <EditBankAccountSection />
 
         {/* Flutterwave payment gateway */}
         <FlutterwaveSection tier={tier} />

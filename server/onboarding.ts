@@ -223,6 +223,7 @@ export function registerOnboardingRoutes(app: Express) {
       return res.json({
         tier: organizer.tier,
         bankName: organizer.bankName,
+        bankCode: organizer.bankCode,
         accountNumber: organizer.accountNumber,
         businessName: organizer.businessName,
         flutterwavePublicKey: organizer.flutterwavePublicKey || "",
@@ -233,6 +234,68 @@ export function registerOnboardingRoutes(app: Express) {
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PUT /api/organizer/bank-account ─────────────────────────────────────────
+  const updateBankSchema = z.object({
+    bankCode: z.string().min(1, "Bank is required"),
+    bankName: z.string().min(1, "Bank name is required"),
+    accountNumber: z.string().regex(/^\d{10}$/, "Account number must be exactly 10 digits"),
+  });
+
+  app.put("/api/organizer/bank-account", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(404).json({ message: "Organizer not found. Complete onboarding first." });
+
+      const parsed = updateBankSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+      const { bankCode, bankName, accountNumber } = parsed.data;
+      const PAYSTACK_KEY = getPaystackSecretKey();
+      const paystackMode = process.env.PAYSTACK_ENV === "test" ? "test" : "live";
+
+      if (!PAYSTACK_KEY) {
+        return res.status(500).json({ message: `Paystack ${paystackMode} API key is not configured.` });
+      }
+
+      console.log(`[bank-update] userId=${req.userId} subaccountCode=${organizer.subaccountCode} bank_code=${bankCode} account=${accountNumber}`);
+
+      const paystackRes = await fetch(`https://api.paystack.co/subaccount/${organizer.subaccountCode}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PAYSTACK_KEY}`,
+        },
+        body: JSON.stringify({
+          settlement_bank: bankCode,
+          account_number: accountNumber,
+          business_name: organizer.businessName,
+        }),
+      });
+
+      const paystackData: any = await paystackRes.json();
+      console.log(`[bank-update] Paystack response: HTTP ${paystackRes.status} status=${paystackData.status} message="${paystackData.message}"`);
+
+      if (!paystackRes.ok || !paystackData.status) {
+        console.error(`[bank-update] FAILED for userId=${req.userId}: ${JSON.stringify(paystackData)}`);
+        return res.status(400).json({
+          message: `Bank account update failed: ${paystackData.message || `Paystack returned HTTP ${paystackRes.status}`}`,
+        });
+      }
+
+      const updated = await storage.updateOrganizerBankAccount(organizer.id, { bankName, bankCode, accountNumber });
+      console.log(`[bank-update] SUCCESS — organizerId=${organizer.id} bankName=${updated.bankName} account=${updated.accountNumber}`);
+
+      return res.json({
+        bankName: updated.bankName,
+        bankCode: updated.bankCode,
+        accountNumber: updated.accountNumber,
+      });
+    } catch (err: any) {
+      console.error(`[bank-update] Unexpected error for userId=${req.userId}:`, err);
+      return res.status(500).json({ message: err.message || "An unexpected error occurred" });
     }
   });
 

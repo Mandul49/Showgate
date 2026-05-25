@@ -82,6 +82,7 @@ export interface IStorage {
   updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer>;
   updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer>;
   updateOrganizerTestSubaccount(organizerId: string, testSubaccountCode: string): Promise<Organizer>;
+  updateOrganizerBankAccount(organizerId: string, data: { bankName: string; bankCode: string; accountNumber: string }): Promise<Organizer>;
   // Events
   createEvent(data: CreateEventData): Promise<Event>;
   getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
@@ -270,6 +271,15 @@ export class DbStorage implements IStorage {
   async updateOrganizerTestSubaccount(organizerId: string, testSubaccountCode: string): Promise<Organizer> {
     const [row] = await db.update(organizers)
       .set({ testSubaccountCode })
+      .where(eq(organizers.id, organizerId))
+      .returning();
+    if (!row) throw new Error("Organizer not found");
+    return this._mapOrganizer(row);
+  }
+
+  async updateOrganizerBankAccount(organizerId: string, data: { bankName: string; bankCode: string; accountNumber: string }): Promise<Organizer> {
+    const [row] = await db.update(organizers)
+      .set(data)
       .where(eq(organizers.id, organizerId))
       .returning();
     if (!row) throw new Error("Organizer not found");
