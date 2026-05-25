@@ -13,7 +13,8 @@ import {
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
-  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2
+  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
+  Crown, Mail
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,6 +56,12 @@ interface EventsResponse {
     maxMonthlyTickets: number | null;
     allowedPaymentMethods: string[] | null;
   };
+}
+
+interface UpgradeStatus {
+  tier: "free" | "pro";
+  proExpiresAt: string | null;
+  isPro: boolean;
 }
 
 // ─── Zod schemas ─────────────────────────────────────────────────────────────
@@ -1737,6 +1744,11 @@ export default function Dashboard() {
     queryKey: ["/api/events"],
   });
 
+  const { data: upgradeStatus } = useQuery<UpgradeStatus>({
+    queryKey: ["/api/upgrade/status"],
+    enabled: isAuthenticated(),
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const res = await apiRequest("PATCH", `/api/events/${id}`, { isActive });
@@ -1819,6 +1831,11 @@ export default function Dashboard() {
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <span className="text-zinc-400 text-xs truncate max-w-[140px]">{user.email}</span>
                 <TierBadge tier={tier || user.tier} />
+                {tier === "pro" && upgradeStatus?.proExpiresAt && (
+                  <span className="text-zinc-600 text-[10px]">
+                    renews {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                )}
               </div>
             )}
             <button onClick={handleLogout}
@@ -1927,6 +1944,30 @@ export default function Dashboard() {
             <a href="/pricing"
               className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-500 hover:bg-violet-400 text-white text-xs font-bold transition-colors">
               <Zap className="w-3.5 h-3.5" /> From ₦12k/mo
+            </a>
+          </div>
+        )}
+
+        {/* Pro subscription management — Pro tier only */}
+        {tier === "pro" && (
+          <div className="flex items-center gap-4 rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4 mb-6">
+            <div className="p-2 rounded-lg bg-violet-400/10 border border-violet-400/20 flex-shrink-0">
+              <Crown className="w-4 h-4 text-violet-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold text-sm">Pro Plan Active</p>
+              {upgradeStatus?.proExpiresAt ? (
+                <p className="text-zinc-500 text-xs mt-0.5">
+                  Renews on {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              ) : (
+                <p className="text-zinc-500 text-xs mt-0.5">0% platform fee · Unlimited events & tickets</p>
+              )}
+            </div>
+            <a
+              href={`mailto:support@ticketforge.com?subject=Cancel%20Pro%20Subscription&body=Hi%2C%20I'd%20like%20to%20cancel%20my%20Pro%20subscription.%20My%20account%20email%20is%3A%20${encodeURIComponent(user?.email ?? "")}`}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors">
+              <Mail className="w-3 h-3" /> Manage
             </a>
           </div>
         )}
