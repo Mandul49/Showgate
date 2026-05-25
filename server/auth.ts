@@ -27,7 +27,9 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     if (!user) {
       return res.status(401).json({ message: "User not found. Please log in again." });
     }
-    if (!user.emailVerified) {
+    // Email verification gate — /api/auth/* routes are whitelisted so unverified
+    // users can still change their password, resend verification, etc.
+    if (!user.emailVerified && !req.path.startsWith("/api/auth/")) {
       return res.status(403).json({
         message: "Please verify your email to continue.",
         redirectTo: "/check-your-email",

@@ -35,7 +35,7 @@ export default function VerifyEmail() {
         saveUser(json.user);
         setStatus("success");
         // Navigate to onboarding after a short delay so the user sees the success state
-        setTimeout(() => navigate("/onboarding"), 1800);
+        setTimeout(() => navigate("/onboarding?verified=1"), 1800);
       })
       .catch(() => {
         setStatus("error");

@@ -48,6 +48,10 @@ export default function Onboarding() {
 
   useEffect(() => {
     if (!isAuthenticated()) { navigate("/login"); return; }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("verified") === "1") {
+      toast({ title: "Email verified!", description: "Your account is now active. Let's get you set up." });
+    }
   }, []);
 
   // Fetch bank list
