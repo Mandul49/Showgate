@@ -2044,6 +2044,7 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [showCancelSubModal, setShowCancelSubModal] = useState(false);
+  const [showProPopover, setShowProPopover] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const user = getUser();
 
@@ -2167,6 +2168,31 @@ export default function Dashboard() {
                   <span className="text-zinc-600 text-[10px]">
                     renews {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
+                )}
+              </div>
+            )}
+            {user && tier === "pro" && upgradeStatus?.proExpiresAt && (
+              <div className="relative sm:hidden">
+                <button
+                  onClick={() => setShowProPopover(v => !v)}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
+                  aria-label="Subscription details"
+                >
+                  <TierBadge tier="pro" />
+                </button>
+                {showProPopover && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowProPopover(false)} />
+                    <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[180px] rounded-lg bg-zinc-900 border border-zinc-800 shadow-xl px-3 py-2.5">
+                      <p className="text-zinc-400 text-xs truncate mb-1">{user.email}</p>
+                      <p className="text-zinc-500 text-[11px]">
+                        Renews{" "}
+                        <span className="text-zinc-300 font-medium">
+                          {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
             )}
