@@ -160,7 +160,7 @@ input:focus, textarea:focus {
 .light-mode .hero-section .hover\:border-zinc-500:hover { border-color: #71717a !important; }
 
 /* ── Pro pricing card: identical in both modes ── */
-.light-mode .pricing-pro-card { color: #f9fafb !important; }
+.light-mode .pricing-pro-card { background-color: #09090b !important; color: #f9fafb !important; }
 .light-mode .pricing-pro-card .text-zinc-400 { color: #a1a1aa !important; }
 .light-mode .pricing-pro-card .text-zinc-200 { color: #e4e4e7 !important; }
 .light-mode .pricing-pro-card .text-white    { color: #f9fafb !important; }
