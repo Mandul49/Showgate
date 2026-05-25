@@ -12,6 +12,7 @@ import { registerBrandingRoutes } from "./branding";
 import { getPaystackSecretKey } from "./paystackConfig";
 import { registerAnalyticsRoutes } from "./analytics";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerOgRoutes } from "./og";
 import { sendConfirmationEmail } from "./email";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
@@ -29,6 +30,9 @@ async function getPaypalAccessToken(clientId: string, secret: string): Promise<s
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ─── OG / Social preview (must be before Vite catch-all) ─────────────────
+  registerOgRoutes(app);
+
   // ─── Auth ─────────────────────────────────────────────────────────────────
   registerAuthRoutes(app);
 
