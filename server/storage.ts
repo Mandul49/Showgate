@@ -92,6 +92,7 @@ export interface IStorage {
   updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer>;
   updateOrganizerTestSubaccount(organizerId: string, testSubaccountCode: string): Promise<Organizer>;
   updateOrganizerBankAccount(organizerId: string, data: { bankName: string; bankCode: string; accountNumber: string }): Promise<Organizer>;
+  setOrganizerLiveSubaccount(organizerId: string, subaccountCode: string): Promise<Organizer>;
   // Events
   createEvent(data: CreateEventData): Promise<Event>;
   getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
@@ -346,6 +347,15 @@ export class DbStorage implements IStorage {
   async updateOrganizerBankAccount(organizerId: string, data: { bankName: string; bankCode: string; accountNumber: string }): Promise<Organizer> {
     const [row] = await db.update(organizers)
       .set(data)
+      .where(eq(organizers.id, organizerId))
+      .returning();
+    if (!row) throw new Error("Organizer not found");
+    return this._mapOrganizer(row);
+  }
+
+  async setOrganizerLiveSubaccount(organizerId: string, subaccountCode: string): Promise<Organizer> {
+    const [row] = await db.update(organizers)
+      .set({ subaccountCode })
       .where(eq(organizers.id, organizerId))
       .returning();
     if (!row) throw new Error("Organizer not found");

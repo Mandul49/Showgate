@@ -50,6 +50,7 @@ export function registerEventsRoutes(app: Express) {
         organizer: {
           testSubaccountCode: organizer.testSubaccountCode,
           hasTestSubaccount: !!organizer.testSubaccountCode,
+          hasLiveSubaccount: !!organizer.subaccountCode,
         },
         limits: {
           maxActiveEvents: organizer.tier === "free" ? FREE_MAX_ACTIVE_EVENTS : null,

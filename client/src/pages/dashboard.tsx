@@ -52,6 +52,7 @@ interface EventsResponse {
   organizer: {
     testSubaccountCode: string | null;
     hasTestSubaccount: boolean;
+    hasLiveSubaccount: boolean;
   } | null;
   limits: {
     maxActiveEvents: number | null;
@@ -2564,8 +2565,29 @@ export default function Dashboard() {
         {/* Branding */}
         <BrandingSection tier={tier} />
 
+        {/* Live subaccount missing — warn organizer */}
+        {paystackMode === "live" && organizerInfo !== null && !organizerInfo.hasLiveSubaccount && (
+          <div className="flex items-center gap-4 rounded-xl border border-red-500/30 bg-red-500/5 px-5 py-4 mb-6">
+            <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 flex-shrink-0">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold text-sm">Your payment account is not set up</p>
+              <p className="text-zinc-500 text-xs mt-0.5">You cannot receive payments until you complete setup. Enter your bank details below to create your live payment account.</p>
+            </div>
+            <button
+              onClick={() => document.getElementById("bank-account-section")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-400 text-white text-xs font-bold transition-colors"
+            >
+              <Wallet className="w-3.5 h-3.5" /> Complete Payment Setup
+            </button>
+          </div>
+        )}
+
         {/* Bank account */}
-        <EditBankAccountSection />
+        <div id="bank-account-section">
+          <EditBankAccountSection />
+        </div>
 
         {/* Flutterwave payment gateway */}
         <FlutterwaveSection tier={tier} />

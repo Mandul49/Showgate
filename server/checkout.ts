@@ -82,7 +82,12 @@ export function registerCheckoutRoutes(app: Express) {
         : organizer?.subaccountCode;
 
       if (!activeSubaccountCode) {
-        return res.status(500).json({ message: isTestMode() ? "Test payment account not set up. Please set up your test payment account from the dashboard." : "Organizer payment account not set up" });
+        console.warn(`[checkout] Missing ${isTestMode() ? "test" : "live"} subaccount for organizerId=${organizer?.id ?? "unknown"} eventId=${eventId}`);
+        return res.status(400).json({
+          message: isTestMode()
+            ? "Test payments are not enabled for this event. The organizer must set up a test payment account from their dashboard."
+            : "This event is not ready to accept payments yet. Please contact the organizer.",
+        });
       }
 
       const amountKobo = ticketType.price * quantity * 100;

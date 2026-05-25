@@ -68,6 +68,9 @@ export function registerOnboardingRoutes(app: Express) {
           id: organizer.id,
           businessName: organizer.businessName,
           subaccountCode: organizer.subaccountCode,
+          hasLiveSubaccount: !!organizer.subaccountCode,
+          testSubaccountCode: organizer.testSubaccountCode,
+          hasTestSubaccount: !!organizer.testSubaccountCode,
           bankName: organizer.bankName,
           accountNumber: organizer.accountNumber,
           tier: organizer.tier,
@@ -145,9 +148,10 @@ export function registerOnboardingRoutes(app: Express) {
         });
       }
 
-      const subaccountCode: string = paystackData.data.subaccount_code;
+      const createdCode: string = paystackData.data.subaccount_code;
+      const isTest = paystackMode === "test";
 
-      console.log(`[onboarding] Creating organizer row — userId=${req.userId} subaccountCode=${subaccountCode}`);
+      console.log(`[onboarding] Creating organizer row — userId=${req.userId} mode=${paystackMode} code=${createdCode}`);
 
       const organizer = await storage.createOrganizer({
         userId: req.userId!,
@@ -155,12 +159,13 @@ export function registerOnboardingRoutes(app: Express) {
         bankName,
         bankCode,
         accountNumber,
-        subaccountCode,
+        subaccountCode: isTest ? null : createdCode,
+        testSubaccountCode: isTest ? createdCode : null,
         bvn: bvn || null,
         tier: "free",
       });
 
-      console.log(`[onboarding] SUCCESS — organizerId=${organizer.id} userId=${organizer.userId} subaccountCode=${organizer.subaccountCode}`);
+      console.log(`[onboarding] SUCCESS — organizerId=${organizer.id} userId=${organizer.userId} mode=${paystackMode} subaccountCode=${organizer.subaccountCode} testSubaccountCode=${organizer.testSubaccountCode}`);
 
       return res.status(201).json({
         organizer: {
@@ -260,23 +265,36 @@ export function registerOnboardingRoutes(app: Express) {
         return res.status(500).json({ message: `Paystack ${paystackMode} API key is not configured.` });
       }
 
-      console.log(`[bank-update] userId=${req.userId} subaccountCode=${organizer.subaccountCode} bank_code=${bankCode} account=${accountNumber}`);
+      const hasExistingSubaccount = !!organizer.subaccountCode;
+      console.log(`[bank-update] userId=${req.userId} mode=${paystackMode} hasExistingSubaccount=${hasExistingSubaccount} subaccountCode=${organizer.subaccountCode ?? "null"} bank_code=${bankCode} account=${accountNumber}`);
 
-      const paystackRes = await fetch(`https://api.paystack.co/subaccount/${organizer.subaccountCode}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${PAYSTACK_KEY}`,
-        },
-        body: JSON.stringify({
-          settlement_bank: bankCode,
-          account_number: accountNumber,
-          business_name: organizer.businessName,
-        }),
-      });
+      let paystackRes: Response;
+      if (hasExistingSubaccount) {
+        paystackRes = await fetch(`https://api.paystack.co/subaccount/${organizer.subaccountCode}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${PAYSTACK_KEY}` },
+          body: JSON.stringify({
+            settlement_bank: bankCode,
+            account_number: accountNumber,
+            business_name: organizer.businessName,
+          }),
+        });
+      } else {
+        console.log(`[bank-update] No existing ${paystackMode} subaccount — creating new one`);
+        paystackRes = await fetch("https://api.paystack.co/subaccount", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${PAYSTACK_KEY}` },
+          body: JSON.stringify({
+            business_name: organizer.businessName,
+            settlement_bank: bankCode,
+            account_number: accountNumber,
+            percentage_charge: 2.5,
+          }),
+        });
+      }
 
       const paystackData: any = await paystackRes.json();
-      console.log(`[bank-update] Paystack response: HTTP ${paystackRes.status} status=${paystackData.status} message="${paystackData.message}"`);
+      console.log(`[bank-update] Paystack response: HTTP ${paystackRes.status} status=${paystackData.status} message="${paystackData.message}" subaccount_code=${paystackData.data?.subaccount_code ?? "N/A"}`);
 
       if (!paystackRes.ok || !paystackData.status) {
         console.error(`[bank-update] FAILED for userId=${req.userId}: ${JSON.stringify(paystackData)}`);
@@ -285,7 +303,15 @@ export function registerOnboardingRoutes(app: Express) {
         });
       }
 
+      const newSubaccountCode: string = paystackData.data.subaccount_code;
+
       const updated = await storage.updateOrganizerBankAccount(organizer.id, { bankName, bankCode, accountNumber });
+
+      if (!hasExistingSubaccount) {
+        await storage.setOrganizerLiveSubaccount(organizer.id, newSubaccountCode);
+        console.log(`[bank-update] New live subaccount created — organizerId=${organizer.id} subaccountCode=${newSubaccountCode}`);
+      }
+
       console.log(`[bank-update] SUCCESS — organizerId=${organizer.id} bankName=${updated.bankName} account=${updated.accountNumber}`);
 
       return res.json({
