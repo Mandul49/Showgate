@@ -241,6 +241,7 @@ export function registerUpgradeRoutes(app: Express): void {
       return res.json({
         tier: user.tier,
         proExpiresAt: user.proExpiresAt ?? null,
+        cancelledAt: user.cancelledAt ?? null,
         isPro: user.tier === "pro",
       });
     } catch (err: any) {
