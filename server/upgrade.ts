@@ -1,4 +1,5 @@
-import type { Express } from "express";
+import crypto from "crypto";
+import type { Express, Request, Response } from "express";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { getPaystackSecretKey } from "./paystackConfig";
@@ -80,6 +81,100 @@ export function startSubscriptionCron(): void {
   // Run once on startup, then every 24 h
   check();
   setInterval(check, 24 * 60 * 60 * 1000);
+}
+
+// ── Paystack webhook ──────────────────────────────────────────────────────────
+
+export function registerUpgradeWebhook(app: Express): void {
+  app.post("/api/upgrade/webhook", async (req: Request, res: Response) => {
+    const PAYSTACK_KEY = getPaystackSecretKey();
+    if (!PAYSTACK_KEY) {
+      console.error("[webhook] Paystack secret key not configured — rejecting webhook");
+      return res.status(500).json({ message: "Payment system not configured" });
+    }
+
+    // Validate HMAC-SHA512 signature
+    const signature = req.headers["x-paystack-signature"] as string | undefined;
+    const rawBody: Buffer | undefined = (req as any).rawBody;
+
+    if (!signature || !rawBody) {
+      return res.status(400).json({ message: "Missing signature or body" });
+    }
+
+    const expectedSig = crypto
+      .createHmac("sha512", PAYSTACK_KEY)
+      .update(rawBody)
+      .digest("hex");
+
+    if (signature !== expectedSig) {
+      console.warn("[webhook] Invalid Paystack signature — ignoring");
+      return res.status(401).json({ message: "Invalid signature" });
+    }
+
+    // Parse event
+    let event: any;
+    try {
+      event = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return res.status(400).json({ message: "Invalid JSON body" });
+    }
+
+    // Only handle charge.success events
+    if (event.event !== "charge.success") {
+      return res.status(200).json({ message: "Event ignored" });
+    }
+
+    const data = event.data ?? {};
+    const meta = data.metadata ?? {};
+    const reference: string | undefined = data.reference;
+
+    const userId: string | undefined = meta.user_id;
+    const rawPlan: string | undefined = meta.upgrade_plan;
+
+    // Validate required metadata
+    if (!userId || !reference) {
+      console.warn("[webhook] charge.success missing user_id or reference — skipping");
+      return res.status(200).json({ message: "Missing metadata — skipped" });
+    }
+
+    // Require upgrade_plan to be present and valid (skip ticket-purchase events)
+    if (rawPlan !== "monthly" && rawPlan !== "yearly") {
+      return res.status(200).json({ message: "Not a subscription event — skipped" });
+    }
+    const plan = rawPlan as PlanKey;
+
+    try {
+      // Idempotency: skip if reference already processed
+      const alreadyUsed = await storage.hasSubscriptionReference(reference);
+      if (alreadyUsed) {
+        console.log(`[webhook] Reference ${reference} already processed — idempotent skip`);
+        return res.status(200).json({ message: "Already processed" });
+      }
+
+      // Skip if user is already Pro (could have been activated via /verify)
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        console.warn(`[webhook] User ${userId} not found — skipping`);
+        return res.status(200).json({ message: "User not found — skipped" });
+      }
+
+      if (user.tier === "pro") {
+        // Still record the reference so it can't be replayed later
+        await storage.recordSubscriptionReference(reference, userId, plan);
+        console.log(`[webhook] User ${userId} already Pro — recorded reference and skipped fulfillment`);
+        return res.status(200).json({ message: "Already Pro" });
+      }
+
+      await fulfillUpgrade(userId, plan);
+      await storage.recordSubscriptionReference(reference, userId, plan);
+
+      console.log(`[webhook] Fulfilled Pro upgrade for user ${userId} (${plan}) via webhook`);
+      return res.status(200).json({ message: "Upgrade fulfilled" });
+    } catch (err: any) {
+      console.error("[webhook] Error fulfilling upgrade:", err.message);
+      return res.status(500).json({ message: err.message });
+    }
+  });
 }
 
 // ── Express routes ────────────────────────────────────────────────────────────

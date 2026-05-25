@@ -7,7 +7,7 @@ import { registerAuthRoutes, requireAuth } from "./auth";
 import { registerOnboardingRoutes } from "./onboarding";
 import { registerEventsRoutes } from "./events";
 import { registerCheckoutRoutes } from "./checkout";
-import { registerUpgradeRoutes, startSubscriptionCron } from "./upgrade";
+import { registerUpgradeRoutes, registerUpgradeWebhook, startSubscriptionCron } from "./upgrade";
 import { registerBrandingRoutes } from "./branding";
 import { getPaystackSecretKey } from "./paystackConfig";
 import { registerAnalyticsRoutes } from "./analytics";
@@ -42,6 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCheckoutRoutes(app);
 
   // ─── Upgrade / Subscriptions ──────────────────────────────────────────────
+  registerUpgradeWebhook(app);
   registerUpgradeRoutes(app);
   startSubscriptionCron();
 
