@@ -755,33 +755,6 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
-  // ── PUT /api/events/:id/ticket-types/reorder ─────────────────────────────
-  app.put("/api/events/:id/ticket-types/reorder", requireAuth, async (req: AuthRequest, res) => {
-    try {
-      const organizer = await storage.getOrganizerByUserId(req.userId!);
-      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
-
-      const event = await storage.getEventById(req.params.id);
-      if (!event) return res.status(404).json({ message: "Event not found" });
-      if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
-
-      const { order } = req.body;
-      if (!Array.isArray(order)) {
-        return res.status(400).json({ message: "order must be an array" });
-      }
-      const parsed = order as { id: string; sortOrder: number }[];
-      if (!parsed.every((item) => typeof item.id === "string" && typeof item.sortOrder === "number")) {
-        return res.status(400).json({ message: "Each item must have id (string) and sortOrder (number)" });
-      }
-
-      await storage.reorderTicketTypes(event.id, parsed);
-      const ticketTypes = await storage.getTicketTypesByEventId(event.id);
-      return res.json(ticketTypes);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
   // ── PATCH /api/events/:id/ticket-types/:typeId ────────────────────────────
   app.patch("/api/events/:id/ticket-types/:typeId", requireAuth, async (req: AuthRequest, res) => {
     try {
