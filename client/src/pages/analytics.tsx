@@ -328,7 +328,7 @@ export default function Analytics() {
     if (!isAuthenticated()) navigate("/login");
   }, []);
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery<AnalyticsData>({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery<AnalyticsData, Error>({
     queryKey: ["/api/analytics", eventId],
     queryFn: async () => {
       const token = localStorage.getItem("authToken");
@@ -354,7 +354,10 @@ export default function Analytics() {
   if (isError || !data) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
       <div className="text-center">
-        <p className="text-zinc-400 mb-4">Could not load analytics for this event.</p>
+        <p className="text-zinc-400 mb-2">Could not load analytics for this event.</p>
+        {error?.message && (
+          <p className="text-red-400 text-sm mb-4 font-mono bg-red-400/5 border border-red-400/20 rounded px-3 py-2">{error.message}</p>
+        )}
         <a href="/dashboard" className="text-amber-400 text-sm hover:underline">← Back to dashboard</a>
       </div>
     </div>

@@ -11,7 +11,7 @@ export function registerAnalyticsRoutes(app: Express) {
       const event = await storage.getEventById(eventId);
       if (!event) return res.status(404).json({ message: "Event not found" });
 
-      const organizer = await storage.getOrganizerByUserId(req.user.id);
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
       if (!organizer || organizer.id !== event.organizerId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -58,7 +58,7 @@ export function registerAnalyticsRoutes(app: Express) {
       const event = await storage.getEventById(eventId);
       if (!event) return res.status(404).json({ message: "Event not found" });
 
-      const organizer = await storage.getOrganizerByUserId(req.user.id);
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
       if (!organizer || organizer.id !== event.organizerId) {
         return res.status(403).json({ message: "Access denied" });
       }
