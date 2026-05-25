@@ -194,10 +194,12 @@ export default function Pricing() {
                 <span className="text-zinc-600 text-sm mb-1">/month</span>
               </div>
               {billing === "yearly" ? (
-                <p className="text-zinc-500 text-sm">
-                  {fmtNGN(PRICES.yearly)} billed yearly ·{" "}
-                  <span className="text-green-400 font-semibold">Save {fmtNGN(PRICES.monthly * 12 - PRICES.yearly)}</span>
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[1.2rem] font-[800] text-white">{fmtNGN(PRICES.yearly)}/yr</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
+                    Save ₦24,000
+                  </span>
+                </div>
               ) : (
                 <p className="text-zinc-500 text-sm">Billed monthly</p>
               )}

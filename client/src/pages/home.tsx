@@ -345,7 +345,12 @@ export default function Home() {
                     <span className="text-4xl font-black">₦12,000</span>
                     <span className="text-zinc-400 text-sm mb-1.5">/month</span>
                   </div>
-                  <div className="text-zinc-500 text-sm">or ₦120,000/year — save 2 months</div>
+                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                    <span className="text-[1.2rem] font-[800] text-white">or ₦120,000/year</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
+                      Save ₦24,000
+                    </span>
+                  </div>
                 </div>
                 <ul className="space-y-3 flex-1 mb-8">
                   {[
