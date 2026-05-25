@@ -780,17 +780,6 @@ export function registerEventsRoutes(app: Express) {
         });
       }
 
-      if (updates.quantityAvailable !== undefined) {
-        // Free-tier hard cap
-        const tierCheck = await checkTicketTypeTierLimits(organizer, event, {
-          quantityAvailable: updates.quantityAvailable,
-          excludeTicketTypeId: ticketType.id,
-        });
-        if (!tierCheck.allowed) {
-          return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });
-        }
-      }
-
       const updated = await storage.updateTicketType(ticketType.id, updates);
 
       // Sync event capacity to sum of all ticket tiers
