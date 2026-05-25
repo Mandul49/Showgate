@@ -66,6 +66,13 @@ interface UpgradeStatus {
   isPro: boolean;
 }
 
+interface HistoryItem {
+  plan: string;
+  amountKobo: number;
+  fulfilledAt: string;
+  reference: string;
+}
+
 // ─── Zod schemas ─────────────────────────────────────────────────────────────
 
 const newEventSchema = z.object({
@@ -2066,6 +2073,11 @@ export default function Dashboard() {
     enabled: isAuthenticated(),
   });
 
+  const { data: paymentHistory } = useQuery<HistoryItem[]>({
+    queryKey: ["/api/upgrade/history"],
+    enabled: isAuthenticated() && tier === "pro",
+  });
+
   const cancelSubMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/upgrade/cancel", {});
@@ -2347,32 +2359,64 @@ export default function Dashboard() {
 
         {/* Pro subscription management — Pro tier only */}
         {tier === "pro" && (
-          <div className="flex items-center gap-4 rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4 mb-6">
-            <div className="p-2 rounded-lg bg-violet-400/10 border border-violet-400/20 flex-shrink-0">
-              <Crown className="w-4 h-4 text-violet-400" />
+          <div className="mb-6 space-y-3">
+            <div className="flex items-center gap-4 rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4">
+              <div className="p-2 rounded-lg bg-violet-400/10 border border-violet-400/20 flex-shrink-0">
+                <Crown className="w-4 h-4 text-violet-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-sm">Pro Plan Active</p>
+                {upgradeStatus?.proExpiresAt ? (
+                  <p className="text-zinc-500 text-xs mt-0.5">
+                    Renews on {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                  </p>
+                ) : (
+                  <p className="text-zinc-500 text-xs mt-0.5">0% platform fee · Unlimited events & tickets</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href="/subscription"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors">
+                  <Settings className="w-3 h-3" /> Manage
+                </a>
+                <button
+                  onClick={() => setShowCancelSubModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-800/50 text-red-400 hover:text-red-300 hover:border-red-700 text-xs font-semibold transition-colors">
+                  Cancel
+                </button>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold text-sm">Pro Plan Active</p>
-              {upgradeStatus?.proExpiresAt ? (
-                <p className="text-zinc-500 text-xs mt-0.5">
-                  Renews on {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                </p>
-              ) : (
-                <p className="text-zinc-500 text-xs mt-0.5">0% platform fee · Unlimited events & tickets</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <a
-                href="/subscription"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors">
-                <Settings className="w-3 h-3" /> Manage
-              </a>
-              <button
-                onClick={() => setShowCancelSubModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-800/50 text-red-400 hover:text-red-300 hover:border-red-700 text-xs font-semibold transition-colors">
-                Cancel
-              </button>
-            </div>
+
+            {/* Payment history */}
+            {paymentHistory && paymentHistory.length > 0 && (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                  <p className="text-zinc-400 text-xs font-semibold uppercase tracking-widest">Payment History</p>
+                </div>
+                <div className="divide-y divide-zinc-800/60">
+                  {paymentHistory.map((item) => (
+                    <div key={item.reference} className="px-4 py-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-zinc-200 text-xs font-medium">
+                            Pro {item.plan === "yearly" ? "Yearly" : "Monthly"}
+                          </p>
+                          <p className="text-zinc-600 text-xs">
+                            {new Date(item.fulfilledAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-zinc-300 text-xs font-semibold flex-shrink-0">
+                        {new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(item.amountKobo / 100)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

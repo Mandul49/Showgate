@@ -404,6 +404,23 @@ export function registerUpgradeRoutes(app: Express): void {
     }
   });
 
+  // GET /api/upgrade/history — past subscription payments for the logged-in user
+  app.get("/api/upgrade/history", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const history = await storage.getSubscriptionHistory(req.userId!);
+      return res.json(
+        history.map((h) => ({
+          plan: h.plan,
+          amountKobo: h.amountKobo ?? (h.plan === "yearly" ? PLANS.yearly.amountKobo : PLANS.monthly.amountKobo),
+          fulfilledAt: h.fulfilledAt,
+          reference: h.reference,
+        }))
+      );
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // POST /api/subscription/reinstate — undo cancellation (resume auto-renewal)
   app.post("/api/subscription/reinstate", requireAuth, async (req: AuthRequest, res) => {
     try {
