@@ -352,7 +352,7 @@ export default function Home() {
 
             {/* Pro */}
             <FadeSection>
-              <div className="relative p-7 rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-500/5 to-zinc-900/60 h-full flex flex-col overflow-hidden">
+              <div className="pricing-pro-card relative p-7 rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-500/5 to-zinc-900/60 h-full flex flex-col overflow-hidden">
                 <div className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
                   Most Popular
                 </div>
