@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { isAuthenticated } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 import {
   Zap, BarChart2, Palette, ArrowRight, Check, X, Menu,
-  ChevronRight,
+  ChevronRight, Sun, Moon,
 } from "lucide-react";
 
 interface PublicStats {
@@ -60,6 +61,7 @@ function FadeSection({ children, className = "" }: { children: React.ReactNode; 
 export default function Home() {
   const authed = isAuthenticated();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { isLight, toggle: toggleTheme } = useTheme();
 
   const { data: stats } = useQuery<PublicStats>({
     queryKey: ["/api/stats"],
@@ -92,6 +94,12 @@ export default function Home() {
           </span>
           {/* Desktop links */}
           <div className="hidden sm:flex items-center gap-3">
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors">
+              {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
             {authed ? (
               <Link href="/dashboard">
                 <button className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors">
@@ -113,10 +121,18 @@ export default function Home() {
               </>
             )}
           </div>
-          {/* Mobile menu toggle */}
-          <button className="sm:hidden p-2 text-zinc-400" onClick={() => setMenuOpen(v => !v)}>
-            <Menu className="w-5 h-5" />
-          </button>
+          {/* Mobile: theme toggle + menu button */}
+          <div className="sm:hidden flex items-center gap-1">
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="p-2 text-zinc-400">
+              {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
+            <button className="p-2 text-zinc-400" onClick={() => setMenuOpen(v => !v)}>
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         {menuOpen && (
           <div className="sm:hidden border-t border-zinc-800 px-5 py-4 flex flex-col gap-3 bg-[#0d0d0d]">

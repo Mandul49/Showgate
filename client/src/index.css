@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Global theme transition ── */
+*, *::before, *::after {
+  transition-property: background-color, color, border-color, fill, stroke;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
 :root {
   --background: hsl(0, 0%, 5%);
   --foreground: hsl(0, 0%, 98%);
@@ -49,4 +56,89 @@ input::placeholder, textarea::placeholder {
 input:focus, textarea:focus {
   border-color: #EAB308 !important;
   box-shadow: 0 0 0 1px #EAB30840 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   LIGHT MODE
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* CSS variable overrides */
+:root.light-mode {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(0, 0%, 7%);
+  --muted: hsl(0, 0%, 96%);
+  --muted-foreground: hsl(0, 0%, 40%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(0, 0%, 7%);
+  --card: hsl(0, 0%, 98%);
+  --card-foreground: hsl(0, 0%, 7%);
+  --border: hsl(0, 0%, 88%);
+  --input: hsl(0, 0%, 96%);
+  --secondary: hsl(0, 0%, 95%);
+  --secondary-foreground: hsl(0, 0%, 20%);
+}
+
+/* Body & root */
+.light-mode,
+.light-mode body {
+  background-color: #f9fafb !important;
+  color: #111111 !important;
+}
+
+/* ── Backgrounds ── */
+.light-mode [class*="bg-zinc-9"],
+.light-mode [class*="bg-zinc-95"] {
+  background-color: #f3f4f6 !important;
+}
+.light-mode [class*="bg-zinc-8"] {
+  background-color: #e5e7eb !important;
+}
+.light-mode [class*="bg-zinc-7"] {
+  background-color: #d1d5db !important;
+}
+/* Hardcoded hex bg classes */
+.light-mode [class*="bg-[#0d"],
+.light-mode [class*="bg-[#1a"],
+.light-mode [class*="bg-[#11"] {
+  background-color: #f9fafb !important;
+}
+
+/* ── Text ── */
+.light-mode .text-white  { color: #111111 !important; }
+.light-mode .text-zinc-100,
+.light-mode .text-zinc-200 { color: #1f2937 !important; }
+.light-mode .text-zinc-300 { color: #374151 !important; }
+.light-mode .text-zinc-400 { color: #4b5563 !important; }
+.light-mode .text-zinc-500 { color: #6b7280 !important; }
+.light-mode .text-zinc-600 { color: #4b5563 !important; }
+.light-mode .text-zinc-700 { color: #374151 !important; }
+
+/* ── Borders ── */
+.light-mode [class*="border-zinc-8"] { border-color: #d1d5db !important; }
+.light-mode [class*="border-zinc-7"] { border-color: #e5e7eb !important; }
+.light-mode [class*="border-zinc-6"] { border-color: #e5e7eb !important; }
+
+/* ── Inputs & selects ── */
+.light-mode input,
+.light-mode textarea,
+.light-mode select {
+  background-color: #ffffff !important;
+  color: #111111 !important;
+  border-color: #d1d5db !important;
+}
+.light-mode input::placeholder,
+.light-mode textarea::placeholder {
+  color: #9ca3af !important;
+}
+.light-mode input:focus,
+.light-mode textarea:focus {
+  border-color: #EAB308 !important;
+  box-shadow: 0 0 0 1px #EAB30840 !important;
+}
+
+/* ── Radix / shadcn popover, dropdown, dialog backgrounds ── */
+.light-mode [data-radix-popper-content-wrapper] [class*="bg-zinc"],
+.light-mode [role="dialog"] [class*="bg-zinc"],
+.light-mode [role="menu"] {
+  background-color: #ffffff !important;
 }
