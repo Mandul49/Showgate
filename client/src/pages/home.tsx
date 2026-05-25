@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { isAuthenticated } from "@/lib/auth";
-import { useTheme } from "@/lib/theme";
 import {
   Zap, BarChart2, Palette, ArrowRight, Check, X, Menu,
-  ChevronRight, Sun, Moon,
+  ChevronRight,
 } from "lucide-react";
 
 interface PublicStats {
@@ -61,8 +60,6 @@ function FadeSection({ children, className = "" }: { children: React.ReactNode; 
 export default function Home() {
   const authed = isAuthenticated();
   const [menuOpen, setMenuOpen] = useState(false);
-  const { isLight, toggle: toggleTheme } = useTheme();
-
   const { data: stats } = useQuery<PublicStats>({
     queryKey: ["/api/stats"],
   });
@@ -94,12 +91,6 @@ export default function Home() {
           </span>
           {/* Desktop links */}
           <div className="hidden sm:flex items-center gap-3">
-            <button
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors">
-              {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            </button>
             {authed ? (
               <Link href="/dashboard">
                 <button className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors">
@@ -113,7 +104,7 @@ export default function Home() {
                     Log In
                   </button>
                 </Link>
-                <Link href="/signup">
+                <Link href="/login">
                   <button className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors">
                     Get Started
                   </button>
@@ -121,18 +112,10 @@ export default function Home() {
               </>
             )}
           </div>
-          {/* Mobile: theme toggle + menu button */}
-          <div className="sm:hidden flex items-center gap-1">
-            <button
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              className="p-2 text-zinc-400">
-              {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            </button>
-            <button className="p-2 text-zinc-400" onClick={() => setMenuOpen(v => !v)}>
-              <Menu className="w-5 h-5" />
-            </button>
-          </div>
+          {/* Mobile menu button */}
+          <button className="sm:hidden p-2 text-zinc-400" onClick={() => setMenuOpen(v => !v)}>
+            <Menu className="w-5 h-5" />
+          </button>
         </div>
         {menuOpen && (
           <div className="sm:hidden border-t border-zinc-800 px-5 py-4 flex flex-col gap-3 bg-[#0d0d0d]">
@@ -149,7 +132,7 @@ export default function Home() {
                     Log In
                   </button>
                 </Link>
-                <Link href="/signup">
+                <Link href="/login">
                   <button className="w-full px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors">
                     Get Started
                   </button>
@@ -185,7 +168,7 @@ export default function Home() {
             Sell tickets, brand your experience, and understand your audience — all in one place.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/signup">
+            <Link href="/login">
               <button className="flex items-center gap-2 px-7 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-base transition-colors shadow-lg shadow-amber-900/30">
                 Create Your Event <ArrowRight className="w-4 h-4" />
               </button>
@@ -342,7 +325,7 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/signup">
+                <Link href="/login">
                   <button className="w-full py-3 rounded-xl border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white font-bold text-sm transition-colors">
                     Get Started Free
                   </button>
@@ -384,7 +367,7 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/signup?plan=pro">
+                <Link href="/login">
                   <button className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors">
                     Go Pro
                   </button>
@@ -428,7 +411,7 @@ export default function Home() {
                 </button>
               </Link>
             ) : (
-              <Link href="/signup">
+              <Link href="/login">
                 <button className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-base transition-colors shadow-lg shadow-amber-900/30">
                   Create Your Event <ArrowRight className="w-4 h-4" />
                 </button>

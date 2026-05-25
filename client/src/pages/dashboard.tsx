@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
-import { useTheme } from "@/lib/theme";
 import { apiRequest } from "@/lib/queryClient";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
@@ -15,7 +14,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Settings, PauseCircle, RefreshCw, Sun, Moon,
+  Crown, Settings, PauseCircle, RefreshCw,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -2120,8 +2119,6 @@ export default function Dashboard() {
   const [showProPopover, setShowProPopover] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const user = getUser();
-  const { isLight, toggle: toggleTheme } = useTheme();
-
   useEffect(() => {
     if (!isAuthenticated()) { navigate("/login"); return; }
     const token = getToken();
@@ -2307,12 +2304,6 @@ export default function Dashboard() {
                 )}
               </div>
             )}
-            <button
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              className="p-1.5 rounded-lg border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-colors">
-              {isLight ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
-            </button>
             <button onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-zinc-500 hover:text-red-400 hover:border-red-400/30 transition-colors text-xs font-semibold">
               <LogOut className="w-3.5 h-3.5" />

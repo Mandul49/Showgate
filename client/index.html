@@ -5,17 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>Showgate — Event Tickets</title>
     <script src="https://js.paystack.co/v1/inline.js"></script>
-    <script>
-      (function () {
-        try {
-          var saved = localStorage.getItem("sg-theme");
-          var theme = (saved === "light" || saved === "dark")
-            ? saved
-            : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-          if (theme === "light") document.documentElement.classList.add("light-mode");
-        } catch (e) {}
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>
