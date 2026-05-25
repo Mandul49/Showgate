@@ -134,7 +134,7 @@ export default function EventPublic() {
             <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
-            <span className="text-zinc-500 text-xs font-semibold uppercase tracking-widest">TicketForge</span>
+            <span className="text-zinc-500 text-xs font-semibold uppercase tracking-widest">Showgate</span>
           </div>
 
           <p className="text-amber-400 text-xs uppercase tracking-[0.2em] font-bold mb-2">{event.organizerName}</p>
@@ -333,7 +333,7 @@ export default function EventPublic() {
       <footer className="border-t border-zinc-900 py-6 mt-4">
         <div className="max-w-3xl mx-auto px-4 flex items-center justify-center gap-2 text-zinc-700 text-xs">
           <Ticket className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>Powered by TicketForge · Payments secured by Paystack</span>
+          <span>Powered by Showgate · Payments secured by Paystack</span>
         </div>
       </footer>
     </div>

@@ -92,7 +92,7 @@ export default function Pricing() {
             <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
-            <span className="text-white font-black text-base">TicketForge</span>
+            <span className="text-white font-black text-base">Showgate</span>
           </div>
           <button onClick={() => navigate(authed ? "/dashboard" : "/")}
             className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">

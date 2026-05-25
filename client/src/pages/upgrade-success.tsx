@@ -195,7 +195,7 @@ export default function UpgradeSuccess() {
       </div>
 
       <p className="mt-10 text-zinc-800 text-xs flex items-center gap-2">
-        <Ticket className="w-3.5 h-3.5" /> Powered by TicketForge
+        <Ticket className="w-3.5 h-3.5" /> Powered by Showgate
       </p>
     </div>
   );

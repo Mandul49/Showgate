@@ -2434,7 +2434,7 @@ export default function Dashboard() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-sm">TicketForge</h1>
+              <h1 className="text-white font-bold text-sm">Showgate</h1>
               <p className="text-zinc-600 text-xs">Event Dashboard</p>
             </div>
           </div>

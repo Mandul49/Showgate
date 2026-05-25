@@ -100,7 +100,7 @@ export default function Onboarding() {
             <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
-            <span className="text-white font-bold text-sm">TicketForge</span>
+            <span className="text-white font-bold text-sm">Showgate</span>
           </div>
         </div>
 
@@ -158,7 +158,7 @@ export default function Onboarding() {
           <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
             <Ticket className="w-4 h-4 text-amber-400" />
           </div>
-          <span className="text-white font-bold text-sm">TicketForge</span>
+          <span className="text-white font-bold text-sm">Showgate</span>
           {user && <span className="ml-auto text-zinc-600 text-xs">{user.email}</span>}
         </div>
       </div>
