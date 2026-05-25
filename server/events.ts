@@ -199,20 +199,17 @@ export function registerEventsRoutes(app: Express) {
 
       const { name, price, quantityAvailable, groupSize, groupLabel } = parsed.data;
 
-      // Capacity check: cannot exceed event.maxTickets (all tiers)
-      const existingTypes = await storage.getTicketTypesByEventId(event.id);
-      const currentTotal = existingTypes.reduce((sum, t) => sum + t.quantityAvailable, 0);
-      if (currentTotal + quantityAvailable > event.maxTickets) {
-        return res.status(400).json({
-          message: `Adding ${quantityAvailable} tickets would exceed this event's capacity of ${event.maxTickets}. Available: ${event.maxTickets - currentTotal}.`,
-        });
-      }
-
       const ticketType = await storage.createTicketType({
         eventId: event.id, name, price, quantityAvailable,
         groupSize: groupSize ?? 1,
         groupLabel: groupLabel ?? null,
       });
+
+      // Sync event capacity to sum of all ticket tiers
+      const allTypesAfterCreate = await storage.getTicketTypesByEventId(event.id);
+      const newCapacity = allTypesAfterCreate.reduce((sum, t) => sum + t.quantityAvailable, 0);
+      await storage.updateEvent(event.id, { maxTickets: newCapacity });
+
       return res.status(201).json(ticketType);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -784,18 +781,7 @@ export function registerEventsRoutes(app: Express) {
       }
 
       if (updates.quantityAvailable !== undefined) {
-        // Capacity check: all tiers
-        const allTypes = await storage.getTicketTypesByEventId(event.id);
-        const otherTotal = allTypes
-          .filter((t) => t.id !== ticketType.id)
-          .reduce((sum, t) => sum + t.quantityAvailable, 0);
-        if (otherTotal + updates.quantityAvailable > event.maxTickets) {
-          return res.status(400).json({
-            message: `Total ticket quantity cannot exceed this event's capacity of ${event.maxTickets}.`,
-          });
-        }
-
-        // Free-tier hard cap (independent of event.maxTickets)
+        // Free-tier hard cap
         const tierCheck = await checkTicketTypeTierLimits(organizer, event, {
           quantityAvailable: updates.quantityAvailable,
           excludeTicketTypeId: ticketType.id,
@@ -806,6 +792,12 @@ export function registerEventsRoutes(app: Express) {
       }
 
       const updated = await storage.updateTicketType(ticketType.id, updates);
+
+      // Sync event capacity to sum of all ticket tiers
+      const allTypesAfterUpdate = await storage.getTicketTypesByEventId(event.id);
+      const newCapacity = allTypesAfterUpdate.reduce((sum, t) => sum + t.quantityAvailable, 0);
+      await storage.updateEvent(event.id, { maxTickets: newCapacity });
+
       return res.json(updated);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
