@@ -16,26 +16,33 @@ export function registerAnalyticsRoutes(app: Express) {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const [ticketTypes, purchases] = await Promise.all([
-        storage.getTicketTypesByEventId(eventId),
-        storage.getTicketPurchasesByEventId(eventId),
-      ]);
+      const orders = await storage.getOrdersByEventId(eventId);
+      const confirmed = orders.filter((o) => o.status === "confirmed");
 
-      const ticketTypeMap = new Map(ticketTypes.map((tt) => [tt.id, tt]));
+      const header = [
+        "Order Reference",
+        "Buyer Name",
+        "Buyer Email",
+        "Buyer Phone",
+        "Ticket Type",
+        "Quantity",
+        "Amount Paid",
+        "Purchase Date",
+        "Event Name",
+      ];
 
-      const header = ["Name", "Email", "Phone", "Ticket Type", "Quantity", "Amount", "Reference", "Date", "Status"];
-      const rows = purchases
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .map((p) => [
-          p.customerName,
-          p.customerEmail,
-          p.customerPhone,
-          ticketTypeMap.get(p.ticketTypeId)?.name ?? "",
-          p.quantity,
-          p.amount,
-          p.reference,
-          new Date(p.createdAt).toLocaleString("en-GB"),
-          p.status,
+      const rows = confirmed
+        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+        .map((o) => [
+          o.id.toUpperCase(),
+          o.customerName,
+          o.customerEmail,
+          o.customerPhone,
+          o.ticketType,
+          o.quantity,
+          o.totalAmount,
+          new Date(o.createdAt!).toLocaleString("en-GB"),
+          event.title,
         ]);
 
       const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -63,23 +70,25 @@ export function registerAnalyticsRoutes(app: Express) {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const [ticketTypes, purchases] = await Promise.all([
+      const [ticketTypes, orders] = await Promise.all([
         storage.getTicketTypesByEventId(eventId),
-        storage.getTicketPurchasesByEventId(eventId),
+        storage.getOrdersByEventId(eventId),
       ]);
 
-      const confirmed = purchases.filter((p) => p.status === "confirmed");
+      // Source of truth: orders table (confirmed status)
+      const confirmed = orders.filter((o) => o.status === "confirmed");
 
-      const totalSold = confirmed.reduce((s, p) => s + p.quantity, 0);
-      const totalRevenue = confirmed.reduce((s, p) => s + p.amount, 0);
+      const totalSold = confirmed.reduce((s, o) => s + o.quantity, 0);
+      const totalRevenue = confirmed.reduce((s, o) => s + o.totalAmount, 0);
       const remaining = ticketTypes.reduce((s, tt) => s + Math.max(0, tt.quantityAvailable - tt.quantitySold), 0);
 
-      const ticketTypeMap = new Map(ticketTypes.map((tt) => [tt.id, tt]));
-
+      // Per-ticket-type breakdown: join orders to ticket types via ticketTypeId or ticketType name
       const ticketTypeSummary = ticketTypes.map((tt) => {
-        const sales = confirmed.filter((p) => p.ticketTypeId === tt.id);
-        const sold = sales.reduce((s, p) => s + p.quantity, 0);
-        const revenue = sales.reduce((s, p) => s + p.amount, 0);
+        const sales = confirmed.filter((o) =>
+          o.ticketTypeId === tt.id || o.ticketType === tt.name
+        );
+        const sold = sales.reduce((s, o) => s + o.quantity, 0);
+        const revenue = sales.reduce((s, o) => s + o.totalAmount, 0);
         return {
           id: tt.id,
           name: tt.name,
@@ -92,7 +101,6 @@ export function registerAnalyticsRoutes(app: Express) {
         };
       });
 
-      // ── Free tier: 3 basic metrics + ticket type table ────────────────────
       const base = {
         tier: organizer.tier,
         event: {
@@ -110,65 +118,67 @@ export function registerAnalyticsRoutes(app: Express) {
         ticketTypeSummary,
       };
 
+      console.log("[analytics] Final response for event", eventId, {
+        totalSold,
+        totalRevenue,
+        confirmedOrders: confirmed.length,
+        ticketTypeSummary: ticketTypeSummary.map((t) => ({ name: t.name, sold: t.sold, revenue: t.revenue })),
+      });
+
       if (organizer.tier !== "pro") {
         return res.json(base);
       }
 
-      // ── Pro tier: add time series, buyer list, multi-event comparison ─────
+      // ── Pro tier: time series, buyer list, multi-event comparison ─────────
 
-      // Group purchases by date (day)
       const byDay = new Map<string, { count: number; revenue: number }>();
-      for (const p of confirmed) {
-        const day = new Date(p.createdAt).toISOString().slice(0, 10);
+      for (const o of confirmed) {
+        const day = new Date(o.createdAt!).toISOString().slice(0, 10);
         const prev = byDay.get(day) ?? { count: 0, revenue: 0 };
-        byDay.set(day, { count: prev.count + p.quantity, revenue: prev.revenue + p.amount });
+        byDay.set(day, { count: prev.count + o.quantity, revenue: prev.revenue + o.totalAmount });
       }
       const salesOverTime = Array.from(byDay.entries())
         .map(([date, v]) => ({ date, ...v }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
-      // Unique buyers
-      const uniqueEmails = new Set(confirmed.map((p) => p.customerEmail.toLowerCase()));
+      const uniqueEmails = new Set(confirmed.map((o) => o.customerEmail.toLowerCase()));
       const uniqueBuyers = uniqueEmails.size;
 
-      // Repeat buyers (bought more than once across this event's purchases)
       const emailCount = new Map<string, number>();
-      for (const p of confirmed) {
-        const key = p.customerEmail.toLowerCase();
+      for (const o of confirmed) {
+        const key = o.customerEmail.toLowerCase();
         emailCount.set(key, (emailCount.get(key) ?? 0) + 1);
       }
       const repeatBuyers = Array.from(emailCount.values()).filter((v) => v > 1).length;
 
-      // Recent buyers (for table + CSV), newest first, max 200
       const recentBuyers = confirmed
         .slice()
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
         .slice(0, 200)
-        .map((p) => ({
-          name: p.customerName,
-          email: p.customerEmail,
-          phone: p.customerPhone,
-          ticketType: ticketTypeMap.get(p.ticketTypeId)?.name ?? "—",
-          quantity: p.quantity,
-          amount: p.amount,
-          reference: p.reference,
-          date: new Date(p.createdAt).toISOString(),
-          status: p.status,
+        .map((o) => ({
+          name: o.customerName,
+          email: o.customerEmail,
+          phone: o.customerPhone,
+          ticketType: o.ticketType,
+          quantity: o.quantity,
+          amount: o.totalAmount,
+          reference: o.id,
+          date: new Date(o.createdAt!).toISOString(),
+          status: o.status,
         }));
 
-      // Multi-event comparison (all events for this organizer)
       const allEvents = await storage.getEventsByOrganizerId(organizer.id);
       const allEventsSummary = await Promise.all(
         allEvents.map(async (ev) => {
-          const evPurchases = await storage.getTicketPurchasesByEventId(ev.id);
-          const evConfirmed = evPurchases.filter((p) => p.status === "confirmed");
+          const evOrders = await storage.getOrdersByEventId(ev.id);
+          const evConfirmed = evOrders.filter((o) => o.status === "confirmed");
           return {
             id: ev.id,
             title: ev.title,
             date: ev.date,
             isActive: ev.isActive,
-            totalSold: evConfirmed.reduce((s, p) => s + p.quantity, 0),
-            totalRevenue: evConfirmed.reduce((s, p) => s + p.amount, 0),
+            totalSold: evConfirmed.reduce((s, o) => s + o.quantity, 0),
+            totalRevenue: evConfirmed.reduce((s, o) => s + o.totalAmount, 0),
           };
         })
       );
