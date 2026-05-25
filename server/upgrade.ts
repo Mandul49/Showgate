@@ -37,6 +37,7 @@ export async function fulfillUpgrade(userId: string, plan: PlanKey): Promise<voi
   const proExpiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
 
   const user = await storage.updateUserTier(userId, "pro", proExpiresAt);
+  await storage.updateUserBillingCycle(userId, plan);
 
   const organizer = await storage.getOrganizerByUserId(userId);
   if (organizer) {
@@ -160,13 +161,13 @@ export function registerUpgradeWebhook(app: Express): void {
 
       if (user.tier === "pro") {
         // Still record the reference so it can't be replayed later
-        await storage.recordSubscriptionReference(reference, userId, plan);
+        await storage.recordSubscriptionReference(reference, userId, plan, PLANS[plan].amountKobo);
         console.log(`[webhook] User ${userId} already Pro — recorded reference and skipped fulfillment`);
         return res.status(200).json({ message: "Already Pro" });
       }
 
       await fulfillUpgrade(userId, plan);
-      await storage.recordSubscriptionReference(reference, userId, plan);
+      await storage.recordSubscriptionReference(reference, userId, plan, PLANS[plan].amountKobo);
 
       console.log(`[webhook] Fulfilled Pro upgrade for user ${userId} (${plan}) via webhook`);
       return res.status(200).json({ message: "Upgrade fulfilled" });
@@ -320,7 +321,7 @@ export function registerUpgradeRoutes(app: Express): void {
 
       await fulfillUpgrade(userId, plan);
       // Record the reference so it can never be replayed for another upgrade
-      await storage.recordSubscriptionReference(reference, userId, plan);
+      await storage.recordSubscriptionReference(reference, userId, plan, PLANS[plan].amountKobo);
 
       const updatedUser = await storage.getUserById(userId);
       return res.json({
@@ -328,6 +329,65 @@ export function registerUpgradeRoutes(app: Express): void {
         tier: "pro",
         proExpiresAt: updatedUser?.proExpiresAt ?? null,
       });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/subscription — full subscription details for the management page
+  app.get("/api/subscription", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.getUserById(req.userId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const history = user.tier === "pro" ? await storage.getSubscriptionHistory(req.userId!) : [];
+
+      const billingCycle = user.billingCycle ?? null;
+      const amountKobo = billingCycle === "yearly" ? PLANS.yearly.amountKobo : PLANS.monthly.amountKobo;
+
+      return res.json({
+        tier: user.tier,
+        billingCycle,
+        proExpiresAt: user.proExpiresAt ?? null,
+        cancelledAt: user.cancelledAt ?? null,
+        amountKobo,
+        history: history.map((h) => ({
+          reference: h.reference,
+          plan: h.plan,
+          amountKobo: h.amountKobo ?? (h.plan === "yearly" ? PLANS.yearly.amountKobo : PLANS.monthly.amountKobo),
+          fulfilledAt: h.fulfilledAt,
+        })),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/subscription/cancel — mark as cancelled (keeps Pro until proExpiresAt)
+  app.post("/api/subscription/cancel", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.getUserById(req.userId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.tier !== "pro") return res.status(400).json({ message: "No active Pro subscription" });
+      if (user.cancelledAt) return res.status(400).json({ message: "Subscription already cancelled" });
+
+      const updated = await storage.cancelSubscription(req.userId!);
+      return res.json({ cancelledAt: updated.cancelledAt, proExpiresAt: updated.proExpiresAt });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/subscription/reinstate — undo cancellation (resume auto-renewal)
+  app.post("/api/subscription/reinstate", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.getUserById(req.userId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.tier !== "pro") return res.status(400).json({ message: "No active Pro subscription" });
+      if (!user.cancelledAt) return res.status(400).json({ message: "Subscription is not cancelled" });
+
+      const updated = await storage.reinstateSubscription(req.userId!);
+      return res.json({ cancelledAt: updated.cancelledAt, proExpiresAt: updated.proExpiresAt });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }

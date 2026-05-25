@@ -9,6 +9,7 @@ import {
   type Event, type CreateEventData, type UpdateEventData, type EventStatus, type PaymentMethod,
   type TicketType, type CreateTicketTypeData, type UpdateTicketTypeData,
   type TicketPurchase, type CreateTicketPurchaseData, type PurchaseStatus,
+  type SubscriptionReference,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -101,7 +102,12 @@ export interface IStorage {
   getMonthlyTicketCountByOrganizerId(organizerId: string): Promise<number>;
   // Subscription References (upgrade replay-attack prevention)
   hasSubscriptionReference(reference: string): Promise<boolean>;
-  recordSubscriptionReference(reference: string, userId: string, plan: string): Promise<void>;
+  recordSubscriptionReference(reference: string, userId: string, plan: string, amountKobo?: number): Promise<void>;
+  getSubscriptionHistory(userId: string): Promise<SubscriptionReference[]>;
+  // Subscription management
+  updateUserBillingCycle(userId: string, billingCycle: string): Promise<User>;
+  cancelSubscription(userId: string): Promise<User>;
+  reinstateSubscription(userId: string): Promise<User>;
 }
 
 export class DbStorage implements IStorage {
@@ -198,6 +204,8 @@ export class DbStorage implements IStorage {
       role: row.role as UserRole,
       tier: row.tier as UserTier,
       proExpiresAt: row.proExpiresAt ?? null,
+      billingCycle: row.billingCycle ?? null,
+      cancelledAt: row.cancelledAt ?? null,
       createdAt: row.createdAt,
     };
   }
@@ -450,10 +458,44 @@ export class DbStorage implements IStorage {
     return !!row;
   }
 
-  async recordSubscriptionReference(reference: string, userId: string, plan: string): Promise<void> {
+  async recordSubscriptionReference(reference: string, userId: string, plan: string, amountKobo?: number): Promise<void> {
     await db.insert(subscriptionReferences)
-      .values({ reference, userId, plan })
+      .values({ reference, userId, plan, amountKobo: amountKobo ?? null })
       .onConflictDoNothing();
+  }
+
+  async getSubscriptionHistory(userId: string): Promise<SubscriptionReference[]> {
+    return db.select()
+      .from(subscriptionReferences)
+      .where(eq(subscriptionReferences.userId, userId))
+      .orderBy(sql`${subscriptionReferences.fulfilledAt} DESC`);
+  }
+
+  async updateUserBillingCycle(userId: string, billingCycle: string): Promise<User> {
+    const [row] = await db.update(users)
+      .set({ billingCycle, cancelledAt: null })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!row) throw new Error("User not found");
+    return this._mapUser(row);
+  }
+
+  async cancelSubscription(userId: string): Promise<User> {
+    const [row] = await db.update(users)
+      .set({ cancelledAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!row) throw new Error("User not found");
+    return this._mapUser(row);
+  }
+
+  async reinstateSubscription(userId: string): Promise<User> {
+    const [row] = await db.update(users)
+      .set({ cancelledAt: null })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!row) throw new Error("User not found");
+    return this._mapUser(row);
   }
 }
 

@@ -43,6 +43,8 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("organizer"),
   tier: text("tier").notNull().default("free"),
   proExpiresAt: timestamp("pro_expires_at"),
+  billingCycle: text("billing_cycle"),
+  cancelledAt: timestamp("cancelled_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -53,6 +55,8 @@ export type User = {
   role: UserRole;
   tier: UserTier;
   proExpiresAt: Date | null;
+  billingCycle: string | null;
+  cancelledAt: Date | null;
   createdAt: Date;
 };
 
@@ -323,6 +327,7 @@ export const subscriptionReferences = pgTable("subscription_references", {
   reference: text("reference").primaryKey(),
   userId: varchar("user_id", { length: 36 }).notNull(),
   plan: text("plan").notNull(),
+  amountKobo: integer("amount_kobo"),
   fulfilledAt: timestamp("fulfilled_at").defaultNow().notNull(),
 });
 

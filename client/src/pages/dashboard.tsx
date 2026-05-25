@@ -14,7 +14,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Mail
+  Crown, Settings
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1965,9 +1965,9 @@ export default function Dashboard() {
               )}
             </div>
             <a
-              href={`mailto:support@ticketforge.com?subject=Cancel%20Pro%20Subscription&body=Hi%2C%20I'd%20like%20to%20cancel%20my%20Pro%20subscription.%20My%20account%20email%20is%3A%20${encodeURIComponent(user?.email ?? "")}`}
+              href="/subscription"
               className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors">
-              <Mail className="w-3 h-3" /> Manage
+              <Settings className="w-3 h-3" /> Manage
             </a>
           </div>
         )}
