@@ -234,6 +234,7 @@ export const ticketTypes = pgTable("ticket_types", {
   quantitySold: integer("quantity_sold").notNull().default(0),
   groupSize: integer("group_size").notNull().default(1),
   groupLabel: text("group_label"),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -246,6 +247,7 @@ export type TicketType = {
   quantitySold: number;
   groupSize: number;
   groupLabel: string | null;
+  sortOrder: number;
   createdAt: Date;
 };
 
@@ -256,6 +258,7 @@ export interface CreateTicketTypeData {
   quantityAvailable: number;
   groupSize?: number;
   groupLabel?: string | null;
+  sortOrder?: number;
 }
 
 export interface UpdateTicketTypeData {
@@ -264,6 +267,7 @@ export interface UpdateTicketTypeData {
   quantityAvailable?: number;
   groupSize?: number;
   groupLabel?: string | null;
+  sortOrder?: number;
 }
 
 export const createTicketTypeSchema = z.object({

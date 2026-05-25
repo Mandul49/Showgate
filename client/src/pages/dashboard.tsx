@@ -14,7 +14,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Settings
+  Crown, Settings, ArrowUp, ArrowDown
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ interface TicketTypeData {
   quantitySold: number;
   groupSize: number;
   groupLabel: string | null;
+  sortOrder: number;
 }
 
 interface EventData {
@@ -1179,6 +1180,31 @@ function EventCard({
   const qc = useQueryClient();
   const { toast } = useToast();
 
+  const reorderMutation = useMutation({
+    mutationFn: async (order: { id: string; sortOrder: number }[]) => {
+      const res = await apiRequest("PUT", `/api/events/${event.id}/ticket-types/reorder`, { order });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to reorder");
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Reorder failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function moveTicketType(index: number, direction: "up" | "down") {
+    const types = [...event.ticketTypes];
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= types.length) return;
+    [types[index], types[newIndex]] = [types[newIndex], types[index]];
+    const order = types.map((tt, i) => ({ id: tt.id, sortOrder: i }));
+    reorderMutation.mutate(order);
+  }
+
   async function handleDelete() {
     setIsDeleting(true);
     try {
@@ -1340,7 +1366,7 @@ function EventCard({
             </div>
           ) : (
             <div className="space-y-2">
-              {event.ticketTypes.map((tt) => (
+              {event.ticketTypes.map((tt, ttIndex) => (
                 <div key={tt.id}>
                   {editingTicketTypeId === tt.id ? (
                     <EditTicketTypePanel
@@ -1350,12 +1376,30 @@ function EventCard({
                       onSaved={() => setEditingTicketTypeId(null)}
                     />
                   ) : (
-                    <div className="flex items-center justify-between bg-zinc-800/60 rounded-lg px-4 py-2.5 gap-4">
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between bg-zinc-800/60 rounded-lg px-3 py-2.5 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {event.ticketTypes.length > 1 && (
+                          <div className="flex flex-col gap-0.5 flex-shrink-0">
+                            <button
+                              onClick={() => moveTicketType(ttIndex, "up")}
+                              disabled={ttIndex === 0 || reorderMutation.isPending}
+                              title="Move up"
+                              className="p-0.5 rounded text-zinc-600 hover:text-amber-400 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
+                              <ArrowUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => moveTicketType(ttIndex, "down")}
+                              disabled={ttIndex === event.ticketTypes.length - 1 || reorderMutation.isPending}
+                              title="Move down"
+                              className="p-0.5 rounded text-zinc-600 hover:text-amber-400 disabled:opacity-20 disabled:cursor-not-allowed transition-colors">
+                              <ArrowDown className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                         <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-                        <span className="text-zinc-300 text-sm font-semibold">{tt.name}</span>
+                        <span className="text-zinc-300 text-sm font-semibold truncate">{tt.name}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-zinc-500">
+                      <div className="flex items-center gap-3 text-xs text-zinc-500 flex-shrink-0">
                         <span className="font-mono text-zinc-300">₦{fmtPrice(tt.price)}</span>
                         <span>{tt.quantitySold} / {tt.quantityAvailable} sold</span>
                         <div className="w-16 h-1 bg-zinc-700 rounded-full overflow-hidden">

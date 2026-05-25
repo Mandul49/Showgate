@@ -93,6 +93,7 @@ export interface IStorage {
   getTicketTypesByEventId(eventId: string): Promise<TicketType[]>;
   getTicketTypeById(id: string): Promise<TicketType | undefined>;
   updateTicketType(id: string, updates: UpdateTicketTypeData): Promise<TicketType>;
+  reorderTicketTypes(eventId: string, order: { id: string; sortOrder: number }[]): Promise<void>;
   incrementTicketTypeSold(id: string, quantity: number): Promise<TicketType>;
   // Ticket Purchases
   createTicketPurchase(data: CreateTicketPurchaseData): Promise<TicketPurchase>;
@@ -349,18 +350,26 @@ export class DbStorage implements IStorage {
 
   async createTicketType(data: CreateTicketTypeData): Promise<TicketType> {
     const id = randomUUID();
+    let sortOrder = data.sortOrder;
+    if (sortOrder === undefined) {
+      const existing = await db.select().from(ticketTypes).where(eq(ticketTypes.eventId, data.eventId));
+      sortOrder = existing.length;
+    }
     const [row] = await db.insert(ticketTypes).values({
       ...data,
       id,
       quantitySold: 0,
       groupSize: data.groupSize ?? 1,
       groupLabel: data.groupLabel ?? null,
+      sortOrder,
     }).returning();
     return this._mapTicketType(row);
   }
 
   async getTicketTypesByEventId(eventId: string): Promise<TicketType[]> {
-    const rows = await db.select().from(ticketTypes).where(eq(ticketTypes.eventId, eventId));
+    const rows = await db.select().from(ticketTypes)
+      .where(eq(ticketTypes.eventId, eventId))
+      .orderBy(sql`${ticketTypes.sortOrder} ASC, ${ticketTypes.createdAt} ASC`);
     return rows.map(this._mapTicketType);
   }
 
@@ -376,6 +385,16 @@ export class DbStorage implements IStorage {
       .returning();
     if (!row) throw new Error("Ticket type not found");
     return this._mapTicketType(row);
+  }
+
+  async reorderTicketTypes(eventId: string, order: { id: string; sortOrder: number }[]): Promise<void> {
+    await Promise.all(
+      order.map(({ id, sortOrder }) =>
+        db.update(ticketTypes)
+          .set({ sortOrder })
+          .where(and(eq(ticketTypes.id, id), eq(ticketTypes.eventId, eventId)))
+      )
+    );
   }
 
   async incrementTicketTypeSold(id: string, quantity: number): Promise<TicketType> {
@@ -397,6 +416,7 @@ export class DbStorage implements IStorage {
       quantitySold: row.quantitySold,
       groupSize: row.groupSize ?? 1,
       groupLabel: row.groupLabel ?? null,
+      sortOrder: row.sortOrder ?? 0,
       createdAt: row.createdAt,
     };
   }
