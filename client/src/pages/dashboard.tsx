@@ -1177,8 +1177,30 @@ function EventCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingTicketTypeId, setEditingTicketTypeId] = useState<string | null>(null);
+  const [editingCapacity, setEditingCapacity] = useState(false);
+  const [capInput, setCapInput] = useState("");
+  const [capError, setCapError] = useState("");
+  const [savingCapacity, setSavingCapacity] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
+
+  async function saveCapacity() {
+    const newVal = parseInt(capInput, 10);
+    if (isNaN(newVal) || newVal < 1) { setCapError("Must be a valid number."); return; }
+    if (newVal < totalSold) { setCapError(`Cannot set below tickets already sold (${totalSold}).`); return; }
+    setSavingCapacity(true);
+    try {
+      const res = await apiRequest("PATCH", `/api/events/${event.id}`, { maxTickets: newVal });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.message || "Failed to save"); }
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      setEditingCapacity(false);
+      setCapError("");
+    } catch (err: any) {
+      setCapError(err.message);
+    } finally {
+      setSavingCapacity(false);
+    }
+  }
 
   async function handleDelete() {
     setIsDeleting(true);
@@ -1302,7 +1324,43 @@ function EventCard({
         <div className="mt-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-zinc-600 text-xs">Capacity used</span>
-            <span className="text-zinc-400 text-xs font-mono">{usedCapacity} / {event.maxTickets} allocated · <span className="text-amber-400">{totalSold} sold</span></span>
+            {editingCapacity ? (
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={totalSold}
+                    value={capInput}
+                    onChange={(e) => { setCapInput(e.target.value); setCapError(""); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveCapacity(); if (e.key === "Escape") { setEditingCapacity(false); setCapError(""); } }}
+                    className="w-20 px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-mono focus:outline-none focus:border-amber-500"
+                    autoFocus
+                  />
+                  <button
+                    onClick={saveCapacity}
+                    disabled={savingCapacity}
+                    className="px-2 py-0.5 rounded-md bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold transition-colors disabled:opacity-50">
+                    {savingCapacity ? "…" : "Save"}
+                  </button>
+                  <button
+                    onClick={() => { setEditingCapacity(false); setCapError(""); }}
+                    className="p-0.5 text-zinc-600 hover:text-zinc-400 transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {capError && <span className="text-red-400 text-xs">{capError}</span>}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-zinc-400 text-xs font-mono">{usedCapacity} / {event.maxTickets} allocated · <span className="text-amber-400">{totalSold} sold</span></span>
+                <button
+                  onClick={() => { setCapInput(String(event.maxTickets)); setCapError(""); setEditingCapacity(true); }}
+                  title="Edit capacity"
+                  className="p-0.5 text-zinc-700 hover:text-zinc-400 transition-colors">
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
           <CapacityBar used={usedCapacity} total={event.maxTickets} />
         </div>
