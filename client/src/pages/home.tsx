@@ -516,7 +516,10 @@ function TicketCard({ ticket, config, remaining }: { ticket: TicketTier; config:
   const Icon = ticket.isVip ? Crown : Ticket;
 
   function handleSuccess(orderId: string, name: string, total: number, qty: number, status = "confirmed") {
-    navigate(`/success?orderId=${orderId}&name=${encodeURIComponent(name)}&total=${total}&tickets=${qty}&status=${status}`);
+    const venue = config.eventVenue || "";
+    const date = config.eventDate ? config.eventDate.split("T")[0] : "";
+    const time = config.eventTime || "";
+    navigate(`/success?orderId=${orderId}&name=${encodeURIComponent(name)}&total=${total}&tickets=${qty}&status=${status}&venue=${encodeURIComponent(venue)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}`);
   }
 
   return (

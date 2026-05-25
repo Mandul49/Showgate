@@ -32,10 +32,14 @@ export default function Success() {
   const currency = config?.currency || "NGN";
   const eventName = eventTitleParam || config?.eventName || "Event";
   const eventTheme = config?.eventTheme || "";
-  const eventVenue = config?.eventVenue || "";
-  const eventTime = config?.eventTime || "";
-  const formattedDate = config?.eventDate
-    ? new Date(config.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  const venueParam = params.get("venue") || "";
+  const dateParam = params.get("date") || "";
+  const timeParam = params.get("time") || "";
+  const eventVenue = venueParam || config?.eventVenue || "";
+  const eventTime = timeParam || config?.eventTime || "";
+  const rawDate = dateParam || config?.eventDate || "";
+  const formattedDate = rawDate
+    ? new Date(rawDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : "";
 
   return (

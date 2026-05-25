@@ -232,6 +232,8 @@ export function registerCheckoutRoutes(app: Express) {
         to: purchase.customerEmail,
         buyerName: purchase.customerName,
         eventTitle: eventRecord.title,
+        eventDate: eventRecord.date,
+        eventLocation: eventRecord.location,
         ticketTypeName: ticketType.name,
         quantity: purchase.quantity,
         amount: purchase.amount,
@@ -264,6 +266,7 @@ export function registerCheckoutRoutes(app: Express) {
         ...purchase,
         eventTitle: eventRecord?.title ?? "Event",
         eventDate: eventRecord?.date ?? null,
+        eventStartTime: eventRecord?.startTime ?? null,
         eventLocation: eventRecord?.location ?? null,
         ticketTypeName: ticketType?.name ?? "Ticket",
       });

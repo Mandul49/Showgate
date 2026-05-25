@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, MapPin, Ticket, Download, CheckCircle2, Loader2, X, ArrowLeft } from "lucide-react";
+import { Calendar, Clock, MapPin, Ticket, Download, CheckCircle2, Loader2, X, ArrowLeft } from "lucide-react";
 
 interface PurchaseData {
   id: string;
@@ -12,8 +12,20 @@ interface PurchaseData {
   createdAt: string;
   eventTitle: string;
   eventDate: string | null;
+  eventStartTime: string | null;
   eventLocation: string | null;
   ticketTypeName: string;
+}
+
+function fmtTime12h(t: string): string {
+  try {
+    const [hStr, mStr] = t.split(":");
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+  } catch { return t; }
 }
 
 function fmtDate(d: string | null) {
@@ -122,8 +134,8 @@ export default function PurchaseSuccess() {
 
             {/* Ticket body */}
             <div className="px-6 py-5 bg-zinc-900 space-y-5">
-              {/* Date / Location */}
-              {(formattedDate || purchase.eventLocation) && (
+              {/* Date / Time / Location */}
+              {(formattedDate || purchase.eventStartTime || purchase.eventLocation) && (
                 <div className="grid grid-cols-1 gap-3">
                   {formattedDate && (
                     <div className="flex items-center gap-3">
@@ -131,6 +143,15 @@ export default function PurchaseSuccess() {
                       <div>
                         <p className="text-zinc-600 text-[10px] uppercase tracking-widest">Date</p>
                         <p className="text-zinc-200 text-sm font-semibold">{formattedDate}</p>
+                      </div>
+                    </div>
+                  )}
+                  {purchase.eventStartTime && (
+                    <div className="flex items-center gap-3">
+                      <Clock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-zinc-600 text-[10px] uppercase tracking-widest">Time</p>
+                        <p className="text-zinc-200 text-sm font-semibold">{fmtTime12h(purchase.eventStartTime)}</p>
                       </div>
                     </div>
                   )}

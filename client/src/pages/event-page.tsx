@@ -763,7 +763,10 @@ export default function EventPage() {
 
   function handleSuccess(orderId: string, name: string, total: number, qty: number, status = "confirmed") {
     const eventTitle = event?.title || "";
-    navigate(`/success?orderId=${orderId}&name=${encodeURIComponent(name)}&total=${total}&tickets=${qty}&status=${status}&eventTitle=${encodeURIComponent(eventTitle)}`);
+    const venue = event?.location || "";
+    const date = event?.date || "";
+    const time = event?.startTime || "";
+    navigate(`/success?orderId=${orderId}&name=${encodeURIComponent(name)}&total=${total}&tickets=${qty}&status=${status}&eventTitle=${encodeURIComponent(eventTitle)}&venue=${encodeURIComponent(venue)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}`);
   }
 
   function copyLink() {
