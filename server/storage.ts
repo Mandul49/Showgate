@@ -116,6 +116,7 @@ export interface IStorage {
   getDiscountCodeById(id: string): Promise<DiscountCode | undefined>;
   incrementDiscountCodeUsed(id: string): Promise<DiscountCode>;
   deleteDiscountCode(id: string): Promise<void>;
+  getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }>;
 }
 
 export class DbStorage implements IStorage {
@@ -562,6 +563,15 @@ export class DbStorage implements IStorage {
 
   async deleteDiscountCode(id: string): Promise<void> {
     await db.delete(discountCodes).where(eq(discountCodes.id, id));
+  }
+
+  async getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }> {
+    const [eventsResult] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
+    const [ticketsResult] = await db.select({ count: sql<number>`cast(coalesce(sum(quantity_sold),0) as int)` }).from(ticketTypes);
+    return {
+      totalEvents: eventsResult?.count ?? 0,
+      totalTicketsSold: ticketsResult?.count ?? 0,
+    };
   }
 
   private _mapDiscountCode(row: typeof discountCodes.$inferSelect): DiscountCode {

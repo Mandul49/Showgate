@@ -95,6 +95,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Public Stats ──────────────────────────────────────────────────────────
+
+  app.get("/api/stats", async (_req, res) => {
+    try {
+      const stats = await storage.getPublicStats();
+      return res.json(stats);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ─── Availability ─────────────────────────────────────────────────────────
 
   app.get("/api/tickets/availability", async (_req, res) => {
