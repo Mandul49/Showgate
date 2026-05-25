@@ -27,9 +27,9 @@ export function registerAnalyticsRoutes(app: Express) {
       const rows = purchases
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .map((p) => [
-          p.buyerName,
-          p.buyerEmail,
-          p.buyerPhone,
+          p.customerName,
+          p.customerEmail,
+          p.customerPhone,
           ticketTypeMap.get(p.ticketTypeId)?.name ?? "",
           p.quantity,
           p.amount,
@@ -128,13 +128,13 @@ export function registerAnalyticsRoutes(app: Express) {
         .sort((a, b) => a.date.localeCompare(b.date));
 
       // Unique buyers
-      const uniqueEmails = new Set(confirmed.map((p) => p.buyerEmail.toLowerCase()));
+      const uniqueEmails = new Set(confirmed.map((p) => p.customerEmail.toLowerCase()));
       const uniqueBuyers = uniqueEmails.size;
 
       // Repeat buyers (bought more than once across this event's purchases)
       const emailCount = new Map<string, number>();
       for (const p of confirmed) {
-        const key = p.buyerEmail.toLowerCase();
+        const key = p.customerEmail.toLowerCase();
         emailCount.set(key, (emailCount.get(key) ?? 0) + 1);
       }
       const repeatBuyers = Array.from(emailCount.values()).filter((v) => v > 1).length;
@@ -145,9 +145,9 @@ export function registerAnalyticsRoutes(app: Express) {
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 200)
         .map((p) => ({
-          name: p.buyerName,
-          email: p.buyerEmail,
-          phone: p.buyerPhone,
+          name: p.customerName,
+          email: p.customerEmail,
+          phone: p.customerPhone,
           ticketType: ticketTypeMap.get(p.ticketTypeId)?.name ?? "—",
           quantity: p.quantity,
           amount: p.amount,

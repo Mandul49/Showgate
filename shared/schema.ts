@@ -259,9 +259,11 @@ export const ticketPurchases = pgTable("ticket_purchases", {
   id: varchar("id", { length: 36 }).primaryKey(),
   eventId: varchar("event_id", { length: 36 }).notNull(),
   ticketTypeId: varchar("ticket_type_id", { length: 36 }).notNull(),
-  buyerEmail: text("buyer_email").notNull(),
-  buyerName: text("buyer_name").notNull(),
-  buyerPhone: text("buyer_phone").notNull(),
+  organizerId: varchar("organizer_id", { length: 36 }),
+  customerEmail: text("customer_email").notNull(),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone").notNull(),
+  instagramHandle: text("instagram_handle"),
   quantity: integer("quantity").notNull(),
   amount: integer("amount").notNull(),
   reference: text("reference").notNull().unique(),
@@ -273,9 +275,11 @@ export type TicketPurchase = {
   id: string;
   eventId: string;
   ticketTypeId: string;
-  buyerEmail: string;
-  buyerName: string;
-  buyerPhone: string;
+  organizerId: string | null;
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string;
+  instagramHandle: string | null;
   quantity: number;
   amount: number;
   reference: string;
@@ -286,9 +290,11 @@ export type TicketPurchase = {
 export interface CreateTicketPurchaseData {
   eventId: string;
   ticketTypeId: string;
-  buyerEmail: string;
-  buyerName: string;
-  buyerPhone: string;
+  organizerId?: string | null;
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string;
+  instagramHandle?: string | null;
   quantity: number;
   amount: number;
   reference: string;

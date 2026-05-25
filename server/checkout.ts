@@ -210,9 +210,9 @@ export function registerCheckoutRoutes(app: Express) {
       const purchase = await storage.createTicketPurchase({
         eventId: event_id,
         ticketTypeId: ticket_type_id,
-        buyerEmail: buyer_email || customer?.email || "",
-        buyerName: buyer_name || customer?.first_name || "Buyer",
-        buyerPhone: buyer_phone || "",
+        customerEmail: buyer_email || customer?.email || "",
+        customerName: buyer_name || customer?.first_name || "Buyer",
+        customerPhone: buyer_phone || "",
         quantity: qty,
         amount: Math.round(amount / 100),
         reference,
@@ -229,8 +229,8 @@ export function registerCheckoutRoutes(app: Express) {
 
       // Fire-and-forget confirmation email
       sendConfirmationEmail({
-        to: purchase.buyerEmail,
-        buyerName: purchase.buyerName,
+        to: purchase.customerEmail,
+        buyerName: purchase.customerName,
         eventTitle: eventRecord.title,
         ticketTypeName: ticketType.name,
         quantity: purchase.quantity,

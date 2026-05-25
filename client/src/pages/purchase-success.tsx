@@ -3,8 +3,8 @@ import { Calendar, MapPin, Ticket, Download, CheckCircle2, Loader2, X, ArrowLeft
 
 interface PurchaseData {
   id: string;
-  buyerName: string;
-  buyerEmail: string;
+  customerName: string;
+  customerEmail: string;
   quantity: number;
   amount: number;
   reference: string;
@@ -90,7 +90,7 @@ export default function PurchaseSuccess() {
             <h1 className="text-3xl font-black uppercase tracking-wide text-white">You're In!</h1>
             <p className="text-zinc-500 mt-2 text-sm">
               Seat confirmed for{" "}
-              <span className="font-semibold text-amber-400">{purchase.buyerName.split(" ")[0]}</span>.
+              <span className="font-semibold text-amber-400">{purchase.customerName.split(" ")[0]}</span>.
               Check your email for details.
             </p>
           </div>
