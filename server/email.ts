@@ -1,3 +1,78 @@
+export interface SecurityAlertEmailOptions {
+  reference: string;
+  requestingUserId: string;
+  requestingUserEmail: string;
+  originalUserId: string;
+  originalUserEmail: string;
+  isCrossUser: boolean;
+  repeatCount: number;
+  blockedUntil?: Date;
+  detectedAt: Date;
+}
+
+export async function sendSecurityAlertEmail(opts: SecurityAlertEmailOptions): Promise<void> {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+  const adminEmail = process.env.ADMIN_EMAIL || user;
+
+  const attackType = opts.isCrossUser ? "Cross-user replay attack" : "Repeated reference reuse";
+  const severity = opts.isCrossUser ? "HIGH" : "MEDIUM";
+
+  console.warn(
+    `[SECURITY] ${attackType} detected — ` +
+    `reference=${opts.reference} ` +
+    `requestingUser=${opts.requestingUserId} (${opts.requestingUserEmail}) ` +
+    `originalUser=${opts.originalUserId} (${opts.originalUserEmail}) ` +
+    `repeatCount=${opts.repeatCount} ` +
+    `severity=${severity} ` +
+    `detectedAt=${opts.detectedAt.toISOString()}` +
+    (opts.blockedUntil ? ` blockedUntil=${opts.blockedUntil.toISOString()}` : "")
+  );
+
+  if (!host || !user || !pass || !adminEmail) {
+    console.log("[security-email] SMTP not configured — security event logged to console only");
+    return;
+  }
+
+  try {
+    const nodemailer = (await import("nodemailer")).default;
+    const transporter = nodemailer.createTransport({ host, port: 587, secure: false, auth: { user, pass } });
+
+    const blockedRow = opts.blockedUntil
+      ? `<tr><td style="padding:8px 0;color:#71717a;">Blocked until</td><td style="padding:8px 0;color:#f87171;font-weight:600;">${opts.blockedUntil.toUTCString()}</td></tr>`
+      : "";
+
+    await transporter.sendMail({
+      from: `"Showgate Security" <${from}>`,
+      to: adminEmail,
+      subject: `🚨 [${severity}] Replay attack detected — ref: ${opts.reference}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+          <div style="background:#7f1d1d;padding:24px 32px;">
+            <h1 style="margin:0;font-size:20px;color:#fca5a5;font-weight:900;">🚨 Security Alert — ${attackType}</h1>
+            <p style="margin:8px 0 0;font-size:13px;color:#fca5a5;">Severity: <strong>${severity}</strong></p>
+          </div>
+          <div style="padding:28px 32px;">
+            <table style="width:100%;border-collapse:collapse;">
+              <tr><td style="padding:8px 0;color:#71717a;">Reference</td><td style="padding:8px 0;color:#fff;font-family:monospace;">${opts.reference}</td></tr>
+              <tr><td style="padding:8px 0;color:#71717a;">Requesting user</td><td style="padding:8px 0;color:#fff;">${opts.requestingUserEmail} <span style="color:#71717a;">(${opts.requestingUserId})</span></td></tr>
+              <tr><td style="padding:8px 0;color:#71717a;">Original owner</td><td style="padding:8px 0;color:#fff;">${opts.originalUserEmail} <span style="color:#71717a;">(${opts.originalUserId})</span></td></tr>
+              <tr><td style="padding:8px 0;color:#71717a;">Repeat attempts</td><td style="padding:8px 0;color:#fbbf24;font-weight:600;">${opts.repeatCount}</td></tr>
+              <tr><td style="padding:8px 0;color:#71717a;">Detected at</td><td style="padding:8px 0;color:#fff;">${opts.detectedAt.toUTCString()}</td></tr>
+              ${blockedRow}
+            </table>
+            <p style="margin:24px 0 0;font-size:13px;color:#71717a;">Review this user's activity in your admin panel and consider taking further action.</p>
+          </div>
+        </div>`,
+    });
+    console.log(`[security-email] Alert sent to ${adminEmail}`);
+  } catch (err: any) {
+    console.error("[security-email] Failed to send alert:", err.message);
+  }
+}
+
 export interface ConfirmationEmailOptions {
   to: string;
   buyerName: string;
