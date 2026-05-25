@@ -94,7 +94,6 @@ export interface IStorage {
   getTicketTypeById(id: string): Promise<TicketType | undefined>;
   updateTicketType(id: string, updates: UpdateTicketTypeData): Promise<TicketType>;
   reorderTicketTypes(eventId: string, order: { id: string; sortOrder: number }[]): Promise<void>;
-  recalcEventCapacity(eventId: string): Promise<void>;
   incrementTicketTypeSold(id: string, quantity: number): Promise<TicketType>;
   // Ticket Purchases
   createTicketPurchase(data: CreateTicketPurchaseData): Promise<TicketPurchase>;
@@ -396,14 +395,6 @@ export class DbStorage implements IStorage {
           .where(and(eq(ticketTypes.id, id), eq(ticketTypes.eventId, eventId)))
       )
     );
-  }
-
-  async recalcEventCapacity(eventId: string): Promise<void> {
-    await db.update(events)
-      .set({
-        maxTickets: sql`(SELECT COALESCE(SUM(${ticketTypes.quantityAvailable}), 0) FROM ${ticketTypes} WHERE ${ticketTypes.eventId} = ${eventId})`,
-      })
-      .where(eq(events.id, eventId));
   }
 
   async incrementTicketTypeSold(id: string, quantity: number): Promise<TicketType> {

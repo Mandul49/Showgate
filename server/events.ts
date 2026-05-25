@@ -199,15 +199,20 @@ export function registerEventsRoutes(app: Express) {
 
       const { name, price, quantityAvailable, groupSize, groupLabel } = parsed.data;
 
+      // Capacity check: cannot exceed event.maxTickets (all tiers)
+      const existingTypes = await storage.getTicketTypesByEventId(event.id);
+      const currentTotal = existingTypes.reduce((sum, t) => sum + t.quantityAvailable, 0);
+      if (currentTotal + quantityAvailable > event.maxTickets) {
+        return res.status(400).json({
+          message: `Adding ${quantityAvailable} tickets would exceed this event's capacity of ${event.maxTickets}. Available: ${event.maxTickets - currentTotal}.`,
+        });
+      }
+
       const ticketType = await storage.createTicketType({
         eventId: event.id, name, price, quantityAvailable,
         groupSize: groupSize ?? 1,
         groupLabel: groupLabel ?? null,
       });
-
-      // Recalculate event capacity = SUM of all tier quantities
-      await storage.recalcEventCapacity(event.id);
-
       return res.status(201).json(ticketType);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -806,7 +811,18 @@ export function registerEventsRoutes(app: Express) {
       }
 
       if (updates.quantityAvailable !== undefined) {
-        // Free-tier hard cap only — no event-capacity block
+        // Capacity check: all tiers
+        const allTypes = await storage.getTicketTypesByEventId(event.id);
+        const otherTotal = allTypes
+          .filter((t) => t.id !== ticketType.id)
+          .reduce((sum, t) => sum + t.quantityAvailable, 0);
+        if (otherTotal + updates.quantityAvailable > event.maxTickets) {
+          return res.status(400).json({
+            message: `Total ticket quantity cannot exceed this event's capacity of ${event.maxTickets}.`,
+          });
+        }
+
+        // Free-tier hard cap (independent of event.maxTickets)
         const tierCheck = await checkTicketTypeTierLimits(organizer, event, {
           quantityAvailable: updates.quantityAvailable,
           excludeTicketTypeId: ticketType.id,
@@ -817,10 +833,6 @@ export function registerEventsRoutes(app: Express) {
       }
 
       const updated = await storage.updateTicketType(ticketType.id, updates);
-
-      // Recalculate event capacity = SUM of all tier quantities
-      await storage.recalcEventCapacity(event.id);
-
       return res.json(updated);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
