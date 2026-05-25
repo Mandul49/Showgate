@@ -1247,6 +1247,16 @@ function EventCard({
     <div className={`bg-zinc-900 border rounded-2xl overflow-hidden transition-all ${
       event.isActive ? "border-zinc-700" : "border-zinc-800 opacity-70"
     }`}>
+      {/* Cover image banner */}
+      {event.coverImageUrl && (
+        <div className="w-full h-28 overflow-hidden bg-zinc-800">
+          <img
+            src={event.coverImageUrl}
+            alt={event.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
       {/* Card header */}
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
@@ -1266,6 +1276,11 @@ function EventCard({
                 <Tag className="w-3.5 h-3.5" /> {PM_LABELS[event.paymentMethod] || event.paymentMethod}
               </span>
             </div>
+            {event.description && (
+              <p className="mt-2 text-zinc-500 text-xs leading-relaxed line-clamp-2">
+                {event.description}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
