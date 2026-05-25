@@ -2214,7 +2214,7 @@ export default function Dashboard() {
   }
 
   const events = data?.events ?? [];
-  const paystackMode = data?.paystackMode ?? (import.meta.env.VITE_PAYSTACK_ENV === "test" ? "test" : "live");
+  const paystackMode = data?.paystackMode ?? "live";
   const organizerInfo = data?.organizer ?? null;
 
   useEffect(() => {

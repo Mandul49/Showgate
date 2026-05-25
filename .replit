@@ -41,8 +41,8 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-PAYSTACK_ENV = "test"
 VITE_PAYSTACK_ENV = "test"
+PAYSTACK_ENV = "live"
 
 [postMerge]
 path = "scripts/post-merge.sh"

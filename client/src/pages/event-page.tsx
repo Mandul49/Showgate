@@ -1006,7 +1006,7 @@ export default function EventPage() {
   const surfaceColor = bt?.surface ?? "#18181b";
   const textColor = bt?.text ?? "#ffffff";
 
-  const isTestMode = event.paystackEnv === "test" || import.meta.env.VITE_PAYSTACK_ENV === "test";
+  const isTestMode = event.paystackEnv === "test";
 
   return (
     <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor }}>
