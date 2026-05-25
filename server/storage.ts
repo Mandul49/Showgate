@@ -74,6 +74,9 @@ export interface IStorage {
   getUserById(id: string): Promise<User | undefined>;
   updateUserTier(userId: string, tier: UserTier, proExpiresAt: Date | null): Promise<User>;
   getUsersWithExpiredPro(): Promise<User[]>;
+  setPasswordResetToken(userId: string, token: string, expires: Date): Promise<void>;
+  getUserByResetToken(token: string): Promise<User | undefined>;
+  updatePasswordAndClearResetToken(userId: string, passwordHash: string): Promise<void>;
   // Organizers
   createOrganizer(data: CreateOrganizerData): Promise<Organizer>;
   getOrganizerByUserId(userId: string): Promise<Organizer | undefined>;
@@ -206,6 +209,23 @@ export class DbStorage implements IStorage {
     return rows.map(this._mapUser);
   }
 
+  async setPasswordResetToken(userId: string, token: string, expires: Date): Promise<void> {
+    await db.update(users)
+      .set({ resetToken: token, resetTokenExpires: expires })
+      .where(eq(users.id, userId));
+  }
+
+  async getUserByResetToken(token: string): Promise<User | undefined> {
+    const [row] = await db.select().from(users).where(eq(users.resetToken, token));
+    return row ? this._mapUser(row) : undefined;
+  }
+
+  async updatePasswordAndClearResetToken(userId: string, passwordHash: string): Promise<void> {
+    await db.update(users)
+      .set({ passwordHash, resetToken: null, resetTokenExpires: null })
+      .where(eq(users.id, userId));
+  }
+
   private _mapUser(row: typeof users.$inferSelect): User {
     return {
       id: row.id,
@@ -216,6 +236,8 @@ export class DbStorage implements IStorage {
       proExpiresAt: row.proExpiresAt ?? null,
       billingCycle: row.billingCycle ?? null,
       cancelledAt: row.cancelledAt ?? null,
+      resetToken: row.resetToken ?? null,
+      resetTokenExpires: row.resetTokenExpires ?? null,
       createdAt: row.createdAt,
     };
   }

@@ -17,6 +17,47 @@ export interface ConfirmationEmailOptions {
   accountName?: string;
 }
 
+export async function sendPasswordResetEmail(opts: { to: string; resetUrl: string }): Promise<void> {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+
+  if (!host || !user || !pass) {
+    // Never log the resetUrl — it contains a live credential. Log only that delivery was skipped.
+    console.warn(`[email] Password reset NOT sent to ${opts.to}: SMTP_HOST/SMTP_USER/SMTP_PASS not configured. User cannot complete reset.`);
+    return;
+  }
+
+  try {
+    const nodemailer = (await import("nodemailer")).default;
+    const transporter = nodemailer.createTransport({ host, port: 587, secure: false, auth: { user, pass } });
+    await transporter.sendMail({
+      from: `"Showgate" <${from}>`,
+      to: opts.to,
+      subject: "Reset your Showgate password",
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
+            <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
+            <h1 style="margin:8px 0 0;font-size:20px;color:#000;font-weight:900;">Reset your password</h1>
+          </div>
+          <div style="padding:24px 28px;">
+            <p style="margin:0 0 16px;color:#a1a1aa;">We received a request to reset your Showgate password. Click the button below to choose a new one — the link expires in 1 hour.</p>
+            <p style="margin:24px 0;text-align:center;">
+              <a href="${opts.resetUrl}" style="display:inline-block;background:#f59e0b;color:#000;font-weight:900;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;text-transform:uppercase;letter-spacing:0.05em;">Reset Password</a>
+            </p>
+            <p style="margin:16px 0 0;font-size:12px;color:#71717a;">Or copy this link: <span style="word-break:break-all;color:#f59e0b;">${opts.resetUrl}</span></p>
+            <p style="margin:24px 0 0;font-size:12px;color:#52525b;">Didn't request this? You can safely ignore this email — your password won't change.</p>
+          </div>
+        </div>`,
+    });
+    console.log(`[email] Password reset sent to ${opts.to}`);
+  } catch (err: any) {
+    console.error(`[email] Password reset send failed:`, err.message);
+  }
+}
+
 export async function sendConfirmationEmail(opts: ConfirmationEmailOptions): Promise<void> {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;

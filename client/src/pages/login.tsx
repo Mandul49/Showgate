@@ -174,7 +174,12 @@ export default function Login() {
                 )} />
                 <FormField control={loginForm.control} name="password" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Password</FormLabel>
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Password</FormLabel>
+                      <a href="/forgot-password" className="text-amber-400 hover:text-amber-300 text-xs transition-colors">
+                        Forgot password?
+                      </a>
+                    </div>
                     <FormControl><PasswordInput field={field} placeholder="Your password" /></FormControl>
                     <FormMessage className="text-red-400 text-xs" />
                   </FormItem>

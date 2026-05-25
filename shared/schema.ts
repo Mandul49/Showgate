@@ -51,6 +51,8 @@ export const users = pgTable("users", {
   proExpiresAt: timestamp("pro_expires_at"),
   billingCycle: text("billing_cycle"),
   cancelledAt: timestamp("cancelled_at"),
+  resetToken: text("reset_token"),
+  resetTokenExpires: timestamp("reset_token_expires"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -63,6 +65,8 @@ export type User = {
   proExpiresAt: Date | null;
   billingCycle: string | null;
   cancelledAt: Date | null;
+  resetToken: string | null;
+  resetTokenExpires: Date | null;
   createdAt: Date;
 };
 
