@@ -145,6 +145,7 @@ export const events = pgTable("events", {
   organizerId: varchar("organizer_id", { length: 36 }).notNull(),
   title: text("title").notNull(),
   date: text("date").notNull(),
+  startTime: text("start_time"),
   location: text("location").notNull(),
   status: text("status").notNull().default("draft"),
   maxTickets: integer("max_tickets").notNull(),
@@ -160,6 +161,7 @@ export type Event = {
   organizerId: string;
   title: string;
   date: string;
+  startTime: string | null;
   location: string;
   status: EventStatus;
   maxTickets: number;
@@ -174,6 +176,7 @@ export interface CreateEventData {
   organizerId: string;
   title: string;
   date: string;
+  startTime?: string | null;
   location: string;
   status: EventStatus;
   maxTickets: number;
@@ -186,6 +189,7 @@ export interface CreateEventData {
 export interface UpdateEventData {
   title?: string;
   date?: string;
+  startTime?: string | null;
   location?: string;
   status?: EventStatus;
   maxTickets?: number;
@@ -198,6 +202,7 @@ export interface UpdateEventData {
 export const createEventSchema = z.object({
   title: z.string().min(1, "Event title is required"),
   date: z.string().min(1, "Event date is required"),
+  startTime: z.string().optional().nullable(),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.number().min(1, "Must have at least 1 ticket"),
   paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer", "flutterwave"]),

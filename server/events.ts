@@ -229,6 +229,7 @@ export function registerEventsRoutes(app: Express) {
         id: event.id,
         title: event.title,
         date: event.date,
+        startTime: event.startTime ?? null,
         location: event.location,
         maxTickets: event.maxTickets,
         paymentMethod: event.paymentMethod,

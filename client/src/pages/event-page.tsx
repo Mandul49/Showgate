@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
-  MapPin, Calendar, Ticket, User, Mail, Phone, Instagram,
+  MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Instagram,
   ShieldCheck, ArrowLeft, Building2, CreditCard, Crown, AlertCircle, Copy, Check
 } from "lucide-react";
 
@@ -36,6 +36,7 @@ interface PublicEvent {
   id: string;
   title: string;
   date: string;
+  startTime: string | null;
   location: string;
   maxTickets: number;
   paymentMethod: string;
@@ -81,6 +82,89 @@ function fmtDate(d: string) {
   try {
     return new Date(d).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   } catch { return d; }
+}
+
+function fmtTime12h(t: string): string {
+  try {
+    const [hStr, mStr] = t.split(":");
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+  } catch { return t; }
+}
+
+function getEventDateTime(date: string, startTime: string | null): Date {
+  if (startTime) {
+    return new Date(`${date}T${startTime}`);
+  }
+  // fallback: midnight of the event date
+  return new Date(`${date}T00:00:00`);
+}
+
+function Countdown({ date, startTime, accent }: { date: string; startTime: string | null; accent: string }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const target = getEventDateTime(date, startTime);
+  const now = new Date();
+  const diffMs = target.getTime() - now.getTime();
+
+  if (diffMs <= 0) {
+    // check if it ended (treat event as ~4h long)
+    const endedMs = now.getTime() - target.getTime();
+    const status = endedMs < 4 * 60 * 60 * 1000 ? "live" : "ended";
+    return (
+      <div className="flex justify-center mt-2 mb-1">
+        <div className="px-6 py-2 rounded-full border text-sm font-black uppercase tracking-widest"
+          style={{ borderColor: accent, color: accent, backgroundColor: `${accent}15` }}>
+          {status === "live" ? "🔴 Event is Live" : "Event has ended"}
+        </div>
+      </div>
+    );
+  }
+
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const dd = Math.floor(totalSeconds / 86400);
+  const hh = Math.floor((totalSeconds % 86400) / 3600);
+  const mm = Math.floor((totalSeconds % 3600) / 60);
+  const ss = totalSeconds % 60;
+
+  const urgent = diffMs < 24 * 60 * 60 * 1000;
+
+  const blocks = [
+    { label: "Days", value: dd },
+    { label: "Hours", value: hh },
+    { label: "Minutes", value: mm },
+    { label: "Seconds", value: ss },
+  ];
+
+  return (
+    <div className="flex justify-center gap-2 sm:gap-4 mt-4 mb-1">
+      {blocks.map(({ label, value }) => (
+        <div key={label} className="flex flex-col items-center">
+          <div className="flex items-center justify-center w-14 sm:w-16 h-14 sm:h-16 rounded-xl border"
+            style={{
+              borderColor: urgent ? accent : "#27272a",
+              backgroundColor: urgent ? `${accent}10` : "#18181b",
+            }}>
+            <span className="text-2xl sm:text-3xl font-black tabular-nums"
+              style={{ color: urgent ? accent : "#ffffff" }}>
+              {String(value).padStart(2, "0")}
+            </span>
+          </div>
+          <span className="text-[10px] uppercase tracking-widest mt-1.5"
+            style={{ color: urgent ? accent : "#52525b" }}>
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 async function loadScript(src: string): Promise<void> {
@@ -781,11 +865,20 @@ export default function EventPage() {
                 <Calendar className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                 <span>{formattedDate}</span>
               </div>
+              {event.startTime && (
+                <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
+                  <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  <span>{fmtTime12h(event.startTime)}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
                 <MapPin className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                 <span>{event.location}</span>
               </div>
             </div>
+
+            <Countdown date={event.date} startTime={event.startTime} accent={primary} />
+
             {event.description && (
               <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-xl">
                 {event.description}

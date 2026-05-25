@@ -317,6 +317,7 @@ export class DbStorage implements IStorage {
       organizerId: row.organizerId,
       title: row.title,
       date: row.date,
+      startTime: row.startTime ?? null,
       location: row.location,
       status: row.status as EventStatus,
       maxTickets: row.maxTickets,

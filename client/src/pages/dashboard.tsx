@@ -30,6 +30,7 @@ interface EventData {
   id: string;
   title: string;
   date: string;
+  startTime: string | null;
   location: string;
   status: "active" | "inactive" | "draft";
   maxTickets: number;
@@ -61,6 +62,7 @@ interface EventsResponse {
 const newEventSchema = z.object({
   title: z.string().min(1, "Title is required"),
   date: z.string().min(1, "Date is required"),
+  startTime: z.string().optional().nullable(),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.coerce.number().min(1, "Must be at least 1"),
   paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer", "flutterwave"]),
@@ -151,7 +153,7 @@ function NewEventPanel({
   const form = useForm<NewEventForm>({
     resolver: zodResolver(newEventSchema),
     defaultValues: {
-      title: "", date: "", location: "",
+      title: "", date: "", startTime: "", location: "",
       maxTickets: tier === "free" ? 100 : 500,
       paymentMethod: "paystack",
       isActive: true,
@@ -249,6 +251,14 @@ function NewEventPanel({
               <input {...form.register("date")} type="date"
                 className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-10 text-sm outline-none focus:border-amber-400 transition-colors" />
               {form.formState.errors.date && <p className="text-red-400 text-xs mt-1">{form.formState.errors.date.message}</p>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-zinc-400 text-xs uppercase tracking-widest block mb-1.5">Event Time <span className="normal-case text-zinc-600">(optional)</span></label>
+              <input {...form.register("startTime")} type="time"
+                className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-10 text-sm outline-none focus:border-amber-400 transition-colors" />
             </div>
           </div>
 
@@ -516,6 +526,7 @@ function AddTicketTypePanel({
 // ─── Edit Event Panel ─────────────────────────────────────────────────────────
 
 const editEventSchema = z.object({
+  startTime: z.string().optional().nullable(),
   description: z.string().optional(),
   coverImageUrl: z.string().optional().nullable(),
 });
@@ -535,6 +546,7 @@ function EditEventPanel({
   const form = useForm<EditEventForm>({
     resolver: zodResolver(editEventSchema),
     defaultValues: {
+      startTime: event.startTime ?? "",
       description: event.description ?? "",
       coverImageUrl: event.coverImageUrl ?? null,
     },
@@ -614,6 +626,13 @@ function EditEventPanel({
         </button>
       </div>
       <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-3">
+        <div>
+          <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">
+            Event Time <span className="normal-case text-zinc-600">(optional)</span>
+          </label>
+          <input {...form.register("startTime")} type="time"
+            className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-9 text-sm outline-none focus:border-amber-400 transition-colors" />
+        </div>
         <div>
           <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">
             Description <span className="normal-case text-zinc-600">(optional)</span>
