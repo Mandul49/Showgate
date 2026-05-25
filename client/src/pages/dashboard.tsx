@@ -311,7 +311,12 @@ function NewEventPanel({
             <div>
               <label className="text-zinc-400 text-xs uppercase tracking-widest block mb-1.5">
                 Payment Method *
-                {isFree && <span className="normal-case text-zinc-600 ml-1.5">(Free: Paystack only)</span>}
+                {isFree && (
+                  <span className="block normal-case font-normal tracking-normal text-zinc-500 mt-0.5">
+                    Direct deposit via Paystack
+                    <span className="block text-zinc-600 text-[11px] mt-0.5">Just connect your bank account once and get paid directly.</span>
+                  </span>
+                )}
               </label>
               <select {...form.register("paymentMethod")} disabled={isFree}
                 className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-10 text-sm outline-none focus:border-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed appearance-none">

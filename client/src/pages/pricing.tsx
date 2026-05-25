@@ -21,20 +21,26 @@ function fmtNGN(n: number) {
   return `₦${n.toLocaleString("en-NG")}`;
 }
 
-const FEATURES: { label: string; free: string | boolean; pro: string | boolean }[] = [
+const FEATURES: { label: string; free: React.ReactNode; pro: React.ReactNode }[] = [
   { label: "Active events",       free: "1",             pro: "Unlimited" },
   { label: "Tickets per month",   free: "500",           pro: "Unlimited" },
-  { label: "Payment methods",     free: "Paystack only", pro: "All providers" },
+  { label: "Payment methods",     free: (
+    <span className="block text-left">
+      <span className="text-zinc-300 font-medium text-sm block">Direct deposit via Paystack</span>
+      <span className="text-zinc-500 text-xs block mt-0.5">Just connect your bank account once and get paid directly.</span>
+    </span>
+  ), pro: "All providers" },
   { label: "Platform fee",        free: "2.5%",          pro: "0%" },
   { label: "Paystack subaccount", free: true,            pro: true },
   { label: "Priority support",    free: false,           pro: true },
   { label: "Custom branding",     free: false,           pro: true },
 ];
 
-function FeatureValue({ val }: { val: string | boolean }) {
+function FeatureValue({ val }: { val: React.ReactNode }) {
   if (val === true)  return <Check className="w-4 h-4 text-green-400 mx-auto" />;
   if (val === false) return <X    className="w-4 h-4 text-zinc-700   mx-auto" />;
-  return <span className="text-zinc-300 font-medium text-sm">{val}</span>;
+  if (typeof val === "string") return <span className="text-zinc-300 font-medium text-sm">{val}</span>;
+  return <>{val}</>;
 }
 
 export default function Pricing() {

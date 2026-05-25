@@ -308,17 +308,18 @@ export default function Home() {
                   <div className="text-zinc-500 text-sm">forever</div>
                 </div>
                 <ul className="space-y-3 flex-1 mb-8">
-                  {[
-                    "1 active event",
-                    "500 tickets per month",
-                    "Paystack payments",
-                    "Basic analytics",
-                    "2.5% platform fee",
-                  ].map((f) => (
+                  {["1 active event", "500 tickets per month", "Basic analytics", "2.5% platform fee"].map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-zinc-300">
                       <Check className="w-4 h-4 text-emerald-400 shrink-0" /> {f}
                     </li>
                   ))}
+                  <li className="flex items-start gap-2.5 text-sm text-zinc-300">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <span>
+                      <span className="block">Direct deposit via Paystack</span>
+                      <span className="block text-zinc-500 text-xs mt-0.5">Just connect your bank account once and get paid directly.</span>
+                    </span>
+                  </li>
                   {["Custom branding", "Priority support"].map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-zinc-600">
                       <X className="w-4 h-4 text-zinc-700 shrink-0" /> {f}
