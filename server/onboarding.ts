@@ -104,8 +104,13 @@ export function registerOnboardingRoutes(app: Express) {
       const { businessName, bankCode, bankName, accountNumber, bvn } = parsed.data;
 
       const PAYSTACK_KEY = getPaystackSecretKey();
+      const paystackMode = process.env.PAYSTACK_ENV === "test" ? "test" : "live";
+
+      console.log(`[onboarding] userId=${req.userId} mode=${paystackMode} key_present=${!!PAYSTACK_KEY} key_prefix=${PAYSTACK_KEY ? PAYSTACK_KEY.slice(0, 8) + "..." : "MISSING"}`);
+
       if (!PAYSTACK_KEY) {
-        return res.status(500).json({ message: "Paystack API key not configured" });
+        console.error(`[onboarding] ERROR: No Paystack ${paystackMode} secret key found. Expected env var: ${paystackMode === "live" ? "PAYSTACK_SECRET_KEY" : "PAYSTACK_TEST_SECRET_KEY"}`);
+        return res.status(500).json({ message: `Paystack ${paystackMode} API key is not configured. Please contact support.` });
       }
 
       // Call Paystack Create Subaccount
@@ -117,7 +122,7 @@ export function registerOnboardingRoutes(app: Express) {
       };
       if (bvn) payload.metadata = { bvn };
 
-      console.log("[onboarding] Authorization header:", `Bearer ${PAYSTACK_KEY}`);
+      console.log(`[onboarding] Calling Paystack subaccount API (${paystackMode}) — business="${businessName}" bank_code="${bankCode}" account="${accountNumber}"`);
 
       const paystackRes = await fetch("https://api.paystack.co/subaccount", {
         method: "POST",
@@ -130,13 +135,19 @@ export function registerOnboardingRoutes(app: Express) {
 
       const paystackData: any = await paystackRes.json();
 
+      console.log(`[onboarding] Paystack response: HTTP ${paystackRes.status} status=${paystackData.status} message="${paystackData.message}" subaccount_code=${paystackData.data?.subaccount_code ?? "N/A"}`);
+
       if (!paystackRes.ok || !paystackData.status) {
+        console.error(`[onboarding] Subaccount creation FAILED for userId=${req.userId}: HTTP ${paystackRes.status} — ${JSON.stringify(paystackData)}`);
+        const reason = paystackData.message || `Paystack returned HTTP ${paystackRes.status}`;
         return res.status(400).json({
-          message: paystackData.message || "Paystack subaccount creation failed",
+          message: `Payment account setup failed: ${reason}`,
         });
       }
 
       const subaccountCode: string = paystackData.data.subaccount_code;
+
+      console.log(`[onboarding] Creating organizer row — userId=${req.userId} subaccountCode=${subaccountCode}`);
 
       const organizer = await storage.createOrganizer({
         userId: req.userId!,
@@ -149,6 +160,8 @@ export function registerOnboardingRoutes(app: Express) {
         tier: "free",
       });
 
+      console.log(`[onboarding] SUCCESS — organizerId=${organizer.id} userId=${organizer.userId} subaccountCode=${organizer.subaccountCode}`);
+
       return res.status(201).json({
         organizer: {
           id: organizer.id,
@@ -160,7 +173,8 @@ export function registerOnboardingRoutes(app: Express) {
         },
       });
     } catch (err: any) {
-      return res.status(500).json({ message: err.message });
+      console.error(`[onboarding] Unexpected error for userId=${req.userId}:`, err);
+      return res.status(500).json({ message: err.message || "An unexpected error occurred during setup" });
     }
   });
 
