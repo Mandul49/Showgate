@@ -2073,6 +2073,8 @@ export default function Dashboard() {
     enabled: isAuthenticated(),
   });
 
+  const tier = data?.tier ?? "free";
+
   const { data: paymentHistory } = useQuery<HistoryItem[]>({
     queryKey: ["/api/upgrade/history"],
     enabled: isAuthenticated() && tier === "pro",
@@ -2117,7 +2119,6 @@ export default function Dashboard() {
   }
 
   const events = data?.events ?? [];
-  const tier = data?.tier ?? "free";
   const paystackMode = data?.paystackMode ?? (import.meta.env.VITE_PAYSTACK_ENV === "test" ? "test" : "live");
   const organizerInfo = data?.organizer ?? null;
 
