@@ -51,7 +51,7 @@ export function registerAuthRoutes(app: Express) {
 
       const existing = await storage.getUserByEmail(email);
       if (existing) {
-        return res.status(409).json({ message: "An account with this email already exists" });
+        return res.status(409).json({ message: "An account with this email already exists. Please log in instead." });
       }
 
       const passwordHash = await bcrypt.hash(password, 12);

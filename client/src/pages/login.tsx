@@ -7,6 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { setToken, saveUser } from "@/lib/auth";
+import { queryClient } from "@/lib/queryClient";
 import { Ticket, Mail, Lock, EyeOff, Eye, ArrowLeft, Zap } from "lucide-react";
 
 const loginSchema = z.object({
@@ -79,6 +80,7 @@ export default function Login() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message);
+      queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
       await checkOnboardingAndNavigate(json.token);
@@ -99,6 +101,7 @@ export default function Login() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message);
+      queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
       toast({ title: "Account created!", description: "Almost there — set up your payments next." });
