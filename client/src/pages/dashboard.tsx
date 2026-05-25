@@ -533,6 +533,9 @@ function AddTicketTypePanel({
 // ─── Edit Event Panel ─────────────────────────────────────────────────────────
 
 const editEventSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  date: z.string().min(1, "Date is required"),
+  location: z.string().min(1, "Location is required"),
   startTime: z.string().optional().nullable(),
   description: z.string().optional(),
   coverImageUrl: z.string().optional().nullable(),
@@ -545,14 +548,15 @@ function EditEventPanel({
   const { toast } = useToast();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(
-    event.coverImageUrl ? null : null
-  );
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const form = useForm<EditEventForm>({
     resolver: zodResolver(editEventSchema),
     defaultValues: {
+      title: event.title,
+      date: event.date,
+      location: event.location,
       startTime: event.startTime ?? "",
       description: event.description ?? "",
       coverImageUrl: event.coverImageUrl ?? null,
@@ -633,12 +637,34 @@ function EditEventPanel({
         </button>
       </div>
       <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-3">
-        <div>
-          <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">
-            Event Time <span className="normal-case text-zinc-600">(optional)</span>
-          </label>
-          <input {...form.register("startTime")} type="time"
-            className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-9 text-sm outline-none focus:border-amber-400 transition-colors" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">Title *</label>
+            <input {...form.register("title")} placeholder="e.g. Lagos Jazz Night"
+              className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-9 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600" />
+            {form.formState.errors.title && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.title.message}</p>}
+          </div>
+          <div>
+            <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">Date *</label>
+            <input {...form.register("date")} type="date"
+              className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-9 text-sm outline-none focus:border-amber-400 transition-colors" />
+            {form.formState.errors.date && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.date.message}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">Location *</label>
+            <input {...form.register("location")} placeholder="e.g. Eko Hotel, Lagos"
+              className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-9 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600" />
+            {form.formState.errors.location && <p className="text-red-400 text-xs mt-0.5">{form.formState.errors.location.message}</p>}
+          </div>
+          <div>
+            <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">
+              Event Time <span className="normal-case text-zinc-600">(optional)</span>
+            </label>
+            <input {...form.register("startTime")} type="time"
+              className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-9 text-sm outline-none focus:border-amber-400 transition-colors" />
+          </div>
         </div>
         <div>
           <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">
