@@ -363,6 +363,32 @@ export function registerUpgradeRoutes(app: Express): void {
     }
   });
 
+  // POST /api/upgrade/cancel — immediately downgrade to free tier
+  app.post("/api/upgrade/cancel", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.getUserById(req.userId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.tier !== "pro") return res.status(400).json({ message: "No active Pro subscription" });
+
+      await storage.updateUserTier(req.userId!, "free", new Date());
+
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (organizer) {
+        await storage.updateOrganizerTier(organizer.id, "free");
+        if (organizer.subaccountCode) {
+          updateSubaccountCharge(organizer.subaccountCode, 2.5).catch((err) =>
+            console.error("[cancel] Subaccount update failed:", err.message)
+          );
+        }
+      }
+
+      console.log(`[cancel] User ${req.userId!} (${user.email}) immediately downgraded to free`);
+      return res.json({ success: true, tier: "free" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // POST /api/subscription/cancel — mark as cancelled (keeps Pro until proExpiresAt)
   app.post("/api/subscription/cancel", requireAuth, async (req: AuthRequest, res) => {
     try {

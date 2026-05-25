@@ -2043,6 +2043,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showNewEventForm, setShowNewEventForm] = useState(false);
+  const [showCancelSubModal, setShowCancelSubModal] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const user = getUser();
 
@@ -2062,6 +2063,22 @@ export default function Dashboard() {
   const { data: upgradeStatus } = useQuery<UpgradeStatus>({
     queryKey: ["/api/upgrade/status"],
     enabled: isAuthenticated(),
+  });
+
+  const cancelSubMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/upgrade/cancel", {});
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Cancellation failed");
+      return json;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/upgrade/status"] });
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      setShowCancelSubModal(false);
+      toast({ title: "Subscription cancelled", description: "Your plan has been downgraded to Free." });
+    },
+    onError: (err: any) => toast({ title: "Cancellation failed", description: err.message, variant: "destructive" }),
   });
 
   const toggleMutation = useMutation({
@@ -2263,6 +2280,45 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Cancel subscription confirmation modal */}
+        {showCancelSubModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-xl">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                  <h3 className="text-white font-semibold text-base">Cancel Pro subscription?</h3>
+                </div>
+                <button onClick={() => setShowCancelSubModal(false)} className="text-zinc-500 hover:text-white transition-colors ml-2">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-zinc-400 text-sm mb-6">
+                Your plan will be immediately downgraded to <strong className="text-zinc-200">Free</strong>. You'll lose access to 0% platform fee, unlimited events, and all Pro features right away.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCancelSubModal(false)}
+                  disabled={cancelSubMutation.isPending}
+                  className="flex-1 px-4 py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-sm font-semibold transition-colors disabled:opacity-50"
+                >
+                  Keep Pro
+                </button>
+                <button
+                  onClick={() => cancelSubMutation.mutate()}
+                  disabled={cancelSubMutation.isPending}
+                  className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {cancelSubMutation.isPending
+                    ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Cancelling...</>
+                    : "Yes, cancel"
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Pro subscription management — Pro tier only */}
         {tier === "pro" && (
           <div className="flex items-center gap-4 rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4 mb-6">
@@ -2279,11 +2335,18 @@ export default function Dashboard() {
                 <p className="text-zinc-500 text-xs mt-0.5">0% platform fee · Unlimited events & tickets</p>
               )}
             </div>
-            <a
-              href="/subscription"
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors">
-              <Settings className="w-3 h-3" /> Manage
-            </a>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <a
+                href="/subscription"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors">
+                <Settings className="w-3 h-3" /> Manage
+              </a>
+              <button
+                onClick={() => setShowCancelSubModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-800/50 text-red-400 hover:text-red-300 hover:border-red-700 text-xs font-semibold transition-colors">
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
