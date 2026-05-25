@@ -60,6 +60,13 @@ function injectOgTags(html: string, tags: string): string {
 
 export function registerOgRoutes(app: Express): void {
   app.get("/e/:eventId", async (req: Request, res: Response, next) => {
+    // In development Vite's middleware must transform index.html (HMR injection,
+    // module path transforms, etc.). Skip OG injection here and let Vite's
+    // catch-all handle the request; the client-side useEffect sets OG tags.
+    if (process.env.NODE_ENV !== "production") {
+      return next();
+    }
+
     try {
       const event = await storage.getEventById(req.params.eventId);
 

@@ -688,7 +688,7 @@ function PurchaseForm({
             )}
 
             {/* Discount code input */}
-            <div>
+            <div className="pb-2">
               <p className="text-zinc-400 text-xs uppercase tracking-widest mb-2 flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5" /> Discount Code
                 <span className="normal-case text-zinc-600">(optional)</span>
@@ -722,7 +722,7 @@ function PurchaseForm({
               )}
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 space-y-1.5">
+            <div className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 space-y-1.5 mb-6">
               {discountResult && (
                 <>
                   <div className="flex items-center justify-between text-sm">

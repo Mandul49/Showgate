@@ -1,0 +1,1 @@
+- [OG route vs Vite dev mode](og-vite-devmode.md) — server-side OG route must call next() in dev; serving raw HTML bypasses transformIndexHtml, React never mounts.
