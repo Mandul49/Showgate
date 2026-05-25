@@ -77,6 +77,9 @@ export interface IStorage {
   setPasswordResetToken(userId: string, token: string, expires: Date): Promise<void>;
   getUserByResetToken(token: string): Promise<User | undefined>;
   updatePasswordAndClearResetToken(userId: string, passwordHash: string): Promise<void>;
+  updateUserPassword(userId: string, passwordHash: string): Promise<void>;
+  updateUserEmail(userId: string, email: string): Promise<void>;
+  deleteUserAccount(userId: string): Promise<void>;
   // Organizers
   createOrganizer(data: CreateOrganizerData): Promise<Organizer>;
   getOrganizerByUserId(userId: string): Promise<Organizer | undefined>;
@@ -224,6 +227,29 @@ export class DbStorage implements IStorage {
     await db.update(users)
       .set({ passwordHash, resetToken: null, resetTokenExpires: null })
       .where(eq(users.id, userId));
+  }
+
+  async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+    await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  }
+
+  async updateUserEmail(userId: string, email: string): Promise<void> {
+    await db.update(users).set({ email: email.toLowerCase() }).where(eq(users.id, userId));
+  }
+
+  async deleteUserAccount(userId: string): Promise<void> {
+    const organizer = await this.getOrganizerByUserId(userId);
+    if (organizer) {
+      const orgEvents = await this.getEventsByOrganizerId(organizer.id);
+      for (const event of orgEvents) {
+        await db.delete(ticketPurchases).where(eq(ticketPurchases.eventId, event.id));
+        await db.delete(discountCodes).where(eq(discountCodes.eventId, event.id));
+        await db.delete(ticketTypes).where(eq(ticketTypes.eventId, event.id));
+      }
+      await db.delete(events).where(eq(events.organizerId, organizer.id));
+      await db.delete(organizers).where(eq(organizers.id, organizer.id));
+    }
+    await db.delete(users).where(eq(users.id, userId));
   }
 
   private _mapUser(row: typeof users.$inferSelect): User {

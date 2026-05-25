@@ -107,6 +107,108 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  // ── Change password ─────────────────────────────────────────────────────────
+  const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z.string().min(8, "New password must be at least 8 characters"),
+  });
+
+  app.patch("/api/auth/change-password", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const parsed = changePasswordSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      const { currentPassword, newPassword } = parsed.data;
+
+      const user = await storage.getUserById(req.userId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) return res.status(400).json({ message: "Current password is incorrect" });
+
+      const same = await bcrypt.compare(newPassword, user.passwordHash);
+      if (same) return res.status(400).json({ message: "New password cannot be the same as your current password" });
+
+      const hash = await bcrypt.hash(newPassword, 12);
+      await storage.updateUserPassword(user.id, hash);
+      console.log(`[auth] Password changed for userId=${user.id}`);
+      return res.json({ message: "Password updated successfully." });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Change email ─────────────────────────────────────────────────────────────
+  const changeEmailSchema = z.object({
+    newEmail: z.string().email("Please enter a valid email address"),
+    currentPassword: z.string().min(1, "Password is required"),
+  });
+
+  app.patch("/api/auth/change-email", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const parsed = changeEmailSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      const { newEmail, currentPassword } = parsed.data;
+
+      const user = await storage.getUserById(req.userId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) return res.status(400).json({ message: "Password is incorrect" });
+
+      const existing = await storage.getUserByEmail(newEmail);
+      if (existing && existing.id !== user.id) {
+        return res.status(409).json({ message: "That email is already in use by another account" });
+      }
+
+      await storage.updateUserEmail(user.id, newEmail);
+      console.log(`[auth] Email changed for userId=${user.id}`);
+      return res.json({ message: "Email updated. Please log in again with your new email." });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Delete account ───────────────────────────────────────────────────────────
+  const deleteAccountSchema = z.object({
+    password: z.string().min(1, "Password is required"),
+  });
+
+  app.delete("/api/auth/account", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const parsed = deleteAccountSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+      const user = await storage.getUserById(req.userId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
+      if (!valid) return res.status(400).json({ message: "Password is incorrect" });
+
+      // Check for active events that have confirmed ticket purchases
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (organizer) {
+        const orgEvents = await storage.getEventsByOrganizerId(organizer.id);
+        const activeEvents = orgEvents.filter((e) => e.isActive);
+        for (const event of activeEvents) {
+          const purchases = await storage.getTicketPurchasesByEventId(event.id);
+          const confirmed = purchases.filter((p) => p.status === "confirmed" || p.status === "pending");
+          if (confirmed.length > 0) {
+            return res.status(400).json({
+              message: "You have active events with ticket holders. Please cancel or complete those events before deleting your account.",
+            });
+          }
+        }
+      }
+
+      await storage.deleteUserAccount(req.userId!);
+      console.log(`[auth] Account deleted for userId=${req.userId}`);
+      return res.json({ message: "Your account has been deleted." });
+    } catch (err: any) {
+      console.error("[auth] delete-account error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── Forgot password ─────────────────────────────────────────────────────────
   const forgotSchema = z.object({ email: z.string().email() });
   const GENERIC_FORGOT_MSG = "If that email is registered, a reset link has been sent.";

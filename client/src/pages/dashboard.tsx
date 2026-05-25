@@ -14,7 +14,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Settings, PauseCircle, RefreshCw, Landmark,
+  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -2482,6 +2482,12 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+            <a href="/profile"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-colors text-xs font-semibold"
+              title="Profile Settings">
+              <UserCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Profile</span>
+            </a>
             <button onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-zinc-500 hover:text-red-400 hover:border-red-400/30 transition-colors text-xs font-semibold">
               <LogOut className="w-3.5 h-3.5" />

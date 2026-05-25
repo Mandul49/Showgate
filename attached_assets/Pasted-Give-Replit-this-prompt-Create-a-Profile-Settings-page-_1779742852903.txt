@@ -1,0 +1,75 @@
+Give Replit this prompt:
+
+Create a Profile Settings page for organizers. Add a “Profile” or account icon link in the dashboard navbar that opens /profile. Do not touch any other features.
+
+Page layout
+
+Simple centered page with the Showgate navbar at the top. Three separate card sections stacked vertically: Change Password, Change Email, and Delete Account. Each card has a title, brief description, and its own form.
+
+Section 1 — Change Password
+
+Title: “Change Password”
+Description: “Update your account password.”
+
+Form fields:
+
+	•	Current password
+	•	New password
+	•	Confirm new password
+
+Validation:
+
+	•	Current password must match what is in the database — verify it with bcrypt before allowing the change
+	•	New password must be at least 8 characters
+	•	New password and confirm password must match
+	•	New password cannot be the same as current password
+
+On submit call PATCH /api/auth/change-password. Hash the new password with bcrypt before saving. Show success message “Password updated successfully.”
+
+Section 2 — Change Email
+
+Title: “Change Email”
+Description: “Update the email address on your account.”
+
+Form fields:
+
+	•	New email address
+	•	Current password (to confirm identity)
+
+Validation:
+
+	•	New email must be a valid email format
+	•	New email cannot already exist in the users table — return error “That email is already in use by another account”
+	•	Current password must be verified with bcrypt before allowing the change
+
+On submit call PATCH /api/auth/change-email. Update the email in the users table. Show success message “Email updated. Please log in again with your new email.” Then log the user out and redirect to /login.
+
+Section 3 — Delete Account
+
+Title: “Delete Account”
+Description: “Permanently delete your account and all your data. This cannot be undone.”
+
+Style this card with a red border or red accent to signal danger.
+
+Single button: “Delete My Account” in red.
+
+When clicked, show a confirmation modal with:
+
+	•	Heading: “Are you absolutely sure?”
+	•	Body text: “This will permanently delete your account, all your events, all ticket data, and your Paystack subaccount connection. Your attendees will no longer be able to access their tickets. This cannot be undone.”
+	•	A text input that says “Type DELETE to confirm”
+	•	Two buttons: Cancel and a red “Permanently Delete Account” button that is disabled until the user types DELETE exactly
+
+On confirm call DELETE /api/auth/account with the user’s current password as an additional verification step — add a password field to the confirmation modal too.
+
+Backend DELETE /api/auth/account must:
+
+	1.	Verify the password before doing anything
+	2.	Check if the organizer has any upcoming events with purchased tickets — if yes, return an error: “You have active events with ticket holders. Please cancel or complete those events before deleting your account.”
+	3.	If no active events with purchases, delete in this order: ticket_purchases, ticket_types, discount_codes, events, organizers, then users — to respect foreign key constraints
+	4.	Invalidate the user’s JWT session
+	5.	Redirect to / with a message “Your account has been deleted.”
+
+Navigation
+
+Add a small profile icon or “My Profile” link in the dashboard top navbar next to the logout button. On mobile it should be accessible from the hamburger menu.
