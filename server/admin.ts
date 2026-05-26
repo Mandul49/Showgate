@@ -2,13 +2,14 @@ import type { Express, Response } from "express";
 import { z } from "zod";
 import { storage } from "./storage";
 import { requireAdmin, requireAdminRole, type AuthRequest } from "./auth";
+import type { AdminRole } from "@shared/schema";
 
-// ── Permission gates (chained after requireAdmin) ─────────────────────────────
-const SUPER_ONLY    = requireAdminRole(["super_admin"]);
+// ── Permission gates ──────────────────────────────────────────────────────────
+const SUPER_ONLY     = requireAdminRole(["super_admin"]);
 const FINANCE_ACCESS = requireAdminRole(["super_admin", "finance"]);
 const SUPPORT_ACCESS = requireAdminRole(["super_admin", "admin", "support"]);
 
-// ── Audit helper (fire-and-forget) ────────────────────────────────────────────
+// ── Audit helper ──────────────────────────────────────────────────────────────
 function audit(
   req: AuthRequest,
   action: string,
@@ -19,6 +20,10 @@ function audit(
   storage
     .logAdminAction(req.userEmail!, action, targetType, targetId, details)
     .catch(err => console.error("[audit]", err));
+}
+
+function isSuperAdmin(req: AuthRequest) {
+  return req.userAdminRoles?.includes("super_admin") ?? false;
 }
 
 export function registerAdminRoutes(app: Express) {
@@ -61,7 +66,7 @@ export function registerAdminRoutes(app: Express) {
     catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
-  // Mutations on organizers/events — super_admin + admin only (not support)
+  // Mutations — super_admin + admin only (not support)
   app.patch("/api/admin/users/:id/tier", requireAdmin, requireAdminRole(["super_admin", "admin"]), async (req: AuthRequest, res) => {
     try {
       const schema = z.object({ tier: z.enum(["free", "pro"]), lifetime: z.boolean().optional() });
@@ -218,6 +223,7 @@ export function registerAdminRoutes(app: Express) {
     catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
+  // Grant admin access to a user by email (or add a role if already admin)
   app.post("/api/admin/team", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
     try {
       const schema = z.object({
@@ -229,17 +235,13 @@ export function registerAdminRoutes(app: Express) {
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
       const { email, role, note } = parsed.data;
 
-      // Only super_admins can grant super_admin role
-      if (role === "super_admin" && req.userAdminRole !== "super_admin") {
+      if (role === "super_admin" && !isSuperAdmin(req)) {
         return res.status(403).json({ message: "Only super admins can grant super_admin role" });
       }
 
       const target = await storage.getUserByEmail(email);
       if (!target) {
         return res.status(404).json({ message: "No account found with that email. They must sign up first." });
-      }
-      if (target.role === "admin") {
-        return res.status(409).json({ message: "This user is already an admin. Use edit to change their role." });
       }
 
       const user = await storage.grantAdminAccess(target.id, role, req.userEmail!, note);
@@ -248,16 +250,19 @@ export function registerAdminRoutes(app: Express) {
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
-  app.patch("/api/admin/team/:userId", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
+  // Add an additional role to an existing admin (by userId)
+  app.post("/api/admin/team/:userId/roles", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
     try {
-      const schema = z.object({ role: z.enum(["super_admin", "admin", "support", "finance"]) });
+      const schema = z.object({
+        role: z.enum(["super_admin", "admin", "support", "finance"]),
+        note: z.string().max(500).optional().default(""),
+      });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-      const { role } = parsed.data;
+      const { role, note } = parsed.data;
 
-      // Super admin cannot downgrade their own role
-      if (req.params.userId === req.userId && req.userAdminRole === "super_admin" && role !== "super_admin") {
-        return res.status(400).json({ message: "Super admins cannot change their own role" });
+      if (role === "super_admin" && !isSuperAdmin(req)) {
+        return res.status(403).json({ message: "Only super admins can grant super_admin role" });
       }
 
       const target = await storage.getUserById(req.params.userId);
@@ -265,13 +270,36 @@ export function registerAdminRoutes(app: Express) {
         return res.status(404).json({ message: "Admin user not found" });
       }
 
-      const oldRole = target.adminRole;
-      const user = await storage.updateAdminRole(req.params.userId, role);
-      audit(req, "update_admin_role", "user", req.params.userId, { oldRole, newRole: role });
+      const user = await storage.addAdminRole(req.params.userId, role, req.userEmail!, note);
+      audit(req, "add_admin_role", "user", req.params.userId, { role, note });
       return res.json(user);
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
+  // Remove a specific role from an admin (auto-reverts to organizer if last role)
+  app.delete("/api/admin/team/:userId/roles/:role", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
+    try {
+      const role = req.params.role as AdminRole;
+      const validRoles: AdminRole[] = ["super_admin", "admin", "support", "finance"];
+      if (!validRoles.includes(role)) return res.status(400).json({ message: "Invalid role" });
+
+      // Super admin cannot remove their own super_admin role
+      if (req.params.userId === req.userId && role === "super_admin") {
+        return res.status(400).json({ message: "Cannot remove your own super_admin role" });
+      }
+
+      const target = await storage.getUserById(req.params.userId);
+      if (!target || target.role !== "admin") {
+        return res.status(404).json({ message: "Admin user not found" });
+      }
+
+      const user = await storage.removeAdminRole(req.params.userId, role);
+      audit(req, "remove_admin_role", "user", req.params.userId, { role, email: target.email });
+      return res.json(user);
+    } catch (err: any) { return res.status(500).json({ message: err.message }); }
+  });
+
+  // Remove ALL roles (reverts user to organizer)
   app.delete("/api/admin/team/:userId", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
     try {
       if (req.params.userId === req.userId) {
@@ -281,9 +309,8 @@ export function registerAdminRoutes(app: Express) {
       if (!target || target.role !== "admin") {
         return res.status(404).json({ message: "Admin user not found" });
       }
-
       const user = await storage.removeAdminAccess(req.params.userId);
-      audit(req, "remove_admin_access", "user", req.params.userId, { email: target.email, oldRole: target.adminRole });
+      audit(req, "remove_admin_access", "user", req.params.userId, { email: target.email });
       return res.json(user);
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });

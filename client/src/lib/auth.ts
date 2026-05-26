@@ -6,7 +6,7 @@ export interface AuthUser {
   email: string;
   role: string;
   tier: string;
-  adminRole?: string | null;
+  adminRoles?: string[];
 }
 
 export function getToken(): string | null {

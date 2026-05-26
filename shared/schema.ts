@@ -88,7 +88,7 @@ export type User = {
 export interface AdminTeamMember {
   id: string;
   email: string;
-  adminRole: AdminRole;
+  adminRoles: AdminRole[];
   createdAt: Date;
   adminAddedAt: Date | null;
   adminAddedBy: string | null;
@@ -462,6 +462,17 @@ export const platformSettings = pgTable("platform_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Admin Roles (multi-role per user) ────────────────────────────────────────
+
+export const adminRoles = pgTable("admin_roles", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  role: text("role").notNull(),
+  grantedBy: text("granted_by"),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // ─── Admin Audit Log ──────────────────────────────────────────────────────────
