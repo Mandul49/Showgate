@@ -25,11 +25,17 @@ export default function CheckYourEmail() {
       });
       const json = await res.json();
       if (res.status === 429) {
-        toast({ title: "Slow down", description: json.message, variant: "destructive" });
+        const wait = json.retryAfter ?? 60;
+        setCooldown(wait);
+        const interval = setInterval(() => {
+          setCooldown((prev) => {
+            if (prev <= 1) { clearInterval(interval); return 0; }
+            return prev - 1;
+          });
+        }, 1000);
         return;
       }
       toast({ title: "Email sent", description: "Check your inbox for a new verification link." });
-      // Start 60s cooldown
       setCooldown(60);
       const interval = setInterval(() => {
         setCooldown((prev) => {

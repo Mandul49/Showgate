@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { setToken, saveUser } from "@/lib/auth";
 import { queryClient } from "@/lib/queryClient";
-import { Ticket, Mail, Lock, EyeOff, Eye, ArrowLeft, Zap } from "lucide-react";
+import { Ticket, Mail, Lock, EyeOff, Eye, ArrowLeft, Zap, AlertCircle, RefreshCw } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -45,6 +45,9 @@ function PasswordInput({ field, placeholder }: { field: any; placeholder: string
 export default function Login() {
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -80,18 +83,40 @@ export default function Login() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message);
+      if (json.user.emailVerified === false) {
+        setUnverifiedEmail(data.email);
+        return;
+      }
       queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
-      if (json.user.emailVerified === false) {
-        navigate(`/check-your-email?email=${encodeURIComponent(data.email)}`);
-        return;
-      }
       await checkOnboardingAndNavigate(json.token);
     } catch (err: any) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendFromLogin() {
+    if (!unverifiedEmail || resendLoading) return;
+    setResendLoading(true);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: unverifiedEmail }),
+      });
+      const json = await res.json();
+      if (res.status === 429) {
+        toast({ title: "Slow down", description: json.message, variant: "destructive" });
+        return;
+      }
+      setResendDone(true);
+    } catch {
+      toast({ title: "Something went wrong", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setResendLoading(false);
     }
   }
 
@@ -157,6 +182,43 @@ export default function Login() {
               </button>
             ))}
           </div>
+
+          {/* Unverified email banner */}
+          {unverifiedEmail && (
+            <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-4 mb-4">
+              {resendDone ? (
+                <div className="text-center">
+                  <p className="text-amber-400 font-semibold text-sm mb-1">Verification email sent!</p>
+                  <p className="text-zinc-400 text-xs">Check your inbox for <span className="text-white">{unverifiedEmail}</span> and click the link to verify.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start gap-3 mb-3">
+                    <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-white text-sm font-semibold">Your email is not verified</p>
+                      <p className="text-zinc-400 text-xs mt-0.5">Check your inbox or resend the confirmation link.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResendFromLogin}
+                    disabled={resendLoading}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold transition-colors disabled:opacity-60"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${resendLoading ? "animate-spin" : ""}`} />
+                    {resendLoading ? "Sending…" : "Resend Verification Email"}
+                  </button>
+                  <p className="text-center text-zinc-600 text-xs mt-2">
+                    Wrong email?{" "}
+                    <a href="/resend-verification" className="text-amber-400 hover:text-amber-300 transition-colors">
+                      Try a different address
+                    </a>
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Login Form */}
           {tab === "login" && (

@@ -190,12 +190,18 @@ export function registerAuthRoutes(app: Express) {
       const lastSent = resendCooldown.get(email);
       if (lastSent && Date.now() - lastSent < 60_000) {
         const wait = Math.ceil((60_000 - (Date.now() - lastSent)) / 1000);
-        return res.status(429).json({ message: `Please wait ${wait}s before requesting another email.` });
+        return res.status(429).json({ message: `Please wait ${wait}s before requesting another email.`, retryAfter: wait });
       }
 
       const user = await storage.getUserByEmail(email);
-      if (!user || user.emailVerified) {
+
+      if (!user) {
+        // Don't reveal whether email exists
         return res.json({ message: "If that email is pending verification, a new link has been sent." });
+      }
+
+      if (user.emailVerified) {
+        return res.json({ message: "This account is already verified. Please log in.", alreadyVerified: true });
       }
 
       const verificationToken = crypto.randomBytes(32).toString("hex");
@@ -210,7 +216,7 @@ export function registerAuthRoutes(app: Express) {
         );
       }
 
-      return res.json({ message: "If that email is pending verification, a new link has been sent." });
+      return res.json({ message: "Verification email resent. Check your inbox." });
     } catch (err: any) {
       console.error("[auth] resend-verification error:", err);
       return res.status(500).json({ message: err.message });
