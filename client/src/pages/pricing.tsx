@@ -5,6 +5,7 @@ import { Check, X, Zap, Loader2, Ticket, ArrowLeft } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import sgLogo from "@assets/showgate-logo.png";
 
 interface UpgradeStatus {
   tier: "free" | "pro";
@@ -93,6 +94,7 @@ export default function Pricing() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <span className="text-white font-black text-base">Showgate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[20px] w-auto ml-1.5 align-middle" />
           </div>
           <button onClick={() => navigate(authed ? "/dashboard" : "/")}
             className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">

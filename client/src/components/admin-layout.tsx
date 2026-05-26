@@ -4,6 +4,7 @@ import {
   Settings, ArrowLeft, ShieldCheck, UsersRound,
 } from "lucide-react";
 import { getUser } from "@/lib/auth";
+import sgLogo from "@assets/showgate-logo.png";
 
 type AdminRole = "super_admin" | "admin" | "support" | "finance";
 
@@ -46,6 +47,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         <div className="px-5 pt-5 pb-4 border-b border-zinc-800">
           <span className="block text-white font-extrabold text-xl tracking-tight leading-none mb-2.5">
             Show<span className="text-amber-500">gate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[24px] w-auto ml-2 align-middle" />
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
             <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/25 rounded-md px-2 py-1">

@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Mail, RefreshCw, ArrowLeft, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { clearToken, getUser } from "@/lib/auth";
+import sgLogo from "@assets/showgate-logo.png";
 
 export default function CheckYourEmail() {
   const [location] = useLocation();
@@ -65,6 +66,7 @@ export default function CheckYourEmail() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <span className="text-white font-bold text-sm">Showgate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[18px] w-auto ml-1.5 align-middle" />
           </div>
           <button
             onClick={handleBackToLogin}

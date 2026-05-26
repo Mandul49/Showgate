@@ -6,6 +6,7 @@ import {
   Zap, BarChart2, Palette, ArrowRight, Check, X, Menu,
   ChevronRight,
 } from "lucide-react";
+import sgLogo from "@assets/showgate-logo.png";
 
 interface PublicStats {
   totalEvents: number;
@@ -88,6 +89,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
           <span className="text-xl font-black tracking-tight">
             Show<span className="text-amber-400">gate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[22px] w-auto ml-2 align-middle" />
           </span>
           {/* Desktop links */}
           <div className="hidden sm:flex items-center gap-3">
@@ -383,7 +385,7 @@ export default function Home() {
       <section className="py-24 px-5 border-t border-zinc-800 bg-zinc-900/20">
         <div className="max-w-3xl mx-auto">
           <FadeSection>
-            <h2 className="text-3xl sm:text-4xl font-black mb-8"><span className="text-amber-400">About</span> Showgate</h2>
+            <h2 className="text-3xl sm:text-4xl font-black mb-8"><span className="text-amber-400">About</span> Showgate<img src={sgLogo} alt="" className="inline-block h-[36px] w-auto ml-2 align-middle" /></h2>
             <div className="space-y-5 text-zinc-400 leading-relaxed text-base">
               <p>
                 Showgate was built for event organizers who are tired of complicated platforms that take a cut of everything and make buyers feel like they are on someone else's stage. We built the tools you need and got out of the way.
@@ -426,6 +428,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex flex-col items-center text-center gap-2">
           <span className="text-lg font-black">
             Show<span className="text-amber-400">gate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[20px] w-auto ml-2 align-middle" />
           </span>
           <p className="text-zinc-500 text-xs">The easiest way to run your event.</p>
           <p className="text-zinc-600 text-xs mt-1">© {new Date().getFullYear()} Showgate. All rights reserved.</p>

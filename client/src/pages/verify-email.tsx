@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { CheckCircle2, XCircle, Loader2, Ticket } from "lucide-react";
 import { setToken, saveUser } from "@/lib/auth";
 import { queryClient } from "@/lib/queryClient";
+import sgLogo from "@assets/showgate-logo.png";
 
 type Status = "loading" | "success" | "error";
 
@@ -53,6 +54,7 @@ export default function VerifyEmail() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <span className="text-white font-bold text-sm">Showgate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[18px] w-auto ml-1.5 align-middle" />
           </div>
         </div>
       </div>

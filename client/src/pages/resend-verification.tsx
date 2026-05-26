@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Ticket, Mail, ArrowLeft, RefreshCw, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import sgLogo from "@assets/showgate-logo.png";
 
 export default function ResendVerification() {
   const [email, setEmail] = useState("");
@@ -57,6 +58,7 @@ export default function ResendVerification() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <a href="/" className="text-white font-bold text-sm hover:text-amber-400 transition-colors">Showgate</a>
+            <img src={sgLogo} alt="" className="inline-block h-[18px] w-auto ml-1.5 align-middle" />
           </div>
           <a href="/login" className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" /> Back to login

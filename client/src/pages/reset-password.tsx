@@ -7,6 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Ticket, Lock, EyeOff, Eye, ArrowLeft, KeyRound } from "lucide-react";
+import sgLogo from "@assets/showgate-logo.png";
 
 const schema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
@@ -84,6 +85,7 @@ export default function ResetPassword() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <span className="text-white font-bold text-sm">Showgate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[18px] w-auto ml-1.5 align-middle" />
           </div>
           <a href="/" className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Home

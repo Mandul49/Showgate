@@ -11,6 +11,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { Ticket, Lock, EyeOff, Eye, ArrowLeft, Mail, ShieldAlert, Trash2, LogOut, UserCircle } from "lucide-react";
 import { useEffect } from "react";
+import sgLogo from "@assets/showgate-logo.png";
 
 function PasswordInput({ field, placeholder }: { field: any; placeholder: string }) {
   const [show, setShow] = useState(false);
@@ -332,7 +333,7 @@ export default function Profile() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-sm">Showgate</h1>
+              <h1 className="text-white font-bold text-sm">Showgate<img src={sgLogo} alt="" className="inline-block h-[18px] w-auto ml-1.5 align-middle" /></h1>
               <p className="text-zinc-600 text-xs">Profile Settings</p>
             </div>
           </div>

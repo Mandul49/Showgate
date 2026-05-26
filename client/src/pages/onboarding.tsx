@@ -13,6 +13,7 @@ import {
   Building2, Landmark, Hash, ShieldCheck, CheckCircle2,
   ArrowRight, Ticket, ChevronDown, Loader2, BadgeCheck, AlertCircle
 } from "lucide-react";
+import sgLogo from "@assets/showgate-logo.png";
 
 interface PaystackBank {
   id: number;
@@ -101,6 +102,7 @@ export default function Onboarding() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <span className="text-white font-bold text-sm">Showgate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[18px] w-auto ml-1.5 align-middle" />
           </div>
         </div>
 
@@ -159,6 +161,7 @@ export default function Onboarding() {
             <Ticket className="w-4 h-4 text-amber-400" />
           </div>
           <span className="text-white font-bold text-sm">Showgate</span>
+          <img src={sgLogo} alt="" className="inline-block h-[18px] w-auto ml-1.5 align-middle" />
           {user && <span className="ml-auto text-zinc-600 text-xs">{user.email}</span>}
         </div>
       </div>

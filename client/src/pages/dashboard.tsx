@@ -16,6 +16,7 @@ import {
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
   Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle,
 } from "lucide-react";
+import sgLogo from "@assets/showgate-logo.png";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -2420,7 +2421,7 @@ export default function Dashboard() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-sm">Showgate</h1>
+              <h1 className="text-white font-bold text-sm">Showgate<img src={sgLogo} alt="" className="inline-block h-[18px] w-auto ml-1.5 align-middle" /></h1>
               <p className="text-zinc-600 text-xs">Event Dashboard</p>
             </div>
           </div>
