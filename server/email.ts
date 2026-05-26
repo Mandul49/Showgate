@@ -25,7 +25,7 @@ function getResend(): Resend | null {
   return new Resend(key);
 }
 
-const FROM_ADDRESS = "Showgate <onboarding@resend.dev>";
+const FROM_ADDRESS = "onboarding@resend.dev";
 
 export async function sendVerificationEmail(opts: { to: string; verifyUrl: string }): Promise<void> {
   const resend = getResend();
