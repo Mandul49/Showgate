@@ -222,7 +222,7 @@ export function registerEventsRoutes(app: Express) {
     try {
       const event = await storage.getEventById(req.params.id);
       if (!event) return res.status(404).json({ message: "Event not found" });
-      if (!event.isActive) return res.status(404).json({ message: "Event is not available" });
+      if (!event.isActive || event.suspendedByAdmin) return res.status(404).json({ message: "Event is not available" });
 
       const ticketTypes = await storage.getTicketTypesByEventId(event.id);
       const organizer = await storage.getOrganizerById(event.organizerId);

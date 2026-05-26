@@ -80,6 +80,26 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
+  app.patch("/api/admin/events/:id/suspend", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const { suspended } = req.body;
+      if (typeof suspended !== "boolean") return res.status(400).json({ message: "suspended must be a boolean" });
+      const event = await storage.adminSuspendEvent(req.params.id, suspended);
+      return res.json(event);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/admin/events/:id", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      await storage.adminDeleteEvent(req.params.id);
+      return res.json({ message: "Event deleted" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/admin/charts", requireAdmin, async (_req: AuthRequest, res) => {
     try {
       const data = await storage.getAdminChartData();

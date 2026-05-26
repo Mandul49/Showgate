@@ -172,6 +172,7 @@ export const events = pgTable("events", {
   maxTickets: integer("max_tickets").notNull(),
   paymentMethod: text("payment_method").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  suspendedByAdmin: boolean("suspended_by_admin").notNull().default(false),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -188,6 +189,7 @@ export type Event = {
   maxTickets: number;
   paymentMethod: PaymentMethod;
   isActive: boolean;
+  suspendedByAdmin: boolean;
   description: string | null;
   coverImageUrl: string | null;
   createdAt: Date;

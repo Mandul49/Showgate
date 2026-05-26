@@ -163,12 +163,15 @@ export interface AdminEventRow {
   location: string;
   status: string;
   isActive: boolean;
+  suspendedByAdmin: boolean;
   paymentMethod: string;
   maxTickets: number;
   createdAt: Date;
   organizerId: string;
   businessName: string;
+  organizerEmail: string;
   ticketsSold: number;
+  revenue: number;
 }
 
 export interface AdminStats {
@@ -264,6 +267,8 @@ export interface IStorage {
   // Admin
   getAllUsers(): Promise<AdminUserRow[]>;
   getAllEventsAdmin(): Promise<AdminEventRow[]>;
+  adminSuspendEvent(eventId: string, suspended: boolean): Promise<Event>;
+  adminDeleteEvent(eventId: string): Promise<void>;
   setUserRole(userId: string, role: string): Promise<User>;
   getAdminStats(): Promise<AdminStats>;
   getAdminChartData(): Promise<AdminChartData>;
@@ -597,6 +602,7 @@ export class DbStorage implements IStorage {
       maxTickets: row.maxTickets,
       paymentMethod: row.paymentMethod as PaymentMethod,
       isActive: row.isActive,
+      suspendedByAdmin: row.suspendedByAdmin,
       description: row.description ?? null,
       coverImageUrl: row.coverImageUrl ?? null,
       createdAt: row.createdAt,
@@ -1201,21 +1207,34 @@ export class DbStorage implements IStorage {
         location: events.location,
         status: events.status,
         isActive: events.isActive,
+        suspendedByAdmin: events.suspendedByAdmin,
         paymentMethod: events.paymentMethod,
         maxTickets: events.maxTickets,
         createdAt: events.createdAt,
         organizerId: events.organizerId,
         businessName: organizers.businessName,
+        organizerEmail: users.email,
       })
       .from(events)
       .leftJoin(organizers, eq(events.organizerId, organizers.id))
-      .orderBy(sql`${events.createdAt} DESC`);
+      .leftJoin(users, eq(organizers.userId, users.id))
+      .orderBy(sql`${events.date} DESC`);
 
     const ticketCounts = await db
       .select({ eventId: ticketTypes.eventId, sold: sql<number>`cast(coalesce(sum(quantity_sold), 0) as int)` })
       .from(ticketTypes)
       .groupBy(ticketTypes.eventId);
     const soldMap = new Map(ticketCounts.map(r => [r.eventId, r.sold]));
+
+    const revenueRows = await db
+      .select({
+        eventId: ticketPurchases.eventId,
+        revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
+      })
+      .from(ticketPurchases)
+      .where(eq(ticketPurchases.status, "confirmed"))
+      .groupBy(ticketPurchases.eventId);
+    const revenueMap = new Map(revenueRows.map(r => [r.eventId, Number(r.revenue)]));
 
     return rows.map(r => ({
       id: r.id,
@@ -1225,13 +1244,30 @@ export class DbStorage implements IStorage {
       location: r.location,
       status: r.status,
       isActive: r.isActive,
+      suspendedByAdmin: r.suspendedByAdmin,
       paymentMethod: r.paymentMethod,
       maxTickets: r.maxTickets,
       createdAt: r.createdAt,
       organizerId: r.organizerId,
       businessName: r.businessName ?? 'Unknown',
+      organizerEmail: r.organizerEmail ?? '',
       ticketsSold: soldMap.get(r.id) ?? 0,
+      revenue: revenueMap.get(r.id) ?? 0,
     }));
+  }
+
+  async adminSuspendEvent(eventId: string, suspended: boolean): Promise<Event> {
+    const [row] = await db.update(events)
+      .set({ suspendedByAdmin: suspended })
+      .where(eq(events.id, eventId))
+      .returning();
+    if (!row) throw new Error("Event not found");
+    return this._mapEvent(row);
+  }
+
+  async adminDeleteEvent(eventId: string): Promise<void> {
+    await db.delete(ticketTypes).where(eq(ticketTypes.eventId, eventId));
+    await db.delete(events).where(eq(events.id, eventId));
   }
 
   async setUserRole(userId: string, role: string): Promise<User> {
