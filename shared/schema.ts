@@ -421,6 +421,19 @@ export const subscriptionReferences = pgTable("subscription_references", {
 
 export type SubscriptionReference = typeof subscriptionReferences.$inferSelect;
 
+// ─── Pro Grants ────────────────────────────────────────────────────────────────
+// Admin-issued complimentary Pro access with a note tracking the reason.
+
+export const proGrants = pgTable("pro_grants", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  grantedBy: varchar("granted_by", { length: 36 }).notNull(),
+  note: text("note").notNull(),
+  grantedAt: timestamp("granted_at").defaultNow().notNull(),
+});
+
+export type ProGrant = typeof proGrants.$inferSelect;
+
 // ─── Event Config (legacy single-event setup page) ────────────────────────────
 
 export const eventConfig = pgTable("event_config", {

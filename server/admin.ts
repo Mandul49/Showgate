@@ -122,4 +122,64 @@ export function registerAdminRoutes(app: Express) {
       return res.status(500).json({ message: err.message });
     }
   });
+
+  app.get("/api/admin/subscriptions", requireAdmin, async (_req: AuthRequest, res) => {
+    try {
+      const data = await storage.getAdminSubscriptions();
+      return res.json(data);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/subscriptions/:userId/extend", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const schema = z.object({ months: z.number().int().min(1).max(24) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      const user = await storage.extendSubscription(req.params.userId, parsed.data.months);
+      return res.json(user);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/subscriptions/:userId/cancel", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.cancelSubscription(req.params.userId);
+      return res.json(user);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/subscriptions/:userId/reinstate", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.reinstateSubscription(req.params.userId);
+      return res.json(user);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/subscriptions/:userId/upgrade-yearly", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.upgradeToYearly(req.params.userId);
+      return res.json(user);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/subscriptions/:userId/grant-free", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const schema = z.object({ note: z.string().min(1, "Note is required").max(500) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      const user = await storage.grantFreePro(req.params.userId, req.userId!, parsed.data.note);
+      return res.json(user);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
 }

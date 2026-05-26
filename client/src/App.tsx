@@ -20,6 +20,7 @@ import Subscription from "@/pages/subscription";
 import AdminPanel from "@/pages/admin-panel";
 import AdminOrganizers from "@/pages/admin-organizers";
 import AdminOrganizerDetail from "@/pages/admin-organizer-detail";
+import AdminSubscriptions from "@/pages/admin-subscriptions";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/admin" component={AdminPanel} />
       <Route path="/admin/organizers" component={AdminOrganizers} />
       <Route path="/admin/organizers/:id" component={AdminOrganizerDetail} />
+      <Route path="/admin/subscriptions" component={AdminSubscriptions} />
       <Route component={NotFound} />
     </Switch>
   );

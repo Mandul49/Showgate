@@ -2,7 +2,7 @@ import { eq, sql, and } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
-  subscriptionReferences, discountCodes, platformStats,
+  subscriptionReferences, discountCodes, platformStats, proGrants,
   type Order, type InsertOrder, type EventConfig,
   type User, type UserRole, type UserTier,
   type Organizer, type CreateOrganizerData,
@@ -136,6 +136,25 @@ export interface AdminOrganizerDetail {
   }[];
 }
 
+export interface AdminSubscriptionRow {
+  userId: string;
+  email: string;
+  businessName: string | null;
+  plan: string;
+  startedAt: Date | null;
+  expiresAt: Date | null;
+  status: "active" | "cancelled" | "expired" | "lifetime";
+  totalPaid: number;
+  cancelledAt: Date | null;
+  grantNote: string | null;
+}
+
+export interface AdminSubscriptionStats {
+  activeSubscribers: number;
+  churnedThisMonth: number;
+  revenueThisMonth: number;
+}
+
 export interface AdminEventRow {
   id: string;
   title: string;
@@ -251,6 +270,10 @@ export interface IStorage {
   getAdminOrganizers(): Promise<AdminOrganizerRow[]>;
   getAdminOrganizerDetail(userId: string): Promise<AdminOrganizerDetail | null>;
   suspendUser(userId: string, suspended: boolean): Promise<User>;
+  getAdminSubscriptions(): Promise<{ stats: AdminSubscriptionStats; subscriptions: AdminSubscriptionRow[] }>;
+  extendSubscription(userId: string, months: number): Promise<User>;
+  upgradeToYearly(userId: string): Promise<User>;
+  grantFreePro(userId: string, grantedBy: string, note: string): Promise<User>;
 }
 
 export class DbStorage implements IStorage {
@@ -1037,6 +1060,135 @@ export class DbStorage implements IStorage {
     const [row] = await db.update(users).set({ suspended }).where(eq(users.id, userId)).returning();
     if (!row) throw new Error("User not found");
     return this._mapUser(row);
+  }
+
+  async getAdminSubscriptions(): Promise<{ stats: AdminSubscriptionStats; subscriptions: AdminSubscriptionRow[] }> {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const rows = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        tier: users.tier,
+        billingCycle: users.billingCycle,
+        proExpiresAt: users.proExpiresAt,
+        cancelledAt: users.cancelledAt,
+        businessName: organizers.businessName,
+      })
+      .from(users)
+      .leftJoin(organizers, eq(organizers.userId, users.id))
+      .where(sql`${users.tier} = 'pro' OR ${users.proExpiresAt} IS NOT NULL`)
+      .orderBy(sql`${users.proExpiresAt} DESC NULLS FIRST`);
+
+    const paidRows = await db
+      .select({
+        userId: subscriptionReferences.userId,
+        total: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)`,
+      })
+      .from(subscriptionReferences)
+      .groupBy(subscriptionReferences.userId);
+    const paidMap = new Map(paidRows.map(r => [r.userId, Number(r.total)]));
+
+    const firstPayRows = await db
+      .select({
+        userId: subscriptionReferences.userId,
+        firstAt: sql<string>`min(${subscriptionReferences.fulfilledAt})`,
+      })
+      .from(subscriptionReferences)
+      .groupBy(subscriptionReferences.userId);
+    const firstPayMap = new Map(firstPayRows.map(r => [r.userId, new Date(r.firstAt)]));
+
+    const grantRows = await db
+      .select({ userId: proGrants.userId, note: proGrants.note, grantedAt: proGrants.grantedAt })
+      .from(proGrants)
+      .orderBy(sql`${proGrants.grantedAt} DESC`);
+    const grantMap = new Map<string, { note: string; grantedAt: Date }>();
+    for (const g of grantRows) {
+      if (!grantMap.has(g.userId)) grantMap.set(g.userId, { note: g.note, grantedAt: g.grantedAt });
+    }
+
+    const subscriptions: AdminSubscriptionRow[] = rows.map(r => {
+      const expiresAt = r.proExpiresAt;
+      const cancelledAt = r.cancelledAt;
+      const isLifetime = r.tier === "pro" && !expiresAt && !cancelledAt;
+      const isCancelled = !!cancelledAt && (!expiresAt || expiresAt > now);
+      const isExpired = !!expiresAt && expiresAt <= now;
+      const isActive = r.tier === "pro" && !isCancelled && !isExpired;
+
+      let status: "active" | "cancelled" | "expired" | "lifetime";
+      if (isLifetime) status = "lifetime";
+      else if (isCancelled) status = "cancelled";
+      else if (isActive) status = "active";
+      else status = "expired";
+
+      const grant = grantMap.get(r.id);
+      let plan = r.billingCycle ?? "";
+      if (!plan) plan = grant ? "granted" : (isLifetime ? "lifetime" : "monthly");
+      const startedAt = firstPayMap.get(r.id) ?? grant?.grantedAt ?? null;
+
+      return {
+        userId: r.id,
+        email: r.email,
+        businessName: r.businessName ?? null,
+        plan,
+        startedAt,
+        expiresAt,
+        status,
+        totalPaid: paidMap.get(r.id) ?? 0,
+        cancelledAt: r.cancelledAt,
+        grantNote: grant?.note ?? null,
+      };
+    });
+
+    const activeSubscribers = subscriptions.filter(s => s.status === "active" || s.status === "lifetime").length;
+    const churnedThisMonth = subscriptions.filter(s => {
+      const expiredThis = s.expiresAt && s.expiresAt >= monthStart && s.expiresAt <= now;
+      const cancelledThis = s.cancelledAt && new Date(s.cancelledAt) >= monthStart;
+      return expiredThis || cancelledThis;
+    }).length;
+
+    const [revRow] = await db
+      .select({ total: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)` })
+      .from(subscriptionReferences)
+      .where(sql`${subscriptionReferences.fulfilledAt} >= ${monthStart}`);
+    const revenueThisMonth = Number(revRow?.total ?? 0);
+
+    return { stats: { activeSubscribers, churnedThisMonth, revenueThisMonth }, subscriptions };
+  }
+
+  async extendSubscription(userId: string, months: number): Promise<User> {
+    const [u] = await db.select().from(users).where(eq(users.id, userId));
+    if (!u) throw new Error("User not found");
+    const base = u.proExpiresAt && u.proExpiresAt > new Date() ? u.proExpiresAt : new Date();
+    const newExpiry = new Date(base.getTime() + months * 30.44 * 24 * 60 * 60 * 1000);
+    const [updated] = await db.update(users)
+      .set({ proExpiresAt: newExpiry, tier: "pro" })
+      .where(eq(users.id, userId)).returning();
+    const org = await this.getOrganizerByUserId(userId);
+    if (org) await this.updateOrganizerTier(org.id, "pro");
+    return this._mapUser(updated);
+  }
+
+  async upgradeToYearly(userId: string): Promise<User> {
+    const newExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const [updated] = await db.update(users)
+      .set({ billingCycle: "yearly", proExpiresAt: newExpiry, tier: "pro", cancelledAt: null })
+      .where(eq(users.id, userId)).returning();
+    if (!updated) throw new Error("User not found");
+    const org = await this.getOrganizerByUserId(userId);
+    if (org) await this.updateOrganizerTier(org.id, "pro");
+    return this._mapUser(updated);
+  }
+
+  async grantFreePro(userId: string, grantedBy: string, note: string): Promise<User> {
+    const proExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const user = await this.updateUserTier(userId, "pro", proExpiresAt);
+    await db.update(users).set({ billingCycle: "granted", cancelledAt: null }).where(eq(users.id, userId));
+    const org = await this.getOrganizerByUserId(userId);
+    if (org) await this.updateOrganizerTier(org.id, "pro");
+    await db.insert(proGrants).values({ id: randomUUID(), userId, grantedBy, note });
+    return user;
   }
 
   async getAllEventsAdmin(): Promise<AdminEventRow[]> {
