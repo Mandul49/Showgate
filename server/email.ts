@@ -1,4 +1,4 @@
-import * as SibApiV3Sdk from "@getbrevo/brevo";
+import { BrevoClient } from "@getbrevo/brevo";
 
 export interface ConfirmationEmailOptions {
   to: string;
@@ -19,12 +19,10 @@ export interface ConfirmationEmailOptions {
   accountName?: string;
 }
 
-function getBrevoClient(): SibApiV3Sdk.TransactionalEmailsApi | null {
+function getBrevoClient(): InstanceType<typeof BrevoClient> | null {
   const key = process.env.BREVO_API_KEY;
   if (!key) return null;
-  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-  apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, key);
-  return apiInstance;
+  return new BrevoClient({ apiKey: key });
 }
 
 const FROM_SENDER = { name: "Showgate", email: "noreply@showgate.com" };
@@ -35,21 +33,20 @@ async function sendEmail(opts: {
   html: string;
   label: string;
 }): Promise<void> {
-  const api = getBrevoClient();
-  if (!api) {
+  const client = getBrevoClient();
+  if (!client) {
     console.warn(`[email] ${opts.label} NOT sent to ${opts.to}: BREVO_API_KEY not configured.`);
     return;
   }
 
-  const msg = new SibApiV3Sdk.SendSmtpEmail();
-  msg.to = [{ email: opts.to }];
-  msg.subject = opts.subject;
-  msg.htmlContent = opts.html;
-  msg.sender = FROM_SENDER;
-
   try {
-    const response = await api.sendTransacEmail(msg);
-    console.log(`[email] ${opts.label} sent to ${opts.to}:`, JSON.stringify(response.body));
+    const response = await client.transactionalEmails.sendTransacEmail({
+      to: [{ email: opts.to }],
+      subject: opts.subject,
+      htmlContent: opts.html,
+      sender: FROM_SENDER,
+    });
+    console.log(`[email] ${opts.label} sent to ${opts.to}:`, JSON.stringify(response));
   } catch (err: any) {
     console.error(`[email] ${opts.label} failed for ${opts.to}:`, err.message ?? JSON.stringify(err));
   }
@@ -102,19 +99,18 @@ export async function sendPasswordResetEmail(opts: { to: string; resetUrl: strin
 }
 
 export async function sendTestEmail(to: string): Promise<{ ok: boolean; detail: string }> {
-  const api = getBrevoClient();
-  if (!api) {
+  const client = getBrevoClient();
+  if (!client) {
     return { ok: false, detail: "BREVO_API_KEY not configured" };
   }
 
-  const msg = new SibApiV3Sdk.SendSmtpEmail();
-  msg.to = [{ email: to }];
-  msg.subject = "Showgate — test email";
-  msg.htmlContent = `<p style="font-family:sans-serif;">This is a test email from Showgate. If you received this, the email service is working correctly.</p>`;
-  msg.sender = FROM_SENDER;
-
   try {
-    const response = await api.sendTransacEmail(msg);
+    const response = await client.transactionalEmails.sendTransacEmail({
+      to: [{ email: to }],
+      subject: "Showgate — test email",
+      htmlContent: `<p style="font-family:sans-serif;">This is a test email from Showgate. If you received this, the email service is working correctly.</p>`,
+      sender: FROM_SENDER,
+    });
     console.log(`[email] Test email sent to ${to}:`, JSON.stringify(response.body));
     return { ok: true, detail: `Brevo message id: ${(response.body as any)?.messageId ?? "sent"}` };
   } catch (err: any) {
