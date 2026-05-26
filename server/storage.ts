@@ -64,9 +64,76 @@ export interface AdminUserRow {
   role: string;
   tier: string;
   proExpiresAt: Date | null;
+  suspended: boolean;
   createdAt: Date;
   businessName: string | null;
   eventCount: number;
+}
+
+export interface AdminOrganizerRow {
+  id: string;
+  userId: string;
+  email: string;
+  businessName: string;
+  tier: string;
+  proExpiresAt: Date | null;
+  subaccountCode: string | null;
+  eventCount: number;
+  activeEventCount: number;
+  ticketsSold: number;
+  revenue: number;
+  suspended: boolean;
+  createdAt: Date;
+}
+
+export interface AdminOrganizerEventRow {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  status: string;
+  isActive: boolean;
+  paymentMethod: string;
+  maxTickets: number;
+  ticketsSold: number;
+  revenue: number;
+  createdAt: Date;
+}
+
+export interface AdminOrganizerDetail {
+  id: string;
+  userId: string;
+  email: string;
+  businessName: string;
+  bankName: string;
+  bankCode: string;
+  accountNumber: string;
+  subaccountCode: string | null;
+  testSubaccountCode: string | null;
+  tier: string;
+  proExpiresAt: Date | null;
+  suspended: boolean;
+  createdAt: Date;
+  eventCount: number;
+  ticketsSold: number;
+  revenue: number;
+  events: AdminOrganizerEventRow[];
+  recentPurchases: {
+    id: string;
+    customerName: string;
+    customerEmail: string;
+    eventTitle: string;
+    quantity: number;
+    amount: number;
+    status: string;
+    createdAt: Date;
+  }[];
+  subscriptionHistory: {
+    reference: string;
+    plan: string;
+    amountKobo: number | null;
+    fulfilledAt: Date;
+  }[];
 }
 
 export interface AdminEventRow {
@@ -181,6 +248,9 @@ export interface IStorage {
   setUserRole(userId: string, role: string): Promise<User>;
   getAdminStats(): Promise<AdminStats>;
   getAdminChartData(): Promise<AdminChartData>;
+  getAdminOrganizers(): Promise<AdminOrganizerRow[]>;
+  getAdminOrganizerDetail(userId: string): Promise<AdminOrganizerDetail | null>;
+  suspendUser(userId: string, suspended: boolean): Promise<User>;
 }
 
 export class DbStorage implements IStorage {
@@ -360,6 +430,7 @@ export class DbStorage implements IStorage {
       resetTokenExpires: row.resetTokenExpires ?? null,
       emailVerified: row.emailVerified,
       emailVerificationToken: row.emailVerificationToken ?? null,
+      suspended: row.suspended,
       createdAt: row.createdAt,
     };
   }
@@ -748,6 +819,7 @@ export class DbStorage implements IStorage {
         role: users.role,
         tier: users.tier,
         proExpiresAt: users.proExpiresAt,
+        suspended: users.suspended,
         createdAt: users.createdAt,
         businessName: organizers.businessName,
         organizerId: organizers.id,
@@ -768,10 +840,203 @@ export class DbStorage implements IStorage {
       role: r.role,
       tier: r.tier,
       proExpiresAt: r.proExpiresAt,
+      suspended: r.suspended,
       createdAt: r.createdAt,
       businessName: r.businessName ?? null,
       eventCount: r.organizerId ? (countMap.get(r.organizerId) ?? 0) : 0,
     }));
+  }
+
+  async getAdminOrganizers(): Promise<AdminOrganizerRow[]> {
+    const rows = await db
+      .select({
+        id: organizers.id,
+        userId: organizers.userId,
+        email: users.email,
+        businessName: organizers.businessName,
+        subaccountCode: organizers.subaccountCode,
+        tier: users.tier,
+        proExpiresAt: users.proExpiresAt,
+        suspended: users.suspended,
+        createdAt: users.createdAt,
+      })
+      .from(organizers)
+      .innerJoin(users, eq(users.id, organizers.userId))
+      .orderBy(sql`${users.createdAt} DESC`);
+
+    const eventRows = await db
+      .select({
+        organizerId: events.organizerId,
+        total: sql<number>`cast(count(*) as int)`,
+        active: sql<number>`cast(count(case when ${events.isActive} then 1 end) as int)`,
+      })
+      .from(events)
+      .groupBy(events.organizerId);
+    const eventMap = new Map(eventRows.map(r => [r.organizerId, { total: r.total, active: r.active }]));
+
+    const statsRows = await db
+      .select({
+        organizerId: ticketPurchases.organizerId,
+        tickets: sql<number>`cast(coalesce(sum(${ticketPurchases.quantity}), 0) as int)`,
+        revenue: sql<number>`cast(coalesce(sum(case when ${ticketPurchases.status} = 'confirmed' then ${ticketPurchases.amount} else 0 end), 0) as bigint)`,
+      })
+      .from(ticketPurchases)
+      .where(sql`${ticketPurchases.organizerId} is not null`)
+      .groupBy(ticketPurchases.organizerId);
+    const statsMap = new Map(statsRows.map(r => [r.organizerId!, { tickets: r.tickets, revenue: Number(r.revenue) }]));
+
+    return rows.map(r => {
+      const evCounts = eventMap.get(r.id) ?? { total: 0, active: 0 };
+      const stats = statsMap.get(r.id) ?? { tickets: 0, revenue: 0 };
+      return {
+        id: r.id,
+        userId: r.userId,
+        email: r.email,
+        businessName: r.businessName,
+        subaccountCode: r.subaccountCode,
+        tier: r.tier,
+        proExpiresAt: r.proExpiresAt,
+        suspended: r.suspended,
+        createdAt: r.createdAt,
+        eventCount: evCounts.total,
+        activeEventCount: evCounts.active,
+        ticketsSold: stats.tickets,
+        revenue: stats.revenue,
+      };
+    });
+  }
+
+  async getAdminOrganizerDetail(userId: string): Promise<AdminOrganizerDetail | null> {
+    const [row] = await db
+      .select({
+        id: organizers.id,
+        userId: organizers.userId,
+        email: users.email,
+        businessName: organizers.businessName,
+        bankName: organizers.bankName,
+        bankCode: organizers.bankCode,
+        accountNumber: organizers.accountNumber,
+        subaccountCode: organizers.subaccountCode,
+        testSubaccountCode: organizers.testSubaccountCode,
+        tier: users.tier,
+        proExpiresAt: users.proExpiresAt,
+        suspended: users.suspended,
+        createdAt: users.createdAt,
+      })
+      .from(organizers)
+      .innerJoin(users, eq(users.id, organizers.userId))
+      .where(eq(organizers.userId, userId));
+
+    if (!row) return null;
+
+    const eventRows = await db
+      .select({
+        id: events.id,
+        title: events.title,
+        date: events.date,
+        location: events.location,
+        status: events.status,
+        isActive: events.isActive,
+        paymentMethod: events.paymentMethod,
+        maxTickets: events.maxTickets,
+        createdAt: events.createdAt,
+        ticketsSold: sql<number>`cast(coalesce(sum(${ticketTypes.quantitySold}), 0) as int)`,
+      })
+      .from(events)
+      .leftJoin(ticketTypes, eq(ticketTypes.eventId, events.id))
+      .where(eq(events.organizerId, row.id))
+      .groupBy(events.id)
+      .orderBy(sql`${events.createdAt} DESC`);
+
+    const revenueRows = await db
+      .select({
+        eventId: ticketPurchases.eventId,
+        revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
+      })
+      .from(ticketPurchases)
+      .innerJoin(events, eq(events.id, ticketPurchases.eventId))
+      .where(and(eq(events.organizerId, row.id), eq(ticketPurchases.status, "confirmed")))
+      .groupBy(ticketPurchases.eventId);
+    const revenueMap = new Map(revenueRows.map(r => [r.eventId, Number(r.revenue)]));
+
+    const eventsResult: AdminOrganizerEventRow[] = eventRows.map(e => ({
+      id: e.id,
+      title: e.title,
+      date: e.date,
+      location: e.location,
+      status: e.status,
+      isActive: e.isActive,
+      paymentMethod: e.paymentMethod,
+      maxTickets: e.maxTickets,
+      ticketsSold: e.ticketsSold,
+      revenue: revenueMap.get(e.id) ?? 0,
+      createdAt: e.createdAt,
+    }));
+
+    const purchaseRows = await db
+      .select({
+        id: ticketPurchases.id,
+        customerName: ticketPurchases.customerName,
+        customerEmail: ticketPurchases.customerEmail,
+        quantity: ticketPurchases.quantity,
+        amount: ticketPurchases.amount,
+        status: ticketPurchases.status,
+        createdAt: ticketPurchases.createdAt,
+        eventTitle: events.title,
+      })
+      .from(ticketPurchases)
+      .innerJoin(events, eq(events.id, ticketPurchases.eventId))
+      .where(eq(events.organizerId, row.id))
+      .orderBy(sql`${ticketPurchases.createdAt} DESC`)
+      .limit(50);
+
+    const subRows = await db
+      .select()
+      .from(subscriptionReferences)
+      .where(eq(subscriptionReferences.userId, userId))
+      .orderBy(sql`${subscriptionReferences.fulfilledAt} DESC`);
+
+    return {
+      id: row.id,
+      userId: row.userId,
+      email: row.email,
+      businessName: row.businessName,
+      bankName: row.bankName,
+      bankCode: row.bankCode,
+      accountNumber: row.accountNumber,
+      subaccountCode: row.subaccountCode,
+      testSubaccountCode: row.testSubaccountCode,
+      tier: row.tier,
+      proExpiresAt: row.proExpiresAt,
+      suspended: row.suspended,
+      createdAt: row.createdAt,
+      eventCount: eventsResult.length,
+      ticketsSold: eventsResult.reduce((s, e) => s + e.ticketsSold, 0),
+      revenue: eventsResult.reduce((s, e) => s + e.revenue, 0),
+      events: eventsResult,
+      recentPurchases: purchaseRows.map(p => ({
+        id: p.id,
+        customerName: p.customerName,
+        customerEmail: p.customerEmail,
+        eventTitle: p.eventTitle,
+        quantity: p.quantity,
+        amount: p.amount,
+        status: p.status,
+        createdAt: p.createdAt,
+      })),
+      subscriptionHistory: subRows.map(s => ({
+        reference: s.reference,
+        plan: s.plan,
+        amountKobo: s.amountKobo,
+        fulfilledAt: s.fulfilledAt,
+      })),
+    };
+  }
+
+  async suspendUser(userId: string, suspended: boolean): Promise<User> {
+    const [row] = await db.update(users).set({ suspended }).where(eq(users.id, userId)).returning();
+    if (!row) throw new Error("User not found");
+    return this._mapUser(row);
   }
 
   async getAllEventsAdmin(): Promise<AdminEventRow[]> {

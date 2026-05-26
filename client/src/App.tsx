@@ -18,6 +18,8 @@ import PurchaseSuccess from "@/pages/purchase-success";
 import Analytics from "@/pages/analytics";
 import Subscription from "@/pages/subscription";
 import AdminPanel from "@/pages/admin-panel";
+import AdminOrganizers from "@/pages/admin-organizers";
+import AdminOrganizerDetail from "@/pages/admin-organizer-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -38,6 +40,8 @@ function Router() {
       <Route path="/analytics/:eventId" component={Analytics} />
       <Route path="/subscription" component={Subscription} />
       <Route path="/admin" component={AdminPanel} />
+      <Route path="/admin/organizers" component={AdminOrganizers} />
+      <Route path="/admin/organizers/:id" component={AdminOrganizerDetail} />
       <Route component={NotFound} />
     </Switch>
   );

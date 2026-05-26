@@ -88,4 +88,38 @@ export function registerAdminRoutes(app: Express) {
       return res.status(500).json({ message: err.message });
     }
   });
+
+  app.get("/api/admin/organizers", requireAdmin, async (_req: AuthRequest, res) => {
+    try {
+      const data = await storage.getAdminOrganizers();
+      return res.json(data);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/admin/organizers/:id", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const data = await storage.getAdminOrganizerDetail(req.params.id);
+      if (!data) return res.status(404).json({ message: "Organizer not found" });
+      return res.json(data);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/suspend", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const schema = z.object({ suspended: z.boolean() });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      if (req.params.id === req.userId) {
+        return res.status(400).json({ message: "Cannot suspend your own account" });
+      }
+      const user = await storage.suspendUser(req.params.id, parsed.data.suspended);
+      return res.json(user);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
 }

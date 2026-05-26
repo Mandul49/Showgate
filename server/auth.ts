@@ -124,6 +124,10 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
+      if (user.suspended) {
+        return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
+      }
+
       const token = jwt.sign(
         { userId: user.id, role: user.role, tier: user.tier, emailVerified: user.emailVerified },
         JWT_SECRET,
