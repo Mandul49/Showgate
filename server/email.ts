@@ -98,6 +98,35 @@ export async function sendPasswordResetEmail(opts: { to: string; resetUrl: strin
   });
 }
 
+export async function sendAdminInviteEmail(opts: { to: string; setPasswordUrl: string; invitedBy: string; role: string }): Promise<void> {
+  const roleLabel: Record<string, string> = {
+    super_admin: "Super Admin",
+    admin: "Admin",
+    support: "Support",
+    finance: "Finance",
+  };
+  await sendEmail({
+    to: opts.to,
+    subject: "You've been invited to join Showgate as an admin",
+    label: "Admin invite email",
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
+          <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
+          <h1 style="margin:8px 0 0;font-size:20px;color:#000;font-weight:900;">You're invited to join the team</h1>
+        </div>
+        <div style="padding:24px 28px;">
+          <p style="margin:0 0 16px;color:#a1a1aa;">${opts.invitedBy} has added you to Showgate as <strong style="color:#f59e0b;">${roleLabel[opts.role] ?? opts.role}</strong>. Set a password to activate your account and access the admin panel.</p>
+          <p style="margin:24px 0;text-align:center;">
+            <a href="${opts.setPasswordUrl}" style="display:inline-block;background:#f59e0b;color:#000;font-weight:900;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;text-transform:uppercase;letter-spacing:0.05em;">Set Your Password</a>
+          </p>
+          <p style="margin:16px 0 0;font-size:12px;color:#71717a;">Or copy this link: <span style="word-break:break-all;color:#f59e0b;">${opts.setPasswordUrl}</span></p>
+          <p style="margin:24px 0 0;font-size:12px;color:#52525b;">This link expires in 48 hours. If you weren't expecting this invitation, you can safely ignore this email.</p>
+        </div>
+      </div>`,
+  });
+}
+
 export async function sendTestEmail(to: string): Promise<{ ok: boolean; detail: string }> {
   const client = getBrevoClient();
   if (!client) {
