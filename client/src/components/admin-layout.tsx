@@ -1,4 +1,5 @@
 import { useLocation, Link } from "wouter";
+import { ShowgateLogo } from "@/components/showgate-logo";
 import {
   LayoutDashboard, Users, CreditCard, Calendar, BarChart2,
   Settings, ArrowLeft, ShieldCheck, UsersRound,
@@ -52,7 +53,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         {/* Logo + role badges */}
         <div className="px-5 pt-5 pb-4 border-b border-zinc-800">
           <span className="block text-white font-extrabold text-xl tracking-tight leading-none mb-2.5">
-            Show<span className="text-amber-500">gate</span>
+            Show<span className="text-amber-500">gate</span><ShowgateLogo size={22} />
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
             <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/25 rounded-md px-2 py-1">

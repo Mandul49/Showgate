@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { ShowgateLogo } from "@/components/showgate-logo";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -332,7 +333,7 @@ export default function Profile() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-sm">Showgate</h1>
+              <h1 className="text-white font-bold text-sm">Showgate<ShowgateLogo size={16} /></h1>
               <p className="text-zinc-600 text-xs">Profile Settings</p>
             </div>
           </div>
