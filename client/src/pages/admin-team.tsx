@@ -269,7 +269,6 @@ export default function AdminTeam() {
                         className="bg-zinc-800 border-zinc-600 text-zinc-100 placeholder-zinc-500"
                       />
                     </FormControl>
-                    <p className="text-[11px] text-zinc-500">Must be an existing organizer account on the platform.</p>
                     <FormMessage />
                   </FormItem>
                 )}
