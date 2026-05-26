@@ -265,7 +265,7 @@ export default function AdminTeam() {
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="organizer@example.com"
+                        placeholder="user@example.com"
                         className="bg-zinc-800 border-zinc-600 text-zinc-100 placeholder-zinc-500"
                       />
                     </FormControl>
@@ -408,7 +408,7 @@ export default function AdminTeam() {
             <AlertDialogTitle className="text-white">Remove admin access?</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
               Remove admin access for <span className="text-zinc-100 font-medium">{removeTarget?.email}</span>?
-              They will return to being a regular organizer.
+              They will lose admin access and return to a standard account.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
