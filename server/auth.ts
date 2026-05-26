@@ -15,6 +15,26 @@ export interface AuthRequest extends Request {
   userTier?: string;
 }
 
+export async function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  const token = authHeader.slice(7);
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string };
+    const user = await storage.getUserById(payload.userId);
+    if (!user) return res.status(401).json({ message: "User not found. Please log in again." });
+    if (user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+    req.userId = payload.userId;
+    req.userRole = user.role;
+    req.userTier = user.tier;
+    next();
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired token. Please log in again." });
+  }
+}
+
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {

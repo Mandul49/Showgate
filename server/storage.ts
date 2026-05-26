@@ -57,6 +57,42 @@ const DEFAULT_CONFIG: EventConfig = {
   isPublished: false,
 };
 
+// ─── Admin types ─────────────────────────────────────────────────────────────
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  role: string;
+  tier: string;
+  proExpiresAt: Date | null;
+  createdAt: Date;
+  businessName: string | null;
+  eventCount: number;
+}
+
+export interface AdminEventRow {
+  id: string;
+  title: string;
+  date: string;
+  startTime: string | null;
+  location: string;
+  status: string;
+  isActive: boolean;
+  paymentMethod: string;
+  maxTickets: number;
+  createdAt: Date;
+  organizerId: string;
+  businessName: string;
+  ticketsSold: number;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  totalOrganizers: number;
+  totalEvents: number;
+  totalTicketsSold: number;
+  proUsers: number;
+}
+
 export interface IStorage {
   // Orders
   createOrder(order: InsertOrder, status?: string): Promise<Order>;
@@ -128,6 +164,11 @@ export interface IStorage {
   incrementDiscountCodeUsed(id: string): Promise<DiscountCode>;
   deleteDiscountCode(id: string): Promise<void>;
   getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }>;
+  // Admin
+  getAllUsers(): Promise<AdminUserRow[]>;
+  getAllEventsAdmin(): Promise<AdminEventRow[]>;
+  setUserRole(userId: string, role: string): Promise<User>;
+  getAdminStats(): Promise<AdminStats>;
 }
 
 export class DbStorage implements IStorage {
@@ -682,6 +723,106 @@ export class DbStorage implements IStorage {
     return {
       totalEvents: (eventsResult?.count ?? 0) + (offset?.deletedEvents ?? 0),
       totalTicketsSold: (ticketsResult?.count ?? 0) + (offset?.deletedTicketsSold ?? 0),
+    };
+  }
+
+  // ── Admin ─────────────────────────────────────────────────────────────────
+
+  async getAllUsers(): Promise<AdminUserRow[]> {
+    const rows = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+        tier: users.tier,
+        proExpiresAt: users.proExpiresAt,
+        createdAt: users.createdAt,
+        businessName: organizers.businessName,
+        organizerId: organizers.id,
+      })
+      .from(users)
+      .leftJoin(organizers, eq(users.id, organizers.userId))
+      .orderBy(sql`${users.createdAt} DESC`);
+
+    const eventCounts = await db
+      .select({ organizerId: events.organizerId, count: sql<number>`cast(count(*) as int)` })
+      .from(events)
+      .groupBy(events.organizerId);
+    const countMap = new Map(eventCounts.map(r => [r.organizerId, r.count]));
+
+    return rows.map(r => ({
+      id: r.id,
+      email: r.email,
+      role: r.role,
+      tier: r.tier,
+      proExpiresAt: r.proExpiresAt,
+      createdAt: r.createdAt,
+      businessName: r.businessName ?? null,
+      eventCount: r.organizerId ? (countMap.get(r.organizerId) ?? 0) : 0,
+    }));
+  }
+
+  async getAllEventsAdmin(): Promise<AdminEventRow[]> {
+    const rows = await db
+      .select({
+        id: events.id,
+        title: events.title,
+        date: events.date,
+        startTime: events.startTime,
+        location: events.location,
+        status: events.status,
+        isActive: events.isActive,
+        paymentMethod: events.paymentMethod,
+        maxTickets: events.maxTickets,
+        createdAt: events.createdAt,
+        organizerId: events.organizerId,
+        businessName: organizers.businessName,
+      })
+      .from(events)
+      .leftJoin(organizers, eq(events.organizerId, organizers.id))
+      .orderBy(sql`${events.createdAt} DESC`);
+
+    const ticketCounts = await db
+      .select({ eventId: ticketTypes.eventId, sold: sql<number>`cast(coalesce(sum(quantity_sold), 0) as int)` })
+      .from(ticketTypes)
+      .groupBy(ticketTypes.eventId);
+    const soldMap = new Map(ticketCounts.map(r => [r.eventId, r.sold]));
+
+    return rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      date: r.date,
+      startTime: r.startTime ?? null,
+      location: r.location,
+      status: r.status,
+      isActive: r.isActive,
+      paymentMethod: r.paymentMethod,
+      maxTickets: r.maxTickets,
+      createdAt: r.createdAt,
+      organizerId: r.organizerId,
+      businessName: r.businessName ?? 'Unknown',
+      ticketsSold: soldMap.get(r.id) ?? 0,
+    }));
+  }
+
+  async setUserRole(userId: string, role: string): Promise<User> {
+    const [row] = await db.update(users).set({ role }).where(eq(users.id, userId)).returning();
+    if (!row) throw new Error("User not found");
+    return this._mapUser(row);
+  }
+
+  async getAdminStats(): Promise<AdminStats> {
+    const [usersCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users);
+    const [organizersCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(organizers);
+    const [eventsCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
+    const [ticketsSold] = await db.select({ total: sql<number>`cast(coalesce(sum(quantity_sold), 0) as int)` }).from(ticketTypes);
+    const [proUsers] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(eq(users.tier, "pro"));
+    return {
+      totalUsers: usersCount?.count ?? 0,
+      totalOrganizers: organizersCount?.count ?? 0,
+      totalEvents: eventsCount?.count ?? 0,
+      totalTicketsSold: ticketsSold?.total ?? 0,
+      proUsers: proUsers?.count ?? 0,
     };
   }
 

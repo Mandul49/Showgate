@@ -14,6 +14,7 @@ import { registerAnalyticsRoutes } from "./analytics";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { registerOgRoutes } from "./og";
 import { registerDiscountRoutes } from "./discounts";
+import { registerAdminRoutes } from "./admin";
 import { sendConfirmationEmail, sendTestEmail } from "./email";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
@@ -59,6 +60,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Discount Codes ───────────────────────────────────────────────────────
   registerDiscountRoutes(app);
+
+  // ─── Admin ────────────────────────────────────────────────────────────────
+  registerAdminRoutes(app);
 
   // ─── Object Storage (logo uploads) ───────────────────────────────────────
   registerObjectStorageRoutes(app);

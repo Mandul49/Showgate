@@ -39,7 +39,7 @@ export type Order = typeof orders.$inferSelect;
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-export type UserRole = "organizer";
+export type UserRole = "organizer" | "admin";
 export type UserTier = "free" | "pro";
 
 export const users = pgTable("users", {
