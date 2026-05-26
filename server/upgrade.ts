@@ -10,6 +10,17 @@ export const PLANS = {
 } as const;
 type PlanKey = keyof typeof PLANS;
 
+async function getPlanAmountsFromDb(): Promise<{ monthly: number; yearly: number }> {
+  const [monthlyStr, yearlyStr] = await Promise.all([
+    storage.getPlatformSetting("pro_monthly_price_kobo", String(PLANS.monthly.amountKobo)),
+    storage.getPlatformSetting("pro_yearly_price_kobo", String(PLANS.yearly.amountKobo)),
+  ]);
+  return {
+    monthly: parseInt(monthlyStr, 10) || PLANS.monthly.amountKobo,
+    yearly: parseInt(yearlyStr, 10) || PLANS.yearly.amountKobo,
+  };
+}
+
 // ── Paystack subaccount charge update ────────────────────────────────────────
 
 export async function updateSubaccountCharge(subaccountCode: string, percentage: number): Promise<void> {
@@ -344,7 +355,8 @@ export function registerUpgradeRoutes(app: Express): void {
       const history = user.tier === "pro" ? await storage.getSubscriptionHistory(req.userId!) : [];
 
       const billingCycle = user.billingCycle ?? null;
-      const amountKobo = billingCycle === "yearly" ? PLANS.yearly.amountKobo : PLANS.monthly.amountKobo;
+      const planAmounts = await getPlanAmountsFromDb();
+      const amountKobo = billingCycle === "yearly" ? planAmounts.yearly : planAmounts.monthly;
 
       return res.json({
         tier: user.tier,
@@ -355,7 +367,7 @@ export function registerUpgradeRoutes(app: Express): void {
         history: history.map((h) => ({
           reference: h.reference,
           plan: h.plan,
-          amountKobo: h.amountKobo ?? (h.plan === "yearly" ? PLANS.yearly.amountKobo : PLANS.monthly.amountKobo),
+          amountKobo: h.amountKobo ?? (h.plan === "yearly" ? planAmounts.yearly : planAmounts.monthly),
           fulfilledAt: h.fulfilledAt,
         })),
       });
@@ -418,10 +430,11 @@ export function registerUpgradeRoutes(app: Express): void {
   app.get("/api/upgrade/history", requireAuth, async (req: AuthRequest, res) => {
     try {
       const history = await storage.getSubscriptionHistory(req.userId!);
+      const pa = await getPlanAmountsFromDb();
       return res.json(
         history.map((h) => ({
           plan: h.plan,
-          amountKobo: h.amountKobo ?? (h.plan === "yearly" ? PLANS.yearly.amountKobo : PLANS.monthly.amountKobo),
+          amountKobo: h.amountKobo ?? (h.plan === "yearly" ? pa.yearly : pa.monthly),
           fulfilledAt: h.fulfilledAt,
           reference: h.reference,
         }))

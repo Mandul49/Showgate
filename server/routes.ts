@@ -67,6 +67,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── Object Storage (logo uploads) ───────────────────────────────────────
   registerObjectStorageRoutes(app);
 
+  // ─── Public settings ─────────────────────────────────────────────────────
+  app.get("/api/settings/public", async (_req, res) => {
+    try {
+      const [maintenanceVal, feeVal] = await Promise.all([
+        storage.getPlatformSetting("maintenance_mode", "false"),
+        storage.getPlatformSetting("platform_fee_percent", "2.5"),
+      ]);
+      return res.json({
+        maintenanceMode: maintenanceVal === "true",
+        feePercent: parseFloat(feeVal) || 2.5,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ─── Config (public read, protected write) ────────────────────────────────
 
   app.get("/api/config", async (_req, res) => {

@@ -2,7 +2,7 @@ import { eq, sql, and, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
-  subscriptionReferences, discountCodes, platformStats, proGrants,
+  subscriptionReferences, discountCodes, platformStats, proGrants, platformSettings,
   type Order, type InsertOrder, type EventConfig,
   type User, type UserRole, type UserTier,
   type Organizer, type CreateOrganizerData,
@@ -278,6 +278,9 @@ export interface IStorage {
   getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }>;
   // Admin
   getAllUsers(): Promise<AdminUserRow[]>;
+  getPlatformSetting(key: string, defaultValue: string): Promise<string>;
+  getAllPlatformSettings(): Promise<Record<string, string>>;
+  setPlatformSetting(key: string, value: string): Promise<void>;
   getAllEventsAdmin(): Promise<AdminEventRow[]>;
   getAdminAnalytics(): Promise<AdminAnalyticsData>;
   adminSuspendEvent(eventId: string, suspended: boolean): Promise<Event>;
@@ -1269,6 +1272,22 @@ export class DbStorage implements IStorage {
     }));
   }
 
+  async getPlatformSetting(key: string, defaultValue: string): Promise<string> {
+    const [row] = await db.select().from(platformSettings).where(eq(platformSettings.key, key));
+    return row?.value ?? defaultValue;
+  }
+
+  async getAllPlatformSettings(): Promise<Record<string, string>> {
+    const rows = await db.select().from(platformSettings);
+    return Object.fromEntries(rows.map(r => [r.key, r.value]));
+  }
+
+  async setPlatformSetting(key: string, value: string): Promise<void> {
+    await db.insert(platformSettings)
+      .values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: platformSettings.key, set: { value, updatedAt: new Date() } });
+  }
+
   async getAdminAnalytics(): Promise<AdminAnalyticsData> {
     const now = new Date();
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
@@ -1307,10 +1326,13 @@ export class DbStorage implements IStorage {
     const ticketRevMap = new Map(ticketMonthRows.map(r => [r.month, Number(r.revenue)]));
     const ticketCountMap = new Map(ticketMonthRows.map(r => [r.month, r.count]));
 
+    const feePercentStr = await this.getPlatformSetting("platform_fee_percent", "2.5");
+    const feeMultiplier = parseFloat(feePercentStr) / 100 || 0.025;
+
     const revenueByMonth = months.map(month => ({
       month,
       subscriptionRevenue: subRevMap.get(month) ?? 0,
-      ticketFeeRevenue: Math.round((ticketRevMap.get(month) ?? 0) * 0.025),
+      ticketFeeRevenue: Math.round((ticketRevMap.get(month) ?? 0) * feeMultiplier),
     }));
 
     const ticketsByMonth = months.map(month => ({

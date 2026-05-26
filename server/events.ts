@@ -10,7 +10,6 @@ import {
 import {
   checkEventTierLimits,
   checkMonthlyTicketLimit,
-  FREE_MAX_MONTHLY_TICKETS,
 } from "./tierLimits";
 import { sendConfirmationEmail } from "./email";
 import { getPaystackSecretKey, getPaystackPublicKey, isTestMode, getPaystackMode, setPaystackMode } from "./paystackConfig";
@@ -41,7 +40,9 @@ export function registerEventsRoutes(app: Express) {
         }))
       );
 
-      const { FREE_MAX_ACTIVE_EVENTS, FREE_MAX_MONTHLY_TICKETS: FREE_MONTHLY, FREE_ALLOWED_PAYMENT_METHODS } = await import("./tierLimits");
+      const { getFreeMaxActiveEvents, getFreeMaxMonthlyTickets, FREE_ALLOWED_PAYMENT_METHODS } = await import("./tierLimits");
+      const maxActiveEvents = await getFreeMaxActiveEvents();
+      const maxMonthlyTickets = await getFreeMaxMonthlyTickets();
 
       return res.json({
         events: eventsWithTypes,
@@ -53,8 +54,8 @@ export function registerEventsRoutes(app: Express) {
           hasLiveSubaccount: !!organizer.subaccountCode,
         },
         limits: {
-          maxActiveEvents: organizer.tier === "free" ? FREE_MAX_ACTIVE_EVENTS : null,
-          maxMonthlyTickets: organizer.tier === "free" ? FREE_MONTHLY : null,
+          maxActiveEvents: organizer.tier === "free" ? maxActiveEvents : null,
+          maxMonthlyTickets: organizer.tier === "free" ? maxMonthlyTickets : null,
           allowedPaymentMethods: organizer.tier === "free" ? FREE_ALLOWED_PAYMENT_METHODS : null,
         },
       });

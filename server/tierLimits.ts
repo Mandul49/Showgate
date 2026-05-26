@@ -1,10 +1,18 @@
 import { storage } from "./storage";
 import type { Organizer } from "@shared/schema";
 
-export const FREE_MAX_ACTIVE_EVENTS = 1;
-export const FREE_MAX_MONTHLY_TICKETS = 500;
 export const FREE_ALLOWED_PAYMENT_METHODS = ["paystack"];
 export const PRO_PAYMENT_METHODS = ["paystack", "flutterwave", "stripe", "paypal", "bank_transfer"];
+
+export async function getFreeMaxActiveEvents(): Promise<number> {
+  const val = await storage.getPlatformSetting("free_max_active_events", "1");
+  return parseInt(val, 10) || 1;
+}
+
+export async function getFreeMaxMonthlyTickets(): Promise<number> {
+  const val = await storage.getPlatformSetting("free_max_monthly_tickets", "500");
+  return parseInt(val, 10) || 500;
+}
 
 interface TierCheckResult {
   allowed: boolean;
@@ -38,14 +46,15 @@ export async function checkEventTierLimits(
   }
 
   if (activating) {
+    const maxActiveEvents = await getFreeMaxActiveEvents();
     const existing = await storage.getEventsByOrganizerId(organizer.id);
     const activeCount = existing.filter(
       (e) => e.isActive && e.id !== excludeEventId
     ).length;
-    if (activeCount >= FREE_MAX_ACTIVE_EVENTS) {
+    if (activeCount >= maxActiveEvents) {
       return {
         allowed: false,
-        message: "Free plan allows 1 active event at a time. Upgrade to Pro for unlimited events.",
+        message: `Free plan allows ${maxActiveEvents} active event${maxActiveEvents === 1 ? "" : "s"} at a time. Upgrade to Pro for unlimited events.`,
         code: "TIER_MAX_EVENTS",
       };
     }
@@ -64,8 +73,9 @@ export async function checkMonthlyTicketLimit(
 ): Promise<TierCheckResult> {
   if (organizer.tier !== "free") return { allowed: true };
 
+  const maxMonthlyTickets = await getFreeMaxMonthlyTickets();
   const sold = await storage.getMonthlyTicketCountByOrganizerId(organizer.id);
-  if (sold + qty > FREE_MAX_MONTHLY_TICKETS) {
+  if (sold + qty > maxMonthlyTickets) {
     return {
       allowed: false,
       message: "This organizer has reached their monthly ticket limit. Ask them to upgrade to Pro.",

@@ -6,7 +6,8 @@ import { getToken } from "@/lib/auth";
 import {
   Users, Calendar, Ticket, Crown, ShieldCheck, Trash2,
   Search, LayoutDashboard, ChevronDown, ArrowLeft, Shield,
-  TrendingUp, DollarSign, UserPlus, Activity,
+  TrendingUp, DollarSign, UserPlus, Activity, Settings,
+  BarChart2, CreditCard,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -558,6 +559,26 @@ export default function AdminPanel() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Navigation links */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Organizers", icon: Users, path: "/admin/organizers", color: "text-sky-400" },
+            { label: "Subscriptions", icon: CreditCard, path: "/admin/subscriptions", color: "text-violet-400" },
+            { label: "Events", icon: Calendar, path: "/admin/events", color: "text-emerald-400" },
+            { label: "Analytics", icon: BarChart2, path: "/admin/analytics", color: "text-amber-400" },
+            { label: "Settings", icon: Settings, path: "/admin/settings", color: "text-rose-400" },
+          ].map(({ label, icon: Icon, path, color }) => (
+            <button
+              key={path}
+              onClick={() => navigate(path)}
+              className="flex items-center gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 px-4 py-3 text-sm font-medium text-zinc-300 hover:text-white transition-colors text-left"
+            >
+              <Icon className={`w-4 h-4 ${color}`} />
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Tab bar */}

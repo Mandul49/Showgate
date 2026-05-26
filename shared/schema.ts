@@ -436,6 +436,15 @@ export const proGrants = pgTable("pro_grants", {
 
 export type ProGrant = typeof proGrants.$inferSelect;
 
+// ─── Platform Settings ─────────────────────────────────────────────────────────
+// Key-value store for admin-configurable platform settings.
+
+export const platformSettings = pgTable("platform_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ─── Event Config (legacy single-event setup page) ────────────────────────────
 
 export const eventConfig = pgTable("event_config", {

@@ -80,6 +80,37 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
+  app.get("/api/admin/settings", requireAdmin, async (_req: AuthRequest, res) => {
+    try {
+      const settings = await storage.getAllPlatformSettings();
+      return res.json(settings);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/settings/:key", requireAdmin, async (req: AuthRequest, res) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      if (typeof value !== "string") return res.status(400).json({ message: "value must be a string" });
+      const allowed = ["platform_fee_percent","pro_monthly_price_kobo","pro_yearly_price_kobo","free_max_monthly_tickets","free_max_active_events","maintenance_mode"];
+      if (!allowed.includes(key)) return res.status(400).json({ message: "Unknown setting key" });
+      await storage.setPlatformSetting(key, value);
+      return res.json({ key, value });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/admin/env-keys", requireAdmin, async (_req: AuthRequest, res) => {
+    const relevantPrefixes = ["PAYSTACK","RESEND","BREVO","STRIPE","PAYPAL","VITE_","DATABASE","OBJECT_STORAGE","REPL_","DEFAULT_OBJECT","PRIVATE_OBJECT","PUBLIC_OBJECT","NODE_ENV","PORT"];
+    const keys = Object.keys(process.env).filter(k =>
+      relevantPrefixes.some(p => k.startsWith(p))
+    ).sort();
+    return res.json({ keys });
+  });
+
   app.get("/api/admin/analytics", requireAdmin, async (_req: AuthRequest, res) => {
     try {
       const data = await storage.getAdminAnalytics();

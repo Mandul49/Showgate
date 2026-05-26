@@ -1,6 +1,6 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
@@ -23,6 +23,7 @@ import AdminOrganizerDetail from "@/pages/admin-organizer-detail";
 import AdminSubscriptions from "@/pages/admin-subscriptions";
 import AdminEvents from "@/pages/admin-events";
 import AdminAnalytics from "@/pages/admin-analytics";
+import AdminSettings from "@/pages/admin-settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -48,8 +49,24 @@ function Router() {
       <Route path="/admin/subscriptions" component={AdminSubscriptions} />
       <Route path="/admin/events" component={AdminEvents} />
       <Route path="/admin/analytics" component={AdminAnalytics} />
+      <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
     </Switch>
+  );
+}
+
+function MaintenanceBanner() {
+  const [location] = useLocation();
+  const { data } = useQuery<{ maintenanceMode: boolean; feePercent: number }>({
+    queryKey: ["/api/settings/public"],
+    staleTime: 60_000,
+  });
+  if (location.startsWith("/admin")) return null;
+  if (!data?.maintenanceMode) return null;
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-black text-sm font-semibold text-center py-2.5 px-4 shadow-lg">
+      🚧 We're currently under maintenance. Some features may be temporarily unavailable. We'll be back soon.
+    </div>
   );
 }
 
@@ -58,6 +75,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        <MaintenanceBanner />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>
