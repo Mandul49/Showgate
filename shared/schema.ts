@@ -395,6 +395,16 @@ export const checkoutSchema = z.object({
   quantity: z.number().int().min(1).max(10),
 });
 
+// ─── Platform Stats ────────────────────────────────────────────────────────────
+// Single-row accumulator. When an organizer deletes their account their event
+// and ticket counts are added here so the homepage counters never go down.
+
+export const platformStats = pgTable("platform_stats", {
+  id: integer("id").primaryKey().default(1),
+  deletedEvents: integer("deleted_events").notNull().default(0),
+  deletedTicketsSold: integer("deleted_tickets_sold").notNull().default(0),
+});
+
 // ─── Subscription References ──────────────────────────────────────────────────
 // Tracks Paystack references that have already been used to fulfill a Pro upgrade.
 // Prevents replay attacks where a downgraded user re-uses an old valid reference.

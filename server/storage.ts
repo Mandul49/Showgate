@@ -2,7 +2,7 @@ import { eq, sql, and } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
-  subscriptionReferences, discountCodes,
+  subscriptionReferences, discountCodes, platformStats,
   type Order, type InsertOrder, type EventConfig,
   type User, type UserRole, type UserTier,
   type Organizer, type CreateOrganizerData,
@@ -245,6 +245,30 @@ export class DbStorage implements IStorage {
     const organizer = await this.getOrganizerByUserId(userId);
     if (organizer) {
       const orgEvents = await this.getEventsByOrganizerId(organizer.id);
+
+      // Snapshot counts before deletion so homepage stats never go down
+      const eventCount = orgEvents.length;
+      let ticketsSoldCount = 0;
+      for (const event of orgEvents) {
+        const [row] = await db
+          .select({ total: sql<number>`cast(coalesce(sum(quantity_sold),0) as int)` })
+          .from(ticketTypes)
+          .where(eq(ticketTypes.eventId, event.id));
+        ticketsSoldCount += row?.total ?? 0;
+      }
+      if (eventCount > 0 || ticketsSoldCount > 0) {
+        await db
+          .insert(platformStats)
+          .values({ id: 1, deletedEvents: eventCount, deletedTicketsSold: ticketsSoldCount })
+          .onConflictDoUpdate({
+            target: platformStats.id,
+            set: {
+              deletedEvents: sql`platform_stats.deleted_events + ${eventCount}`,
+              deletedTicketsSold: sql`platform_stats.deleted_tickets_sold + ${ticketsSoldCount}`,
+            },
+          });
+      }
+
       for (const event of orgEvents) {
         await db.delete(ticketPurchases).where(eq(ticketPurchases.eventId, event.id));
         await db.delete(discountCodes).where(eq(discountCodes.eventId, event.id));
@@ -654,9 +678,10 @@ export class DbStorage implements IStorage {
   async getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }> {
     const [eventsResult] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
     const [ticketsResult] = await db.select({ count: sql<number>`cast(coalesce(sum(quantity_sold),0) as int)` }).from(ticketTypes);
+    const [offset] = await db.select().from(platformStats).where(eq(platformStats.id, 1));
     return {
-      totalEvents: eventsResult?.count ?? 0,
-      totalTicketsSold: ticketsResult?.count ?? 0,
+      totalEvents: (eventsResult?.count ?? 0) + (offset?.deletedEvents ?? 0),
+      totalTicketsSold: (ticketsResult?.count ?? 0) + (offset?.deletedTicketsSold ?? 0),
     };
   }
 
