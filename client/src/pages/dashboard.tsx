@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { isAuthenticated, clearToken, getUser, getToken, isEmailVerified } from "@/lib/auth";
+import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
@@ -125,21 +125,6 @@ const PM_LABELS: Record<string, string> = {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function UnverifiedEmailBanner() {
-  const [dismissed, setDismissed] = useState(false);
-  const email = getUser()?.email || "";
-  if (dismissed) return null;
-  return (
-    <div className="bg-amber-400/10 border-b border-amber-400/30 text-amber-300 text-xs font-semibold py-2.5 px-4 flex items-center justify-center gap-3">
-      <span>Your email is not verified. Check your inbox or</span>
-      <a href={`/check-your-email${email ? `?email=${encodeURIComponent(email)}` : ""}`} className="underline underline-offset-2 hover:text-amber-200 transition-colors">resend the confirmation</a>
-      <span>.</span>
-      <button onClick={() => setDismissed(true)} className="ml-2 text-amber-400/60 hover:text-amber-300 transition-colors" aria-label="Dismiss">
-        <X className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  );
-}
 
 function TierBadge({ tier }: { tier: string }) {
   return (
@@ -2513,8 +2498,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {!isEmailVerified() && <UnverifiedEmailBanner />}
 
       {paystackMode === "test" && (
         <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide flex items-center justify-center gap-3">
