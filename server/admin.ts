@@ -238,9 +238,6 @@ export function registerAdminRoutes(app: Express) {
       if (!target) {
         return res.status(404).json({ message: "No account found with that email. They must sign up first." });
       }
-      if (target.role === "admin") {
-        return res.status(409).json({ message: "This user is already an admin. Use edit to change their role." });
-      }
 
       const user = await storage.grantAdminAccess(target.id, role, req.userEmail!, note);
       audit(req, "grant_admin_access", "user", target.id, { role, note, email });
