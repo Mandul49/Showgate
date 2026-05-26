@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import { setToken } from "@/lib/auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -65,8 +66,9 @@ export default function ResetPassword() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Reset failed");
-      toast({ title: "Password updated", description: "Please log in with your new password." });
-      navigate(json.role === "admin" ? "/admin" : "/login");
+      if (json.token) setToken(json.token);
+      toast({ title: "Password updated", description: json.user?.role === "admin" ? "Welcome to the admin panel." : "Please log in with your new password." });
+      navigate(json.user?.role === "admin" ? "/admin" : "/login");
     } catch (err: any) {
       toast({ title: "Reset failed", description: err.message, variant: "destructive" });
     } finally {

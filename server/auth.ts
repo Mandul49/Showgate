@@ -442,7 +442,17 @@ export function registerAuthRoutes(app: Express) {
       await storage.updatePasswordAndClearResetToken(user.id, passwordHash);
       console.log(`[auth] Password reset complete for userId=${user.id}`);
 
-      return res.json({ message: "Password updated. Please log in with your new password.", role: user.role });
+      const authToken = jwt.sign(
+        { userId: user.id, role: user.role, tier: user.tier, emailVerified: user.emailVerified, adminRole: user.adminRole ?? undefined },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES }
+      );
+
+      return res.json({
+        message: "Password updated successfully.",
+        token: authToken,
+        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: user.emailVerified, adminRole: user.adminRole ?? null },
+      });
     } catch (err: any) {
       console.error("[auth] reset-password error:", err);
       return res.status(500).json({ message: err.message || "Failed to reset password" });
