@@ -66,7 +66,7 @@ export default function ResetPassword() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Reset failed");
       toast({ title: "Password updated", description: "Please log in with your new password." });
-      navigate("/login");
+      navigate(json.role === "admin" ? "/admin/login" : "/login");
     } catch (err: any) {
       toast({ title: "Reset failed", description: err.message, variant: "destructive" });
     } finally {

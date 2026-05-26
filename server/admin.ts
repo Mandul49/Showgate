@@ -245,6 +245,7 @@ export function registerAdminRoutes(app: Express) {
         const bcrypt = await import("bcrypt");
         const passwordHash = await bcrypt.hash(tempPassword, 12);
         target = await storage.createUser(email, passwordHash, "organizer", "free");
+        await storage.markEmailVerified(target.id);
         invited = true;
       } else if (target.role === "admin") {
         return res.status(409).json({ message: "This user is already an admin. Use edit to change their role." });

@@ -442,7 +442,7 @@ export function registerAuthRoutes(app: Express) {
       await storage.updatePasswordAndClearResetToken(user.id, passwordHash);
       console.log(`[auth] Password reset complete for userId=${user.id}`);
 
-      return res.json({ message: "Password updated. Please log in with your new password." });
+      return res.json({ message: "Password updated. Please log in with your new password.", role: user.role });
     } catch (err: any) {
       console.error("[auth] reset-password error:", err);
       return res.status(500).json({ message: err.message || "Failed to reset password" });
