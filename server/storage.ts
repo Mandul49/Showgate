@@ -89,8 +89,19 @@ export interface AdminStats {
   totalUsers: number;
   totalOrganizers: number;
   totalEvents: number;
+  activeEvents: number;
+  inactiveEvents: number;
   totalTicketsSold: number;
+  totalRevenue: number;
   proUsers: number;
+  monthlySubscriptionRevenue: number;
+  newSignupsThisWeek: number;
+  newSignupsThisMonth: number;
+}
+
+export interface AdminChartData {
+  signupsLast30Days: { date: string; count: number }[];
+  ticketSalesLast30Days: { date: string; count: number }[];
 }
 
 export interface IStorage {
@@ -169,6 +180,7 @@ export interface IStorage {
   getAllEventsAdmin(): Promise<AdminEventRow[]>;
   setUserRole(userId: string, role: string): Promise<User>;
   getAdminStats(): Promise<AdminStats>;
+  getAdminChartData(): Promise<AdminChartData>;
 }
 
 export class DbStorage implements IStorage {
@@ -815,14 +827,64 @@ export class DbStorage implements IStorage {
     const [usersCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users);
     const [organizersCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(organizers);
     const [eventsCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
+    const [activeEventsCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events).where(eq(events.isActive, true));
     const [ticketsSold] = await db.select({ total: sql<number>`cast(coalesce(sum(quantity_sold), 0) as int)` }).from(ticketTypes);
     const [proUsers] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(eq(users.tier, "pro"));
+    const [totalRevenue] = await db.select({ total: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)` }).from(ticketPurchases).where(eq(ticketPurchases.status, "confirmed"));
+    const [monthlySubRevenue] = await db.select({ total: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)` }).from(subscriptionReferences).where(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt}) = date_trunc('month', now())`);
+    const [signupsThisWeek] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(sql`${users.createdAt} >= now() - interval '7 days'`);
+    const [signupsThisMonth] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(sql`date_trunc('month', ${users.createdAt}) = date_trunc('month', now())`);
+    const totalEventsCount = eventsCount?.count ?? 0;
+    const activeCount = activeEventsCount?.count ?? 0;
     return {
       totalUsers: usersCount?.count ?? 0,
       totalOrganizers: organizersCount?.count ?? 0,
-      totalEvents: eventsCount?.count ?? 0,
+      totalEvents: totalEventsCount,
+      activeEvents: activeCount,
+      inactiveEvents: totalEventsCount - activeCount,
       totalTicketsSold: ticketsSold?.total ?? 0,
+      totalRevenue: Number(totalRevenue?.total ?? 0),
       proUsers: proUsers?.count ?? 0,
+      monthlySubscriptionRevenue: Number(monthlySubRevenue?.total ?? 0),
+      newSignupsThisWeek: signupsThisWeek?.count ?? 0,
+      newSignupsThisMonth: signupsThisMonth?.count ?? 0,
+    };
+  }
+
+  async getAdminChartData(): Promise<AdminChartData> {
+    const signupRows = await db
+      .select({
+        date: sql<string>`to_char(date_trunc('day', ${users.createdAt}), 'YYYY-MM-DD')`,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(users)
+      .where(sql`${users.createdAt} >= now() - interval '30 days'`)
+      .groupBy(sql`date_trunc('day', ${users.createdAt})`)
+      .orderBy(sql`date_trunc('day', ${users.createdAt})`);
+
+    const ticketRows = await db
+      .select({
+        date: sql<string>`to_char(date_trunc('day', ${ticketPurchases.createdAt}), 'YYYY-MM-DD')`,
+        count: sql<number>`cast(coalesce(sum(${ticketPurchases.quantity}), 0) as int)`,
+      })
+      .from(ticketPurchases)
+      .where(sql`${ticketPurchases.createdAt} >= now() - interval '30 days' AND ${ticketPurchases.status} = 'confirmed'`)
+      .groupBy(sql`date_trunc('day', ${ticketPurchases.createdAt})`)
+      .orderBy(sql`date_trunc('day', ${ticketPurchases.createdAt})`);
+
+    const fillDays = (data: { date: string; count: number }[]) => {
+      const map = new Map(data.map(d => [d.date, d.count]));
+      return Array.from({ length: 30 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (29 - i));
+        const dateStr = d.toISOString().split("T")[0];
+        return { date: dateStr, count: map.get(dateStr) ?? 0 };
+      });
+    };
+
+    return {
+      signupsLast30Days: fillDays(signupRows),
+      ticketSalesLast30Days: fillDays(ticketRows),
     };
   }
 

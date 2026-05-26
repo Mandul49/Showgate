@@ -2429,6 +2429,9 @@ export default function Dashboard() {
             {user && (
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <span className="text-zinc-400 text-xs truncate max-w-[140px]">{user.email}</span>
+                {user.role === "admin" && (
+                  <a href="/admin" className="text-[10px] font-bold text-violet-400 bg-violet-500/20 border border-violet-500/30 px-1.5 py-0.5 rounded-full hover:bg-violet-500/30 transition-colors">Admin</a>
+                )}
                 <TierBadge tier={tier || user.tier} />
                 {tier === "pro" && upgradeStatus?.proExpiresAt && (
                   <span className="text-zinc-600 text-[10px]">

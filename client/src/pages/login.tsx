@@ -58,13 +58,17 @@ export default function Login() {
     defaultValues: { email: "", password: "", confirmPassword: "" },
   });
 
-  async function checkOnboardingAndNavigate(token: string) {
+  async function checkOnboardingAndNavigate(token: string, role?: string) {
+    if (role === "admin") {
+      navigate("/admin");
+      return;
+    }
     try {
       const statusRes = await fetch("/api/onboarding/status", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const status = await statusRes.json();
-      navigate(status.completed ? "/admin" : "/onboarding");
+      navigate(status.completed ? "/dashboard" : "/onboarding");
     } catch {
       navigate("/onboarding");
     }
@@ -83,7 +87,7 @@ export default function Login() {
       queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
-      await checkOnboardingAndNavigate(json.token);
+      await checkOnboardingAndNavigate(json.token, json.user?.role);
     } catch (err: any) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
     } finally {

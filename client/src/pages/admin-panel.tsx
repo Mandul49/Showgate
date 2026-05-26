@@ -6,7 +6,12 @@ import { getToken } from "@/lib/auth";
 import {
   Users, Calendar, Ticket, Crown, ShieldCheck, Trash2,
   Search, LayoutDashboard, ChevronDown, ArrowLeft, Shield,
+  TrendingUp, DollarSign, UserPlus, Activity,
 } from "lucide-react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +32,19 @@ interface AdminStats {
   totalUsers: number;
   totalOrganizers: number;
   totalEvents: number;
+  activeEvents: number;
+  inactiveEvents: number;
   totalTicketsSold: number;
+  totalRevenue: number;
   proUsers: number;
+  monthlySubscriptionRevenue: number;
+  newSignupsThisWeek: number;
+  newSignupsThisMonth: number;
+}
+
+interface AdminChartData {
+  signupsLast30Days: { date: string; count: number }[];
+  ticketSalesLast30Days: { date: string; count: number }[];
 }
 
 interface AdminUser {
@@ -62,6 +78,16 @@ interface AdminEvent {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function fmtNaira(kobo: number) {
+  if (kobo === 0) return "₦0";
+  return "₦" + Math.round(kobo / 100).toLocaleString("en-NG");
+}
+
+function fmtChartDate(iso: string) {
+  const [, m, d] = iso.split("-");
+  return `${d}/${m}`;
 }
 
 function fmtEventDate(dateStr: string) {
@@ -404,6 +430,11 @@ export default function AdminPanel() {
     enabled: me?.role === "admin",
   });
 
+  const { data: charts } = useQuery<AdminChartData>({
+    queryKey: ["/api/admin/charts"],
+    enabled: me?.role === "admin",
+  });
+
   const { data: users = [], isLoading: usersLoading } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],
     enabled: me?.role === "admin",
@@ -459,13 +490,74 @@ export default function AdminPanel() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatCard icon={Users} label="Total Users" value={stats?.totalUsers ?? "—"} />
+        {/* Stats row 1 */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard icon={LayoutDashboard} label="Organizers" value={stats?.totalOrganizers ?? "—"} />
-          <StatCard icon={Crown} label="Pro Users" value={stats?.proUsers ?? "—"} />
-          <StatCard icon={Calendar} label="Events" value={stats?.totalEvents ?? "—"} />
+          <StatCard
+            icon={Calendar}
+            label="Events"
+            value={stats ? `${stats.activeEvents} active` : "—"}
+            sub={stats ? `${stats.inactiveEvents} inactive · ${stats.totalEvents} total` : undefined}
+          />
           <StatCard icon={Ticket} label="Tickets Sold" value={stats?.totalTicketsSold ?? "—"} />
+          <StatCard icon={DollarSign} label="Total Revenue" value={stats ? fmtNaira(stats.totalRevenue) : "—"} />
+        </div>
+
+        {/* Stats row 2 */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard icon={Crown} label="Pro Subscribers" value={stats?.proUsers ?? "—"} />
+          <StatCard icon={TrendingUp} label="Sub Revenue (Month)" value={stats ? fmtNaira(stats.monthlySubscriptionRevenue) : "—"} />
+          <StatCard icon={UserPlus} label="Signups This Week" value={stats?.newSignupsThisWeek ?? "—"} />
+          <StatCard icon={Activity} label="Signups This Month" value={stats?.newSignupsThisMonth ?? "—"} />
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <p className="text-zinc-400 text-xs uppercase tracking-widest mb-4">Signups — Last 30 Days</p>
+            {charts ? (
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={charts.signupsLast30Days.map(d => ({ ...d, label: fmtChartDate(d.date) }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis dataKey="label" tick={{ fill: "#71717a", fontSize: 10 }} interval={5} />
+                  <YAxis tick={{ fill: "#71717a", fontSize: 10 }} allowDecimals={false} width={28} />
+                  <Tooltip
+                    contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: "#a1a1aa" }}
+                    itemStyle={{ color: "#fbbf24" }}
+                  />
+                  <Line type="monotone" dataKey="count" stroke="#fbbf24" strokeWidth={2} dot={false} name="Signups" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[180px] flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <p className="text-zinc-400 text-xs uppercase tracking-widest mb-4">Ticket Sales — Last 30 Days</p>
+            {charts ? (
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={charts.ticketSalesLast30Days.map(d => ({ ...d, label: fmtChartDate(d.date) }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis dataKey="label" tick={{ fill: "#71717a", fontSize: 10 }} interval={5} />
+                  <YAxis tick={{ fill: "#71717a", fontSize: 10 }} allowDecimals={false} width={28} />
+                  <Tooltip
+                    contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: "#a1a1aa" }}
+                    itemStyle={{ color: "#34d399" }}
+                  />
+                  <Line type="monotone" dataKey="count" stroke="#34d399" strokeWidth={2} dot={false} name="Tickets" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[180px] flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Tab bar */}

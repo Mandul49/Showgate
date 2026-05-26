@@ -79,4 +79,13 @@ export function registerAdminRoutes(app: Express) {
       return res.status(500).json({ message: err.message });
     }
   });
+
+  app.get("/api/admin/charts", requireAdmin, async (_req: AuthRequest, res) => {
+    try {
+      const data = await storage.getAdminChartData();
+      return res.json(data);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
 }
