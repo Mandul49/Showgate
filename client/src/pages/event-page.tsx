@@ -1061,16 +1061,16 @@ export default function EventPage() {
                 <Calendar className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                 <span>{formattedDate}</span>
               </div>
+              <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
+                <MapPin className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                <span>{event.location}</span>
+              </div>
               {event.startTime && (
                 <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
                   <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                   <span>{fmtTime12h(event.startTime)}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
-                <MapPin className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                <span>{event.location}</span>
-              </div>
             </div>
 
             <Countdown date={event.date} startTime={event.startTime} accent={primary} />
