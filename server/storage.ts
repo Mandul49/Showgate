@@ -3,6 +3,7 @@ import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
   subscriptionReferences, discountCodes, platformStats, proGrants, platformSettings,
+  adminAuditLog,
   type Order, type InsertOrder, type EventConfig,
   type User, type UserRole, type UserTier,
   type Organizer, type CreateOrganizerData,
@@ -295,6 +296,14 @@ export interface IStorage {
   extendSubscription(userId: string, months: number): Promise<User>;
   upgradeToYearly(userId: string): Promise<User>;
   grantFreePro(userId: string, grantedBy: string, note: string): Promise<User>;
+  // Audit log
+  logAdminAction(
+    adminEmail: string,
+    action: string,
+    targetType?: string | null,
+    targetId?: string | null,
+    details?: Record<string, unknown> | null
+  ): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -1554,6 +1563,25 @@ export class DbStorage implements IStorage {
       signupsLast30Days: fillDays(signupRows),
       ticketSalesLast30Days: fillDays(ticketRows),
     };
+  }
+
+  // ── Admin Audit Log ──────────────────────────────────────────────────────
+
+  async logAdminAction(
+    adminEmail: string,
+    action: string,
+    targetType?: string | null,
+    targetId?: string | null,
+    details?: Record<string, unknown> | null
+  ): Promise<void> {
+    await db.insert(adminAuditLog).values({
+      id: randomUUID(),
+      adminEmail,
+      action,
+      targetType: targetType ?? null,
+      targetId: targetId ?? null,
+      details: details ?? null,
+    });
   }
 
   private _mapDiscountCode(row: typeof discountCodes.$inferSelect): DiscountCode {

@@ -445,6 +445,21 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ─── Admin Audit Log ──────────────────────────────────────────────────────────
+// Immutable log of every admin mutation: who did what, to which entity, when.
+
+export const adminAuditLog = pgTable("admin_audit_log", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  adminEmail: text("admin_email").notNull(),
+  action: text("action").notNull(),
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type AdminAuditEntry = typeof adminAuditLog.$inferSelect;
+
 // ─── Event Config (legacy single-event setup page) ────────────────────────────
 
 export const eventConfig = pgTable("event_config", {

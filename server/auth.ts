@@ -9,10 +9,39 @@ import { sendPasswordResetEmail } from "./email";
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 const JWT_EXPIRES = "7d";
 
+// ─── Login rate limiter ───────────────────────────────────────────────────────
+const MAX_LOGIN_FAILURES = 5;
+const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+interface LoginRecord { failures: number; lockedUntil: number | null }
+const loginAttempts = new Map<string, LoginRecord>();
+
+function checkLoginRateLimit(email: string): { locked: boolean; minutesLeft?: number } {
+  const rec = loginAttempts.get(email);
+  if (!rec?.lockedUntil) return { locked: false };
+  if (Date.now() < rec.lockedUntil) {
+    return { locked: true, minutesLeft: Math.ceil((rec.lockedUntil - Date.now()) / 60000) };
+  }
+  loginAttempts.delete(email);
+  return { locked: false };
+}
+
+function recordLoginFailure(email: string) {
+  const rec = loginAttempts.get(email) ?? { failures: 0, lockedUntil: null };
+  rec.failures += 1;
+  if (rec.failures >= MAX_LOGIN_FAILURES) rec.lockedUntil = Date.now() + LOCKOUT_MS;
+  loginAttempts.set(email, rec);
+}
+
+function clearLoginAttempts(email: string) {
+  loginAttempts.delete(email);
+}
+
 export interface AuthRequest extends Request {
   userId?: string;
   userRole?: string;
   userTier?: string;
+  userEmail?: string;
 }
 
 export async function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
@@ -29,6 +58,7 @@ export async function requireAdmin(req: AuthRequest, res: Response, next: NextFu
     req.userId = payload.userId;
     req.userRole = user.role;
     req.userTier = user.tier;
+    req.userEmail = user.email;
     next();
   } catch {
     return res.status(401).json({ message: "Invalid or expired token. Please log in again." });
@@ -114,19 +144,31 @@ export function registerAuthRoutes(app: Express) {
       }
       const { email, password } = parsed.data;
 
+      // Rate-limit check
+      const rateCheck = checkLoginRateLimit(email);
+      if (rateCheck.locked) {
+        return res.status(429).json({
+          message: `Too many failed attempts. Try again in ${rateCheck.minutesLeft} minute${rateCheck.minutesLeft === 1 ? "" : "s"}.`,
+        });
+      }
+
       const user = await storage.getUserByEmail(email);
       if (!user) {
+        recordLoginFailure(email);
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) {
+        recordLoginFailure(email);
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       if (user.suspended) {
         return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
       }
+
+      clearLoginAttempts(email);
 
       const token = jwt.sign(
         { userId: user.id, role: user.role, tier: user.tier, emailVerified: user.emailVerified },
