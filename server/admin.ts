@@ -80,6 +80,15 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
+  app.get("/api/admin/analytics", requireAdmin, async (_req: AuthRequest, res) => {
+    try {
+      const data = await storage.getAdminAnalytics();
+      return res.json(data);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   app.patch("/api/admin/events/:id/suspend", requireAdmin, async (req: AuthRequest, res) => {
     try {
       const { suspended } = req.body;

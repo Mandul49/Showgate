@@ -1,4 +1,4 @@
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
@@ -193,6 +193,18 @@ export interface AdminChartData {
   ticketSalesLast30Days: { date: string; count: number }[];
 }
 
+export interface AdminAnalyticsData {
+  revenueByMonth: { month: string; subscriptionRevenue: number; ticketFeeRevenue: number }[];
+  ticketsByMonth: { month: string; count: number; revenue: number }[];
+  topEventsByTickets: { id: string; title: string; ticketsSold: number; revenue: number }[];
+  topOrganizersByRevenue: { id: string; businessName: string; email: string; revenue: number; ticketsSold: number }[];
+  subscriptionGrowth: { month: string; newSubscriptions: number; cumulative: number }[];
+  tierRatio: { free: number; pro: number };
+  avgTicketsPerEvent: number;
+  totalTicketRevenue: number;
+  totalSubscriptionRevenue: number;
+}
+
 export interface IStorage {
   // Orders
   createOrder(order: InsertOrder, status?: string): Promise<Order>;
@@ -267,6 +279,7 @@ export interface IStorage {
   // Admin
   getAllUsers(): Promise<AdminUserRow[]>;
   getAllEventsAdmin(): Promise<AdminEventRow[]>;
+  getAdminAnalytics(): Promise<AdminAnalyticsData>;
   adminSuspendEvent(eventId: string, suspended: boolean): Promise<Event>;
   adminDeleteEvent(eventId: string): Promise<void>;
   setUserRole(userId: string, role: string): Promise<User>;
@@ -1254,6 +1267,186 @@ export class DbStorage implements IStorage {
       ticketsSold: soldMap.get(r.id) ?? 0,
       revenue: revenueMap.get(r.id) ?? 0,
     }));
+  }
+
+  async getAdminAnalytics(): Promise<AdminAnalyticsData> {
+    const now = new Date();
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+
+    // Build the 12-month label array
+    const months: string[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    }
+
+    // Subscription revenue by month
+    const subRevRows = await db
+      .select({
+        month: sql<string>`to_char(date_trunc('month', ${subscriptionReferences.fulfilledAt}), 'YYYY-MM')`,
+        revenue: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)`,
+      })
+      .from(subscriptionReferences)
+      .where(sql`${subscriptionReferences.fulfilledAt} >= ${twelveMonthsAgo}`)
+      .groupBy(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt})`)
+      .orderBy(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt})`);
+
+    // Ticket revenue + count by month
+    const ticketMonthRows = await db
+      .select({
+        month: sql<string>`to_char(date_trunc('month', ${ticketPurchases.createdAt}), 'YYYY-MM')`,
+        revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
+        count: sql<number>`cast(coalesce(sum(${ticketPurchases.quantity}), 0) as int)`,
+      })
+      .from(ticketPurchases)
+      .where(and(eq(ticketPurchases.status, "confirmed"), sql`${ticketPurchases.createdAt} >= ${twelveMonthsAgo}`))
+      .groupBy(sql`date_trunc('month', ${ticketPurchases.createdAt})`)
+      .orderBy(sql`date_trunc('month', ${ticketPurchases.createdAt})`);
+
+    const subRevMap = new Map(subRevRows.map(r => [r.month, Number(r.revenue)]));
+    const ticketRevMap = new Map(ticketMonthRows.map(r => [r.month, Number(r.revenue)]));
+    const ticketCountMap = new Map(ticketMonthRows.map(r => [r.month, r.count]));
+
+    const revenueByMonth = months.map(month => ({
+      month,
+      subscriptionRevenue: subRevMap.get(month) ?? 0,
+      ticketFeeRevenue: Math.round((ticketRevMap.get(month) ?? 0) * 0.025),
+    }));
+
+    const ticketsByMonth = months.map(month => ({
+      month,
+      count: ticketCountMap.get(month) ?? 0,
+      revenue: ticketRevMap.get(month) ?? 0,
+    }));
+
+    // Top 5 events by tickets sold
+    const topEventsRows = await db
+      .select({
+        id: ticketTypes.eventId,
+        sold: sql<number>`cast(coalesce(sum(${ticketTypes.quantitySold}), 0) as int)`,
+      })
+      .from(ticketTypes)
+      .groupBy(ticketTypes.eventId)
+      .orderBy(sql`sum(${ticketTypes.quantitySold}) desc`)
+      .limit(5);
+
+    const topEventIds = topEventsRows.map(r => r.id).filter(Boolean);
+    const topEventDetails = topEventIds.length > 0
+      ? await db.select({ id: events.id, title: events.title }).from(events).where(inArray(events.id, topEventIds))
+      : [];
+    const topEventTitleMap = new Map(topEventDetails.map(e => [e.id, e.title]));
+
+    const topEventRevRows = topEventIds.length > 0
+      ? await db
+          .select({
+            eventId: ticketPurchases.eventId,
+            revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
+          })
+          .from(ticketPurchases)
+          .where(and(eq(ticketPurchases.status, "confirmed"), inArray(ticketPurchases.eventId, topEventIds)))
+          .groupBy(ticketPurchases.eventId)
+      : [];
+    const topEventRevMap = new Map(topEventRevRows.map(r => [r.eventId, Number(r.revenue)]));
+
+    const topEventsByTickets = topEventsRows.map(r => ({
+      id: r.id,
+      title: topEventTitleMap.get(r.id) ?? "Unknown",
+      ticketsSold: r.sold,
+      revenue: topEventRevMap.get(r.id) ?? 0,
+    }));
+
+    // Top 5 organizers by revenue processed
+    const topOrgRows = await db
+      .select({
+        organizerId: ticketPurchases.organizerId,
+        revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
+        tickets: sql<number>`cast(coalesce(sum(${ticketPurchases.quantity}), 0) as int)`,
+      })
+      .from(ticketPurchases)
+      .where(and(eq(ticketPurchases.status, "confirmed"), sql`${ticketPurchases.organizerId} is not null`))
+      .groupBy(ticketPurchases.organizerId)
+      .orderBy(sql`sum(${ticketPurchases.amount}) desc`)
+      .limit(5);
+
+    const topOrgIds = topOrgRows.map(r => r.organizerId!).filter(Boolean);
+    const topOrgDetails = topOrgIds.length > 0
+      ? await db
+          .select({ id: organizers.id, businessName: organizers.businessName, email: users.email })
+          .from(organizers)
+          .innerJoin(users, eq(users.id, organizers.userId))
+          .where(inArray(organizers.id, topOrgIds))
+      : [];
+    const topOrgMap = new Map(topOrgDetails.map(o => [o.id, { businessName: o.businessName, email: o.email }]));
+
+    const topOrganizersByRevenue = topOrgRows.map(r => ({
+      id: r.organizerId!,
+      businessName: topOrgMap.get(r.organizerId!)?.businessName ?? "Unknown",
+      email: topOrgMap.get(r.organizerId!)?.email ?? "",
+      revenue: Number(r.revenue),
+      ticketsSold: r.tickets,
+    }));
+
+    // Subscription growth (last 12 months, cumulative)
+    const subGrowthRows = await db
+      .select({
+        month: sql<string>`to_char(date_trunc('month', ${subscriptionReferences.fulfilledAt}), 'YYYY-MM')`,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(subscriptionReferences)
+      .where(sql`${subscriptionReferences.fulfilledAt} >= ${twelveMonthsAgo}`)
+      .groupBy(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt})`);
+
+    const [beforeRow] = await db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(subscriptionReferences)
+      .where(sql`${subscriptionReferences.fulfilledAt} < ${twelveMonthsAgo}`);
+
+    const subGrowthMap = new Map(subGrowthRows.map(r => [r.month, r.count]));
+    let cumulative = beforeRow?.count ?? 0;
+    const subscriptionGrowth = months.map(month => {
+      const newSubscriptions = subGrowthMap.get(month) ?? 0;
+      cumulative += newSubscriptions;
+      return { month, newSubscriptions, cumulative };
+    });
+
+    // Free vs Pro ratio (among organizers)
+    const tierRows = await db
+      .select({ tier: users.tier, count: sql<number>`cast(count(*) as int)` })
+      .from(users)
+      .innerJoin(organizers, eq(organizers.userId, users.id))
+      .groupBy(users.tier);
+    const tierMap = new Map(tierRows.map(r => [r.tier, r.count]));
+    const tierRatio = { free: tierMap.get("free") ?? 0, pro: tierMap.get("pro") ?? 0 };
+
+    // Average tickets per event
+    const [evCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
+    const [ttSold] = await db
+      .select({ total: sql<number>`cast(coalesce(sum(${ticketTypes.quantitySold}), 0) as int)` })
+      .from(ticketTypes);
+    const avgTicketsPerEvent = (evCount?.count ?? 0) > 0
+      ? Number(((ttSold?.total ?? 0) / evCount.count).toFixed(1))
+      : 0;
+
+    // All-time totals
+    const [totalTixRev] = await db
+      .select({ total: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)` })
+      .from(ticketPurchases)
+      .where(eq(ticketPurchases.status, "confirmed"));
+    const [totalSubRev] = await db
+      .select({ total: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)` })
+      .from(subscriptionReferences);
+
+    return {
+      revenueByMonth,
+      ticketsByMonth,
+      topEventsByTickets,
+      topOrganizersByRevenue,
+      subscriptionGrowth,
+      tierRatio,
+      avgTicketsPerEvent,
+      totalTicketRevenue: Number(totalTixRev?.total ?? 0),
+      totalSubscriptionRevenue: Number(totalSubRev?.total ?? 0),
+    };
   }
 
   async adminSuspendEvent(eventId: string, suspended: boolean): Promise<Event> {
