@@ -8,9 +8,6 @@ import Success from "@/pages/success";
 import Login from "@/pages/login";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
-import CheckYourEmail from "@/pages/check-your-email";
-import ResendVerification from "@/pages/resend-verification";
-import VerifyEmail from "@/pages/verify-email";
 import Profile from "@/pages/profile";
 import Onboarding from "@/pages/onboarding";
 import Dashboard from "@/pages/dashboard";
@@ -32,9 +29,6 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
-      <Route path="/check-your-email" component={CheckYourEmail} />
-      <Route path="/resend-verification" component={ResendVerification} />
-      <Route path="/verify-email" component={VerifyEmail} />
       <Route path="/profile" component={Profile} />
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/dashboard" component={Dashboard} />

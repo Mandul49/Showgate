@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
-import { sendPasswordResetEmail, sendVerificationEmail } from "./email";
+import { sendPasswordResetEmail } from "./email";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 const JWT_EXPIRES = "7d";
@@ -26,14 +26,6 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     const user = await storage.getUserById(payload.userId);
     if (!user) {
       return res.status(401).json({ message: "User not found. Please log in again." });
-    }
-    // Email verification gate — /api/auth/* routes are whitelisted so unverified
-    // users can still change their password, resend verification, etc.
-    if (!user.emailVerified && !req.path.startsWith("/api/auth/")) {
-      return res.status(403).json({
-        message: "Please verify your email to continue.",
-        redirectTo: "/check-your-email",
-      });
     }
     req.userId = payload.userId;
     req.userRole = payload.role;
@@ -79,31 +71,15 @@ export function registerAuthRoutes(app: Express) {
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await storage.createUser(email, passwordHash, "organizer", "free");
 
-      // Generate and store verification token
-      const verificationToken = crypto.randomBytes(32).toString("hex");
-      await storage.setEmailVerificationToken(user.id, verificationToken);
-
-      // Send verification email (fire-and-forget, never log the token)
-      const trustedBase = buildTrustedBase();
-      if (trustedBase) {
-        const verifyUrl = `${trustedBase}/verify-email?token=${verificationToken}`;
-        sendVerificationEmail({ to: email, verifyUrl }).catch((err) =>
-          console.error("[auth] Failed to send verification email:", err.message)
-        );
-      } else {
-        console.warn("[auth] Cannot send verification email: APP_BASE_URL and REPLIT_DOMAINS are both unset");
-      }
-
       const token = jwt.sign(
-        { userId: user.id, role: user.role, tier: user.tier, emailVerified: false },
+        { userId: user.id, role: user.role, tier: user.tier },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES }
       );
 
       return res.status(201).json({
         token,
-        redirectTo: "/check-your-email",
-        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: false },
+        user: { id: user.id, email: user.email, role: user.role, tier: user.tier },
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
