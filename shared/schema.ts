@@ -39,6 +39,7 @@ export type Order = typeof orders.$inferSelect;
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
+export type AdminRole = "super_admin" | "admin" | "support" | "finance";
 export type UserRole = "organizer" | "admin";
 export type UserTier = "free" | "pro";
 
@@ -56,6 +57,10 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerificationToken: text("email_verification_token"),
   suspended: boolean("suspended").notNull().default(false),
+  adminRole: text("admin_role"),
+  adminAddedBy: text("admin_added_by"),
+  adminAddedAt: timestamp("admin_added_at"),
+  lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -73,8 +78,22 @@ export type User = {
   emailVerified: boolean;
   emailVerificationToken: string | null;
   suspended: boolean;
+  adminRole: AdminRole | null;
+  adminAddedBy: string | null;
+  adminAddedAt: Date | null;
+  lastLoginAt: Date | null;
   createdAt: Date;
 };
+
+export interface AdminTeamMember {
+  id: string;
+  email: string;
+  adminRole: AdminRole;
+  createdAt: Date;
+  adminAddedAt: Date | null;
+  adminAddedBy: string | null;
+  lastLoginAt: Date | null;
+}
 
 export interface PublicUser {
   id: string;

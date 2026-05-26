@@ -24,6 +24,7 @@ import AdminSubscriptions from "@/pages/admin-subscriptions";
 import AdminEvents from "@/pages/admin-events";
 import AdminAnalytics from "@/pages/admin-analytics";
 import AdminSettings from "@/pages/admin-settings";
+import AdminTeam from "@/pages/admin-team";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -50,6 +51,7 @@ function Router() {
       <Route path="/admin/events" component={AdminEvents} />
       <Route path="/admin/analytics" component={AdminAnalytics} />
       <Route path="/admin/settings" component={AdminSettings} />
+      <Route path="/admin/team" component={AdminTeam} />
       <Route component={NotFound} />
     </Switch>
   );

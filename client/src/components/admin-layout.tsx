@@ -1,46 +1,70 @@
 import { useLocation, Link } from "wouter";
 import {
   LayoutDashboard, Users, CreditCard, Calendar, BarChart2,
-  Settings, ArrowLeft, ShieldCheck,
+  Settings, ArrowLeft, ShieldCheck, UsersRound,
 } from "lucide-react";
+import { getUser } from "@/lib/auth";
 
-const NAV_ITEMS = [
-  { label: "Overview",      icon: LayoutDashboard, href: "/admin" },
-  { label: "Organizers",    icon: Users,            href: "/admin/organizers" },
-  { label: "Subscriptions", icon: CreditCard,       href: "/admin/subscriptions" },
-  { label: "Events",        icon: Calendar,         href: "/admin/events" },
-  { label: "Analytics",     icon: BarChart2,        href: "/admin/analytics" },
-  { label: "Settings",      icon: Settings,         href: "/admin/settings" },
+type AdminRole = "super_admin" | "admin" | "support" | "finance";
+
+interface NavItem {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href: string;
+  roles: AdminRole[] | null; // null = visible to all admin roles
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: "Overview",      icon: LayoutDashboard, href: "/admin",                  roles: null },
+  { label: "Organizers",    icon: Users,            href: "/admin/organizers",       roles: ["super_admin", "admin", "support"] },
+  { label: "Subscriptions", icon: CreditCard,       href: "/admin/subscriptions",    roles: ["super_admin", "finance"] },
+  { label: "Events",        icon: Calendar,         href: "/admin/events",           roles: ["super_admin", "admin", "support"] },
+  { label: "Analytics",     icon: BarChart2,        href: "/admin/analytics",        roles: ["super_admin", "finance"] },
+  { label: "Settings",      icon: Settings,         href: "/admin/settings",         roles: ["super_admin"] },
+  { label: "Team",          icon: UsersRound,       href: "/admin/team",             roles: ["super_admin"] },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const currentUser = getUser();
+  const adminRole = (currentUser?.adminRole ?? null) as AdminRole | null;
 
   function isActive(href: string) {
     if (href === "/admin") return location === "/admin";
     return location.startsWith(href);
   }
 
+  const visibleItems = NAV_ITEMS.filter(item =>
+    item.roles === null || (adminRole && item.roles.includes(adminRole))
+  );
+
   return (
     <div className="flex min-h-screen bg-black">
       {/* ── Sidebar ──────────────────────────────────────────────── */}
       <aside className="fixed top-0 left-0 h-screen w-56 bg-zinc-950 border-r border-zinc-800 flex flex-col z-40">
-        {/* Logo */}
+        {/* Logo + role badge */}
         <div className="px-5 pt-5 pb-4 border-b border-zinc-800">
           <span className="block text-white font-extrabold text-xl tracking-tight leading-none mb-2.5">
             Show<span className="text-amber-500">gate</span>
           </span>
-          <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/25 rounded-md px-2 py-1">
-            <ShieldCheck className="w-3 h-3 text-amber-400" />
-            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest leading-none">
-              Admin
-            </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/25 rounded-md px-2 py-1">
+              <ShieldCheck className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest leading-none">
+                Admin
+              </span>
+            </div>
+            {adminRole && (
+              <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide leading-none">
+                {adminRole.replace("_", " ")}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Nav items */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
+          {visibleItems.map(({ label, icon: Icon, href }) => {
             const active = isActive(href);
             return (
               <Link
@@ -52,9 +76,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                     : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 border-transparent"
                 }`}
               >
-                <Icon
-                  className={`w-4 h-4 flex-shrink-0 ${active ? "text-amber-400" : "text-zinc-500"}`}
-                />
+                <Icon className={`w-4 h-4 flex-shrink-0 ${active ? "text-amber-400" : "text-zinc-500"}`} />
                 {label}
               </Link>
             );

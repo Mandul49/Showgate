@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
 import { sendPasswordResetEmail } from "./email";
+import type { AdminRole } from "@shared/schema";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 const JWT_EXPIRES = "7d";
@@ -42,6 +43,18 @@ export interface AuthRequest extends Request {
   userRole?: string;
   userTier?: string;
   userEmail?: string;
+  userAdminRole?: string | null;
+}
+
+export function requireAdminRole(allowedRoles: AdminRole[]) {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    const role = req.userAdminRole as AdminRole | null | undefined;
+    if (!role || !allowedRoles.includes(role)) {
+      res.status(403).json({ message: "Insufficient permissions for this action" });
+      return;
+    }
+    next();
+  };
 }
 
 export async function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
@@ -59,6 +72,7 @@ export async function requireAdmin(req: AuthRequest, res: Response, next: NextFu
     req.userRole = user.role;
     req.userTier = user.tier;
     req.userEmail = user.email;
+    req.userAdminRole = user.adminRole;
     next();
   } catch {
     return res.status(401).json({ message: "Invalid or expired token. Please log in again." });
@@ -169,16 +183,17 @@ export function registerAuthRoutes(app: Express) {
       }
 
       clearLoginAttempts(email);
+      storage.updateLastLogin(user.id).catch(err => console.error("[auth] updateLastLogin:", err));
 
       const token = jwt.sign(
-        { userId: user.id, role: user.role, tier: user.tier, emailVerified: user.emailVerified },
+        { userId: user.id, role: user.role, tier: user.tier, emailVerified: user.emailVerified, adminRole: user.adminRole ?? undefined },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES }
       );
 
       return res.json({
         token,
-        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: user.emailVerified },
+        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: user.emailVerified, adminRole: user.adminRole ?? null },
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });

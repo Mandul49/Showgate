@@ -5,6 +5,7 @@ import {
   subscriptionReferences, discountCodes, platformStats, proGrants, platformSettings,
   adminAuditLog,
   type Order, type InsertOrder, type EventConfig,
+  type AdminRole, type AdminTeamMember,
   type User, type UserRole, type UserTier,
   type Organizer, type CreateOrganizerData,
   type Event, type CreateEventData, type UpdateEventData, type EventStatus, type PaymentMethod,
@@ -304,6 +305,12 @@ export interface IStorage {
     targetId?: string | null,
     details?: Record<string, unknown> | null
   ): Promise<void>;
+  // Admin team management
+  getAdminTeam(): Promise<AdminTeamMember[]>;
+  grantAdminAccess(userId: string, adminRole: AdminRole, addedBy: string, note: string): Promise<User>;
+  updateAdminRole(userId: string, adminRole: AdminRole): Promise<User>;
+  removeAdminAccess(userId: string): Promise<User>;
+  updateLastLogin(userId: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -484,6 +491,10 @@ export class DbStorage implements IStorage {
       emailVerified: row.emailVerified,
       emailVerificationToken: row.emailVerificationToken ?? null,
       suspended: row.suspended,
+      adminRole: (row.adminRole as AdminRole) ?? null,
+      adminAddedBy: row.adminAddedBy ?? null,
+      adminAddedAt: row.adminAddedAt ?? null,
+      lastLoginAt: row.lastLoginAt ?? null,
       createdAt: row.createdAt,
     };
   }
@@ -1582,6 +1593,49 @@ export class DbStorage implements IStorage {
       targetId: targetId ?? null,
       details: details ?? null,
     });
+  }
+
+  // ── Admin Team Management ─────────────────────────────────────────────────
+
+  async getAdminTeam(): Promise<AdminTeamMember[]> {
+    const rows = await db.select().from(users).where(eq(users.role, "admin"));
+    return rows.map(r => ({
+      id: r.id,
+      email: r.email,
+      adminRole: (r.adminRole as AdminRole) ?? "admin",
+      createdAt: r.createdAt,
+      adminAddedAt: r.adminAddedAt ?? null,
+      adminAddedBy: r.adminAddedBy ?? null,
+      lastLoginAt: r.lastLoginAt ?? null,
+    }));
+  }
+
+  async grantAdminAccess(userId: string, adminRole: AdminRole, addedBy: string, _note: string): Promise<User> {
+    const [row] = await db.update(users)
+      .set({ role: "admin", adminRole, adminAddedBy: addedBy, adminAddedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return this._mapUser(row);
+  }
+
+  async updateAdminRole(userId: string, adminRole: AdminRole): Promise<User> {
+    const [row] = await db.update(users)
+      .set({ adminRole })
+      .where(eq(users.id, userId))
+      .returning();
+    return this._mapUser(row);
+  }
+
+  async removeAdminAccess(userId: string): Promise<User> {
+    const [row] = await db.update(users)
+      .set({ role: "organizer", adminRole: null, adminAddedBy: null, adminAddedAt: null })
+      .where(eq(users.id, userId))
+      .returning();
+    return this._mapUser(row);
+  }
+
+  async updateLastLogin(userId: string): Promise<void> {
+    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, userId));
   }
 
   private _mapDiscountCode(row: typeof discountCodes.$inferSelect): DiscountCode {
