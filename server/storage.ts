@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
   subscriptionReferences, discountCodes, platformStats, proGrants, platformSettings,
-  adminAuditLog, adminRoles,
+  adminAuditLog,
   type Order, type InsertOrder, type EventConfig,
   type AdminRole, type AdminTeamMember,
   type User, type UserRole, type UserTier,
@@ -306,11 +306,9 @@ export interface IStorage {
     details?: Record<string, unknown> | null
   ): Promise<void>;
   // Admin team management
-  getUserAdminRoles(userId: string): Promise<AdminRole[]>;
   getAdminTeam(): Promise<AdminTeamMember[]>;
   grantAdminAccess(userId: string, adminRole: AdminRole, addedBy: string, note: string): Promise<User>;
-  addAdminRole(userId: string, adminRole: AdminRole, grantedBy: string, note: string): Promise<User>;
-  removeAdminRole(userId: string, adminRole: AdminRole): Promise<User>;
+  updateAdminRole(userId: string, adminRole: AdminRole): Promise<User>;
   removeAdminAccess(userId: string): Promise<User>;
   updateLastLogin(userId: string): Promise<void>;
 }
@@ -1599,75 +1597,36 @@ export class DbStorage implements IStorage {
 
   // ── Admin Team Management ─────────────────────────────────────────────────
 
-  async getUserAdminRoles(userId: string): Promise<AdminRole[]> {
-    const rows = await db
-      .select({ role: adminRoles.role })
-      .from(adminRoles)
-      .where(eq(adminRoles.userId, userId));
-    return rows.map(r => r.role as AdminRole);
-  }
-
   async getAdminTeam(): Promise<AdminTeamMember[]> {
-    const adminUsers = await db.select().from(users).where(eq(users.role, "admin"));
-    if (adminUsers.length === 0) return [];
-    const userIds = adminUsers.map(u => u.id);
-    const roleRows = await db.select().from(adminRoles).where(inArray(adminRoles.userId, userIds));
-    const rolesByUser = new Map<string, AdminRole[]>();
-    for (const r of roleRows) {
-      if (!rolesByUser.has(r.userId)) rolesByUser.set(r.userId, []);
-      rolesByUser.get(r.userId)!.push(r.role as AdminRole);
-    }
-    return adminUsers.map(u => ({
-      id: u.id,
-      email: u.email,
-      adminRoles: rolesByUser.get(u.id) ?? [],
-      createdAt: u.createdAt,
-      adminAddedAt: u.adminAddedAt ?? null,
-      adminAddedBy: u.adminAddedBy ?? null,
-      lastLoginAt: u.lastLoginAt ?? null,
+    const rows = await db.select().from(users).where(eq(users.role, "admin"));
+    return rows.map(r => ({
+      id: r.id,
+      email: r.email,
+      adminRole: (r.adminRole as AdminRole) ?? "admin",
+      createdAt: r.createdAt,
+      adminAddedAt: r.adminAddedAt ?? null,
+      adminAddedBy: r.adminAddedBy ?? null,
+      lastLoginAt: r.lastLoginAt ?? null,
     }));
   }
 
-  async grantAdminAccess(userId: string, adminRole: AdminRole, addedBy: string, note: string): Promise<User> {
-    const user = await this.getUserById(userId);
-    if (!user) throw new Error("User not found");
-    if (user.role !== "admin") {
-      await db.update(users)
-        .set({ role: "admin", adminAddedBy: addedBy, adminAddedAt: new Date() })
-        .where(eq(users.id, userId));
-    }
-    // Insert role if not already present
-    const existing = await db.select({ id: adminRoles.id }).from(adminRoles)
-      .where(and(eq(adminRoles.userId, userId), eq(adminRoles.role, adminRole)));
-    if (existing.length === 0) {
-      await db.insert(adminRoles).values({
-        id: randomUUID(), userId, role: adminRole, grantedBy: addedBy, note: note || null,
-      });
-    }
-    const [row] = await db.select().from(users).where(eq(users.id, userId));
+  async grantAdminAccess(userId: string, adminRole: AdminRole, addedBy: string, _note: string): Promise<User> {
+    const [row] = await db.update(users)
+      .set({ role: "admin", adminRole, adminAddedBy: addedBy, adminAddedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
     return this._mapUser(row);
   }
 
-  async addAdminRole(userId: string, adminRole: AdminRole, grantedBy: string, note: string): Promise<User> {
-    return this.grantAdminAccess(userId, adminRole, grantedBy, note);
-  }
-
-  async removeAdminRole(userId: string, adminRole: AdminRole): Promise<User> {
-    await db.delete(adminRoles)
-      .where(and(eq(adminRoles.userId, userId), eq(adminRoles.role, adminRole)));
-    // If no roles remain, revert to organizer
-    const remaining = await db.select({ id: adminRoles.id }).from(adminRoles).where(eq(adminRoles.userId, userId));
-    if (remaining.length === 0) {
-      await db.update(users)
-        .set({ role: "organizer", adminRole: null, adminAddedBy: null, adminAddedAt: null })
-        .where(eq(users.id, userId));
-    }
-    const [row] = await db.select().from(users).where(eq(users.id, userId));
+  async updateAdminRole(userId: string, adminRole: AdminRole): Promise<User> {
+    const [row] = await db.update(users)
+      .set({ adminRole })
+      .where(eq(users.id, userId))
+      .returning();
     return this._mapUser(row);
   }
 
   async removeAdminAccess(userId: string): Promise<User> {
-    await db.delete(adminRoles).where(eq(adminRoles.userId, userId));
     const [row] = await db.update(users)
       .set({ role: "organizer", adminRole: null, adminAddedBy: null, adminAddedAt: null })
       .where(eq(users.id, userId))

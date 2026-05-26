@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { ShowgateLogo } from "@/components/showgate-logo";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -2421,7 +2420,7 @@ export default function Dashboard() {
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-sm">Showgate<ShowgateLogo size={16} /></h1>
+              <h1 className="text-white font-bold text-sm">Showgate</h1>
               <p className="text-zinc-600 text-xs">Event Dashboard</p>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AdminLayout } from "@/components/admin-layout";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -16,6 +16,9 @@ import {
 import {
   Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
 } from "@/components/ui/form";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -24,7 +27,7 @@ import { getUser } from "@/lib/auth";
 import { UserPlus, Pencil, UserX, UsersRound, ShieldAlert } from "lucide-react";
 import type { AdminTeamMember, AdminRole } from "@shared/schema";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 const ROLE_BADGE: Record<AdminRole, string> = {
   super_admin: "bg-amber-500/15 text-amber-400 border border-amber-500/25",
@@ -40,15 +43,6 @@ const ROLE_LABEL: Record<AdminRole, string> = {
   finance:     "Finance",
 };
 
-const ROLE_DESC: Record<AdminRole, string> = {
-  super_admin: "Full access including settings and team management",
-  admin:       "Full access except settings and team management",
-  support:     "View organizers and events, no editing",
-  finance:     "View analytics and subscriptions only",
-};
-
-const ALL_ROLES: AdminRole[] = ["super_admin", "admin", "support", "finance"];
-
 function fmtDate(d: Date | string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -58,63 +52,25 @@ function fmtDate(d: Date | string | null) {
 
 const addSchema = z.object({
   email: z.string().email("Enter a valid email address"),
-  roles: z.array(z.enum(["super_admin", "admin", "support", "finance"] as const))
-    .min(1, "Select at least one role"),
+  role: z.enum(["super_admin", "admin", "support", "finance"] as const),
   note: z.string().max(500).optional(),
 });
 type AddFormValues = z.infer<typeof addSchema>;
 
-// ── Role checkbox component ───────────────────────────────────────────────────
-
-function RoleCheckbox({
-  role,
-  checked,
-  disabled,
-  onToggle,
-}: {
-  role: AdminRole;
-  checked: boolean;
-  disabled?: boolean;
-  onToggle: (checked: boolean) => void;
-}) {
-  const id = `rc-${role}`;
-  return (
-    <label
-      htmlFor={id}
-      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-        checked
-          ? "border-amber-500/40 bg-amber-500/5"
-          : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600"
-      } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-    >
-      <Checkbox
-        id={id}
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onToggle}
-        className="mt-0.5 border-zinc-600 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-      />
-      <div className="min-w-0">
-        <span className={`text-sm font-semibold ${ROLE_BADGE[role].split(" ").filter(c => c.startsWith("text-")).join(" ")}`}>
-          {ROLE_LABEL[role]}
-        </span>
-        <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{ROLE_DESC[role]}</p>
-      </div>
-    </label>
-  );
-}
+const editSchema = z.object({
+  role: z.enum(["super_admin", "admin", "support", "finance"] as const),
+});
+type EditFormValues = z.infer<typeof editSchema>;
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AdminTeam() {
   const { toast } = useToast();
   const currentUser = getUser();
-  const myAdminRoles = (currentUser?.adminRoles ?? []) as AdminRole[];
-  const isSuperAdmin = myAdminRoles.includes("super_admin");
+  const adminRole = currentUser?.adminRole as AdminRole | null;
 
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminTeamMember | null>(null);
-  const [editRoles, setEditRoles] = useState<AdminRole[]>([]);
   const [removeTarget, setRemoveTarget] = useState<AdminTeamMember | null>(null);
 
   // ── Query ──────────────────────────────────────────────────────────────────
@@ -123,37 +79,23 @@ export default function AdminTeam() {
   });
 
   // ── Mutations ──────────────────────────────────────────────────────────────
-
-  // Grant access: one POST per selected role (backend deduplicates)
   const addMutation = useMutation({
-    mutationFn: async ({ email, roles, note }: AddFormValues) => {
-      for (const role of roles) {
-        await apiRequest("POST", "/api/admin/team", { email, role, note });
-      }
-    },
+    mutationFn: (data: AddFormValues) => apiRequest("POST", "/api/admin/team", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/team"] });
       setAddOpen(false);
-      addForm.reset({ email: "", roles: [], note: "" });
       toast({ title: "Admin access granted" });
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  // Edit: diff old roles vs new roles, add/remove as needed
   const editMutation = useMutation({
-    mutationFn: async ({ member, newRoles }: { member: AdminTeamMember; newRoles: AdminRole[] }) => {
-      const toAdd    = newRoles.filter(r => !member.adminRoles.includes(r));
-      const toRemove = member.adminRoles.filter(r => !newRoles.includes(r));
-      await Promise.all([
-        ...toAdd.map(role    => apiRequest("POST",   `/api/admin/team/${member.id}/roles`, { role })),
-        ...toRemove.map(role => apiRequest("DELETE",  `/api/admin/team/${member.id}/roles/${role}`)),
-      ]);
-    },
+    mutationFn: ({ userId, data }: { userId: string; data: EditFormValues }) =>
+      apiRequest("PATCH", `/api/admin/team/${userId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/team"] });
       setEditTarget(null);
-      toast({ title: "Roles updated" });
+      toast({ title: "Role updated" });
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -168,35 +110,30 @@ export default function AdminTeam() {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  // ── Form ───────────────────────────────────────────────────────────────────
+  // ── Add form ───────────────────────────────────────────────────────────────
   const addForm = useForm<AddFormValues>({
     resolver: zodResolver(addSchema),
-    defaultValues: { email: "", roles: [], note: "" },
+    defaultValues: { email: "", role: "admin", note: "" },
   });
-  const watchedRoles = addForm.watch("roles") ?? [];
 
-  function toggleAddRole(role: AdminRole, checked: boolean) {
-    const current = addForm.getValues("roles") ?? [];
-    addForm.setValue(
-      "roles",
-      checked ? [...current, role] : current.filter(r => r !== role),
-      { shouldValidate: true }
-    );
-  }
+  // ── Edit form ──────────────────────────────────────────────────────────────
+  const editForm = useForm<EditFormValues>({
+    resolver: zodResolver(editSchema),
+    defaultValues: { role: "admin" },
+  });
 
   function openEdit(member: AdminTeamMember) {
     setEditTarget(member);
-    setEditRoles([...member.adminRoles]);
+    editForm.reset({ role: member.adminRole });
   }
 
-  function toggleEditRole(role: AdminRole, checked: boolean) {
-    setEditRoles(prev => checked ? [...prev, role] : prev.filter(r => r !== role));
-  }
-
-  // Roles available based on the acting admin's own permissions
-  const grantableRoles: AdminRole[] = isSuperAdmin
-    ? ALL_ROLES
-    : (["admin", "support", "finance"] as AdminRole[]);
+  // ── Role options based on current user's role ─────────────────────────────
+  const roleOptions: { value: AdminRole; label: string }[] = [
+    ...(adminRole === "super_admin" ? [{ value: "super_admin" as AdminRole, label: "Super Admin" }] : []),
+    { value: "admin",   label: "Admin" },
+    { value: "support", label: "Support" },
+    { value: "finance", label: "Finance" },
+  ];
 
   return (
     <AdminLayout>
@@ -207,11 +144,11 @@ export default function AdminTeam() {
             <UsersRound className="w-6 h-6 text-amber-400" />
             <div>
               <h1 className="text-2xl font-bold text-white">Admin Team</h1>
-              <p className="text-sm text-zinc-400 mt-0.5">Manage who has admin access. One user can hold multiple roles.</p>
+              <p className="text-sm text-zinc-400 mt-0.5">Manage who has admin access to the platform</p>
             </div>
           </div>
           <Button
-            onClick={() => { addForm.reset({ email: "", roles: [], note: "" }); setAddOpen(true); }}
+            onClick={() => { addForm.reset(); setAddOpen(true); }}
             className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
           >
             <UserPlus className="w-4 h-4 mr-2" />
@@ -219,7 +156,24 @@ export default function AdminTeam() {
           </Button>
         </div>
 
-        {/* ── Team table ─────────────────────────────────────────── */}
+        {/* ── Permission legend ───────────────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          {(["super_admin", "admin", "support", "finance"] as AdminRole[]).map(role => (
+            <div key={role} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+              <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded mb-2 ${ROLE_BADGE[role]}`}>
+                {ROLE_LABEL[role]}
+              </span>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                {role === "super_admin" && "Full access including settings and team management"}
+                {role === "admin" && "Full access except settings and team management"}
+                {role === "support" && "View organizers and events, no editing"}
+                {role === "finance" && "View analytics and subscriptions only"}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Table ──────────────────────────────────────────────── */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center h-40 text-zinc-500">Loading team...</div>
@@ -233,7 +187,7 @@ export default function AdminTeam() {
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-400 text-xs uppercase tracking-wide">
                   <th className="px-4 py-3 text-left font-medium">Email</th>
-                  <th className="px-4 py-3 text-left font-medium">Roles</th>
+                  <th className="px-4 py-3 text-left font-medium">Role</th>
                   <th className="px-4 py-3 text-left font-medium">Date Added</th>
                   <th className="px-4 py-3 text-left font-medium">Last Login</th>
                   <th className="px-4 py-3 text-left font-medium">Added By</th>
@@ -252,34 +206,24 @@ export default function AdminTeam() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {member.adminRoles.length === 0 ? (
-                            <span className="text-xs text-zinc-500 italic">No roles</span>
-                          ) : (
-                            member.adminRoles.map(role => (
-                              <span
-                                key={role}
-                                className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded ${ROLE_BADGE[role]}`}
-                              >
-                                {ROLE_LABEL[role]}
-                              </span>
-                            ))
-                          )}
-                        </div>
+                        <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${ROLE_BADGE[member.adminRole]}`}>
+                          {ROLE_LABEL[member.adminRole]}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-zinc-400">{fmtDate(member.adminAddedAt)}</td>
                       <td className="px-4 py-3 text-zinc-400">{fmtDate(member.lastLoginAt)}</td>
-                      <td className="px-4 py-3 text-zinc-400 truncate max-w-[140px]">
+                      <td className="px-4 py-3 text-zinc-400 truncate max-w-[160px]">
                         {member.adminAddedBy ?? "—"}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <Button
                             size="sm"
                             variant="ghost"
                             className="h-7 px-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700"
                             onClick={() => openEdit(member)}
-                            title="Edit roles"
+                            disabled={isSelf && member.adminRole === "super_admin"}
+                            title={isSelf && member.adminRole === "super_admin" ? "Cannot change your own role" : "Edit role"}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
@@ -289,7 +233,7 @@ export default function AdminTeam() {
                             className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
                             onClick={() => setRemoveTarget(member)}
                             disabled={isSelf}
-                            title={isSelf ? "Cannot remove your own access" : "Remove all admin access"}
+                            title={isSelf ? "Cannot remove your own access" : "Remove admin access"}
                           >
                             <UserX className="w-3.5 h-3.5" />
                           </Button>
@@ -311,8 +255,7 @@ export default function AdminTeam() {
             <DialogTitle className="text-white">Grant Admin Access</DialogTitle>
           </DialogHeader>
           <Form {...addForm}>
-            <form onSubmit={addForm.handleSubmit(data => addMutation.mutate(data))} className="space-y-5">
-              {/* Email */}
+            <form onSubmit={addForm.handleSubmit(data => addMutation.mutate(data))} className="space-y-4">
               <FormField
                 control={addForm.control}
                 name="email"
@@ -322,7 +265,7 @@ export default function AdminTeam() {
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="user@example.com"
+                        placeholder="organizer@example.com"
                         className="bg-zinc-800 border-zinc-600 text-zinc-100 placeholder-zinc-500"
                       />
                     </FormControl>
@@ -330,38 +273,36 @@ export default function AdminTeam() {
                   </FormItem>
                 )}
               />
-
-              {/* Roles — checkboxes */}
               <FormField
                 control={addForm.control}
-                name="roles"
-                render={() => (
+                name="role"
+                render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-zinc-300">Roles</FormLabel>
-                    <div className="space-y-2 mt-1">
-                      {grantableRoles.map(role => (
-                        <RoleCheckbox
-                          key={role}
-                          role={role}
-                          checked={watchedRoles.includes(role)}
-                          onToggle={checked => toggleAddRole(role, !!checked)}
-                        />
-                      ))}
-                    </div>
+                    <FormLabel className="text-zinc-300">Role</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="bg-zinc-800 border-zinc-600 text-zinc-100">
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="bg-zinc-800 border-zinc-700">
+                        {roleOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-zinc-100 focus:bg-zinc-700">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              {/* Note */}
               <FormField
                 control={addForm.control}
                 name="note"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-zinc-300">
-                      Note <span className="text-zinc-500 font-normal">(optional)</span>
-                    </FormLabel>
+                    <FormLabel className="text-zinc-300">Note <span className="text-zinc-500 font-normal">(optional)</span></FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
@@ -374,13 +315,21 @@ export default function AdminTeam() {
                   </FormItem>
                 )}
               />
-
               <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setAddOpen(false)} className="text-zinc-400 hover:text-zinc-100">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setAddOpen(false)}
+                  className="text-zinc-400 hover:text-zinc-100"
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={addMutation.isPending} className="bg-amber-500 hover:bg-amber-400 text-black font-semibold">
-                  {addMutation.isPending ? "Granting..." : "Grant Access"}
+                <Button
+                  type="submit"
+                  disabled={addMutation.isPending}
+                  className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
+                >
+                  {addMutation.isPending ? "Granting..." : "Grant Admin Access"}
                 </Button>
               </DialogFooter>
             </form>
@@ -388,68 +337,78 @@ export default function AdminTeam() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Roles Dialog ────────────────────────────────────── */}
+      {/* ── Edit Role Dialog ─────────────────────────────────────── */}
       <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
-        <DialogContent className="bg-zinc-900 border-zinc-700 text-zinc-100 sm:max-w-md">
+        <DialogContent className="bg-zinc-900 border-zinc-700 text-zinc-100 sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-white">Edit Roles</DialogTitle>
+            <DialogTitle className="text-white">Edit Admin Role</DialogTitle>
           </DialogHeader>
           {editTarget && (
-            <div className="space-y-5">
-              <p className="text-sm text-zinc-400">
-                Updating roles for{" "}
-                <span className="text-zinc-100 font-medium">{editTarget.email}</span>
-              </p>
-
-              <div className="space-y-2">
-                {grantableRoles.map(role => {
-                  const isSelfSuperAdmin = editTarget.id === currentUser?.id && role === "super_admin";
-                  return (
-                    <RoleCheckbox
-                      key={role}
-                      role={role}
-                      checked={editRoles.includes(role)}
-                      disabled={isSelfSuperAdmin}
-                      onToggle={checked => toggleEditRole(role, !!checked)}
-                    />
-                  );
-                })}
-              </div>
-
-              {editRoles.length === 0 && (
-                <p className="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-3 py-2">
-                  Deselecting all roles will remove admin access entirely.
+            <Form {...editForm}>
+              <form
+                onSubmit={editForm.handleSubmit(data =>
+                  editMutation.mutate({ userId: editTarget.id, data })
+                )}
+                className="space-y-4"
+              >
+                <p className="text-sm text-zinc-400">
+                  Changing role for <span className="text-zinc-100 font-medium">{editTarget.email}</span>
                 </p>
-              )}
-
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setEditTarget(null)} className="text-zinc-400 hover:text-zinc-100">
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => editMutation.mutate({ member: editTarget, newRoles: editRoles })}
-                  disabled={editMutation.isPending}
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
-                >
-                  {editMutation.isPending ? "Saving..." : "Save Roles"}
-                </Button>
-              </DialogFooter>
-            </div>
+                <FormField
+                  control={editForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-zinc-300">New role</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="bg-zinc-800 border-zinc-600 text-zinc-100">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-zinc-800 border-zinc-700">
+                          {roleOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value} className="text-zinc-100 focus:bg-zinc-700">
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setEditTarget(null)}
+                    className="text-zinc-400 hover:text-zinc-100"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={editMutation.isPending}
+                    className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
+                  >
+                    {editMutation.isPending ? "Saving..." : "Save Role"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* ── Remove All Access Confirmation ───────────────────────── */}
+      {/* ── Remove Confirmation ──────────────────────────────────── */}
       <AlertDialog open={!!removeTarget} onOpenChange={open => !open && setRemoveTarget(null)}>
         <AlertDialogContent className="bg-zinc-900 border-zinc-700">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Remove all admin access?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">Remove admin access?</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              Remove admin access for{" "}
-              <span className="text-zinc-100 font-medium">{removeTarget?.email}</span>?{" "}
-              All of their roles (
-              {removeTarget?.adminRoles.map(r => ROLE_LABEL[r]).join(", ") || "none"}
-              ) will be revoked and they will return to being a regular user.
+              Remove admin access for <span className="text-zinc-100 font-medium">{removeTarget?.email}</span>?
+              They will return to being a regular organizer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -461,7 +420,7 @@ export default function AdminTeam() {
               disabled={removeMutation.isPending}
               className="bg-red-600 hover:bg-red-500 text-white"
             >
-              {removeMutation.isPending ? "Removing..." : "Remove All Access"}
+              {removeMutation.isPending ? "Removing..." : "Remove Access"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

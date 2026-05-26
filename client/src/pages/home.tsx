@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { ShowgateLogo } from "@/components/showgate-logo";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { isAuthenticated } from "@/lib/auth";
@@ -88,7 +87,7 @@ export default function Home() {
       <nav className="sticky top-0 z-50 border-b border-zinc-800/60 bg-[#0d0d0d]/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
           <span className="text-xl font-black tracking-tight">
-            Show<span className="text-amber-400">gate</span><ShowgateLogo size={22} />
+            Show<span className="text-amber-400">gate</span>
           </span>
           {/* Desktop links */}
           <div className="hidden sm:flex items-center gap-3">
@@ -426,7 +425,7 @@ export default function Home() {
       <footer className="border-t border-amber-500/20 py-10 px-5">
         <div className="max-w-6xl mx-auto flex flex-col items-center text-center gap-2">
           <span className="text-lg font-black">
-            Show<span className="text-amber-400">gate</span><ShowgateLogo size={20} />
+            Show<span className="text-amber-400">gate</span>
           </span>
           <p className="text-zinc-500 text-xs">The easiest way to run your event.</p>
           <p className="text-zinc-600 text-xs mt-1">© {new Date().getFullYear()} Showgate. All rights reserved.</p>

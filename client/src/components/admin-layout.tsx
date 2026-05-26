@@ -1,5 +1,4 @@
 import { useLocation, Link } from "wouter";
-import { ShowgateLogo } from "@/components/showgate-logo";
 import {
   LayoutDashboard, Users, CreditCard, Calendar, BarChart2,
   Settings, ArrowLeft, ShieldCheck, UsersRound,
@@ -12,30 +11,23 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   href: string;
-  roles: AdminRole[] | null;
+  roles: AdminRole[] | null; // null = visible to all admin roles
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Overview",      icon: LayoutDashboard, href: "/admin",                 roles: null },
-  { label: "Organizers",    icon: Users,            href: "/admin/organizers",      roles: ["super_admin", "admin", "support"] },
-  { label: "Subscriptions", icon: CreditCard,       href: "/admin/subscriptions",   roles: ["super_admin", "finance"] },
-  { label: "Events",        icon: Calendar,         href: "/admin/events",          roles: ["super_admin", "admin", "support"] },
-  { label: "Analytics",     icon: BarChart2,        href: "/admin/analytics",       roles: ["super_admin", "finance"] },
-  { label: "Settings",      icon: Settings,         href: "/admin/settings",        roles: ["super_admin"] },
-  { label: "Team",          icon: UsersRound,       href: "/admin/team",            roles: ["super_admin"] },
+  { label: "Overview",      icon: LayoutDashboard, href: "/admin",                  roles: null },
+  { label: "Organizers",    icon: Users,            href: "/admin/organizers",       roles: ["super_admin", "admin", "support"] },
+  { label: "Subscriptions", icon: CreditCard,       href: "/admin/subscriptions",    roles: ["super_admin", "finance"] },
+  { label: "Events",        icon: Calendar,         href: "/admin/events",           roles: ["super_admin", "admin", "support"] },
+  { label: "Analytics",     icon: BarChart2,        href: "/admin/analytics",        roles: ["super_admin", "finance"] },
+  { label: "Settings",      icon: Settings,         href: "/admin/settings",         roles: ["super_admin"] },
+  { label: "Team",          icon: UsersRound,       href: "/admin/team",             roles: ["super_admin"] },
 ];
-
-const ROLE_LABEL: Record<AdminRole, string> = {
-  super_admin: "Super Admin",
-  admin:       "Admin",
-  support:     "Support",
-  finance:     "Finance",
-};
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const currentUser = getUser();
-  const adminRoles = (currentUser?.adminRoles ?? []) as AdminRole[];
+  const adminRole = (currentUser?.adminRole ?? null) as AdminRole | null;
 
   function isActive(href: string) {
     if (href === "/admin") return location === "/admin";
@@ -43,17 +35,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   }
 
   const visibleItems = NAV_ITEMS.filter(item =>
-    item.roles === null || adminRoles.some(r => item.roles!.includes(r))
+    item.roles === null || (adminRole && item.roles.includes(adminRole))
   );
 
   return (
     <div className="flex min-h-screen bg-black">
       {/* ── Sidebar ──────────────────────────────────────────────── */}
       <aside className="fixed top-0 left-0 h-screen w-56 bg-zinc-950 border-r border-zinc-800 flex flex-col z-40">
-        {/* Logo + role badges */}
+        {/* Logo + role badge */}
         <div className="px-5 pt-5 pb-4 border-b border-zinc-800">
           <span className="block text-white font-extrabold text-xl tracking-tight leading-none mb-2.5">
-            Show<span className="text-amber-500">gate</span><ShowgateLogo size={22} />
+            Show<span className="text-amber-500">gate</span>
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
             <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/25 rounded-md px-2 py-1">
@@ -62,19 +54,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 Admin
               </span>
             </div>
+            {adminRole && (
+              <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide leading-none">
+                {adminRole.replace("_", " ")}
+              </span>
+            )}
           </div>
-          {adminRoles.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {adminRoles.map(role => (
-                <span
-                  key={role}
-                  className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wide"
-                >
-                  {ROLE_LABEL[role]}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Nav items */}

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { ShowgateLogo } from "@/components/showgate-logo";
 import { Mail, RefreshCw, ArrowLeft, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { clearToken, getUser } from "@/lib/auth";
@@ -65,7 +64,7 @@ export default function CheckYourEmail() {
             <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
               <Ticket className="w-4 h-4 text-amber-400" />
             </div>
-            <span className="text-white font-bold text-sm">Showgate<ShowgateLogo size={16} /></span>
+            <span className="text-white font-bold text-sm">Showgate</span>
           </div>
           <button
             onClick={handleBackToLogin}
