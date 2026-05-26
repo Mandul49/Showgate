@@ -27,6 +27,9 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     if (!user) {
       return res.status(401).json({ message: "User not found. Please log in again." });
     }
+    if ((user as any).suspended) {
+      return res.status(403).json({ message: "Account suspended" });
+    }
     req.userId = payload.userId;
     req.userRole = payload.role;
     req.userTier = payload.tier;
@@ -102,6 +105,10 @@ export function registerAuthRoutes(app: Express) {
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) {
         return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      if ((user as any).suspended) {
+        return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
       }
 
       const token = jwt.sign(

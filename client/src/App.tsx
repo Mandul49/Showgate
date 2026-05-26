@@ -17,6 +17,7 @@ import EventPage from "@/pages/event-page";
 import PurchaseSuccess from "@/pages/purchase-success";
 import Analytics from "@/pages/analytics";
 import Subscription from "@/pages/subscription";
+import AdminPanel from "@/pages/admin-panel";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -36,9 +37,8 @@ function Router() {
       <Route path="/upgrade-success" component={UpgradeSuccess} />
       <Route path="/analytics/:eventId" component={Analytics} />
       <Route path="/subscription" component={Subscription} />
-      <Route path="/admin">
-        <Redirect to="/dashboard" />
-      </Route>
+      <Route path="/admin" component={AdminPanel} />
+      <Route path="/admin/:rest+" component={AdminPanel} />
       <Route component={NotFound} />
     </Switch>
   );

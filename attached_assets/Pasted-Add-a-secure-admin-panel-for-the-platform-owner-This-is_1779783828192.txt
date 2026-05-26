@@ -1,0 +1,78 @@
+Add a secure admin panel for the platform owner. This is a completely separate section from the organizer dashboard. Do not touch any existing organizer features.
+Access & Security
+Create a new role called "admin" in the users table. Add a route /admin that is protected by a separate admin auth middleware that checks users.role === 'admin'. If anyone without admin role tries to access /admin or any /admin/* route, redirect them to /login with no explanation.
+Add a one-time script or seed command that can be run manually from the Replit shell to set a specific user's role to admin: node scripts/make-admin.js manduljohnson@gmail.com
+Admin login uses the same /login page but detects the admin role and redirects to /admin/dashboard instead of /dashboard after login.
+Admin Dashboard — Overview Page (/admin)
+Top row summary cards showing live platform stats fetched from the database:
+
+Total organizers registered
+Total active Pro subscribers
+Total events created (all time)
+Total tickets sold (all time)
+Total platform revenue collected (sum of all 2.5% fees from Free tier transactions)
+Total Pro subscription revenue (sum of all subscription payments)
+
+Below the cards, a revenue chart showing monthly platform earnings (fee revenue + subscription revenue combined) for the last 12 months.
+Organizers Page (/admin/organizers)
+Searchable, sortable table of all organizers with columns:
+
+Name / Email
+Tier (Free / Pro badge)
+Join date
+Active events count
+Total tickets sold
+Total revenue processed through their account
+Paystack subaccount code (truncated, click to copy)
+Actions: View Details, Upgrade to Pro, Downgrade to Free, Suspend Account
+
+Clicking View Details opens a side panel or detail page showing full organizer info, all their events, subscription history, and recent ticket sales.
+Subscriptions Page (/admin/subscriptions)
+Table of all Pro subscribers with columns:
+
+Organizer name / email
+Plan (Monthly / Yearly)
+Started date
+Renews / Expires date
+Amount paid
+Status (Active / Cancelled / Expired)
+Action: Cancel, Extend, Refund (manual flag only, not automatic)
+
+Filter tabs: All, Active, Cancelled, Expired.
+Summary at top: active subscribers count, monthly recurring revenue (MRR), annual recurring revenue (ARR), churn this month.
+Events Page (/admin/events)
+Table of all events across all organizers:
+
+Event name
+Organizer
+Date
+Tickets sold / capacity
+Revenue processed
+Status (Active / Draft / Ended)
+Action: View public page, Suspend event
+
+Analytics Page (/admin/analytics)
+Platform-wide analytics:
+
+New organizer signups over time (line chart, last 90 days)
+Ticket sales volume over time (bar chart, last 90 days)
+Revenue breakdown: Free tier fees vs Pro subscriptions (pie or donut chart)
+Top 5 events by tickets sold
+Top 5 organizers by revenue processed
+Average tickets per event
+Free to Pro conversion rate (organizers who upgraded / total organizers)
+
+Support / Flags Page (/admin/support)
+Simple log of system events worth reviewing:
+
+Failed subaccount creations (organizers with null subaccount_code)
+Unverified email accounts
+Events with 0 tickets sold that have been active for more than 7 days
+Organizers who signed up but never completed onboarding
+Any Paystack webhook failures logged
+
+Each row has a note field where you can add a manual note and mark as resolved.
+Admin Navbar
+Separate dark sidebar navigation (not the organizer top navbar) with links to: Overview, Organizers, Subscriptions, Events, Analytics, Support. Show your name and "Platform Admin" at the top of the sidebar. Add a "View Live Site" link that opens the homepage in a new tab.
+Design
+Keep the same dark background and gold accent palette as the rest of the app but give the admin panel a slightly different feel — use a sidebar layout instead of the top navbar to clearly distinguish it from the organizer dashboard. Organizers should never see or stumble into the admin panel.

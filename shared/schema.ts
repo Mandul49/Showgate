@@ -39,7 +39,7 @@ export type Order = typeof orders.$inferSelect;
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-export type UserRole = "organizer";
+export type UserRole = "organizer" | "admin";
 export type UserTier = "free" | "pro";
 
 export const users = pgTable("users", {
@@ -51,6 +51,7 @@ export const users = pgTable("users", {
   proExpiresAt: timestamp("pro_expires_at"),
   billingCycle: text("billing_cycle"),
   cancelledAt: timestamp("cancelled_at"),
+  suspended: boolean("suspended").notNull().default(false),
   resetToken: text("reset_token"),
   resetTokenExpires: timestamp("reset_token_expires"),
   emailVerified: boolean("email_verified").notNull().default(false),
@@ -67,6 +68,7 @@ export type User = {
   proExpiresAt: Date | null;
   billingCycle: string | null;
   cancelledAt: Date | null;
+  suspended: boolean;
   resetToken: string | null;
   resetTokenExpires: Date | null;
   emailVerified: boolean;
@@ -403,6 +405,16 @@ export const platformStats = pgTable("platform_stats", {
   id: integer("id").primaryKey().default(1),
   deletedEvents: integer("deleted_events").notNull().default(0),
   deletedTicketsSold: integer("deleted_tickets_sold").notNull().default(0),
+});
+
+// ─── Admin Support Notes ──────────────────────────────────────────────────────
+// Persists admin notes + resolved status for dynamically-generated support flags.
+
+export const adminSupportNotes = pgTable("admin_support_notes", {
+  id: text("id").primaryKey(),
+  note: text("note"),
+  resolved: boolean("resolved").notNull().default(false),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // ─── Subscription References ──────────────────────────────────────────────────
