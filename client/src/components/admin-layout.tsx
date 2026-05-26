@@ -28,7 +28,10 @@ const NAV_ITEMS: NavItem[] = [
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const currentUser = getUser();
-  const adminRole = (currentUser?.adminRole ?? null) as AdminRole | null;
+  const rawRoles = currentUser?.adminRole;
+  const adminRoles: AdminRole[] = Array.isArray(rawRoles)
+    ? (rawRoles as AdminRole[])
+    : rawRoles ? [(rawRoles as unknown) as AdminRole] : [];
 
   function isActive(href: string) {
     if (href === "/admin") return location === "/admin";
@@ -36,7 +39,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   }
 
   const visibleItems = NAV_ITEMS.filter(item =>
-    item.roles === null || (adminRole && item.roles.includes(adminRole))
+    item.roles === null || adminRoles.some(r => item.roles!.includes(r))
   );
 
   return (
@@ -56,9 +59,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 Admin
               </span>
             </div>
-            {adminRole && (
+            {adminRoles.length > 0 && (
               <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide leading-none">
-                {adminRole.replace("_", " ")}
+                {adminRoles.map(r => r.replace("_", " ")).join(" · ")}
               </span>
             )}
           </div>

@@ -78,7 +78,7 @@ export type User = {
   emailVerified: boolean;
   emailVerificationToken: string | null;
   suspended: boolean;
-  adminRole: AdminRole | null;
+  adminRole: AdminRole[] | null;
   adminAddedBy: string | null;
   adminAddedAt: Date | null;
   lastLoginAt: Date | null;
@@ -88,7 +88,7 @@ export type User = {
 export interface AdminTeamMember {
   id: string;
   email: string;
-  adminRole: AdminRole;
+  adminRole: AdminRole[];
   createdAt: Date;
   adminAddedAt: Date | null;
   adminAddedBy: string | null;

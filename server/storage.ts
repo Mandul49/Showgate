@@ -307,8 +307,8 @@ export interface IStorage {
   ): Promise<void>;
   // Admin team management
   getAdminTeam(): Promise<AdminTeamMember[]>;
-  grantAdminAccess(userId: string, adminRole: AdminRole, addedBy: string, note: string): Promise<User>;
-  updateAdminRole(userId: string, adminRole: AdminRole): Promise<User>;
+  grantAdminAccess(userId: string, adminRoles: AdminRole[], addedBy: string, note: string): Promise<User>;
+  updateAdminRole(userId: string, adminRoles: AdminRole[]): Promise<User>;
   removeAdminAccess(userId: string): Promise<User>;
   updateLastLogin(userId: string): Promise<void>;
 }
@@ -491,7 +491,7 @@ export class DbStorage implements IStorage {
       emailVerified: row.emailVerified,
       emailVerificationToken: row.emailVerificationToken ?? null,
       suspended: row.suspended,
-      adminRole: (row.adminRole as AdminRole) ?? null,
+      adminRole: row.adminRole ? (row.adminRole.split(",") as AdminRole[]) : null,
       adminAddedBy: row.adminAddedBy ?? null,
       adminAddedAt: row.adminAddedAt ?? null,
       lastLoginAt: row.lastLoginAt ?? null,
@@ -1602,7 +1602,7 @@ export class DbStorage implements IStorage {
     return rows.map(r => ({
       id: r.id,
       email: r.email,
-      adminRole: (r.adminRole as AdminRole) ?? "admin",
+      adminRole: r.adminRole ? (r.adminRole.split(",") as AdminRole[]) : ["admin"],
       createdAt: r.createdAt,
       adminAddedAt: r.adminAddedAt ?? null,
       adminAddedBy: r.adminAddedBy ?? null,
@@ -1610,17 +1610,17 @@ export class DbStorage implements IStorage {
     }));
   }
 
-  async grantAdminAccess(userId: string, adminRole: AdminRole, addedBy: string, _note: string): Promise<User> {
+  async grantAdminAccess(userId: string, adminRoles: AdminRole[], addedBy: string, _note: string): Promise<User> {
     const [row] = await db.update(users)
-      .set({ role: "admin", adminRole, adminAddedBy: addedBy, adminAddedAt: new Date() })
+      .set({ role: "admin", adminRole: adminRoles.join(","), adminAddedBy: addedBy, adminAddedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return this._mapUser(row);
   }
 
-  async updateAdminRole(userId: string, adminRole: AdminRole): Promise<User> {
+  async updateAdminRole(userId: string, adminRoles: AdminRole[]): Promise<User> {
     const [row] = await db.update(users)
-      .set({ adminRole })
+      .set({ adminRole: adminRoles.join(",") })
       .where(eq(users.id, userId))
       .returning();
     return this._mapUser(row);

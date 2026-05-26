@@ -43,13 +43,13 @@ export interface AuthRequest extends Request {
   userRole?: string;
   userTier?: string;
   userEmail?: string;
-  userAdminRole?: string | null;
+  userAdminRole?: AdminRole[] | null;
 }
 
 export function requireAdminRole(allowedRoles: AdminRole[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    const role = req.userAdminRole as AdminRole | null | undefined;
-    if (!role || !allowedRoles.includes(role)) {
+    const roles = req.userAdminRole ?? [];
+    if (!roles.length || !roles.some(r => allowedRoles.includes(r))) {
       res.status(403).json({ message: "Insufficient permissions for this action" });
       return;
     }

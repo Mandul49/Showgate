@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AdminLayout } from "@/components/admin-layout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -16,9 +16,6 @@ import {
 import {
   Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
 } from "@/components/ui/form";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -43,6 +40,13 @@ const ROLE_LABEL: Record<AdminRole, string> = {
   finance:     "Finance",
 };
 
+const ROLE_DESC: Record<AdminRole, string> = {
+  super_admin: "Full access including settings and team management",
+  admin:       "Full access except settings and team management",
+  support:     "View organizers and events, no editing",
+  finance:     "View analytics and subscriptions only",
+};
+
 function fmtDate(d: Date | string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -50,24 +54,70 @@ function fmtDate(d: Date | string | null) {
 
 // ── Form schema ───────────────────────────────────────────────────────────────
 
+const ALL_ROLES = ["super_admin", "admin", "support", "finance"] as const;
+
 const addSchema = z.object({
   email: z.string().email("Enter a valid email address"),
-  role: z.enum(["super_admin", "admin", "support", "finance"] as const),
+  roles: z.array(z.enum(ALL_ROLES)).min(1, "Select at least one role"),
   note: z.string().max(500).optional(),
 });
 type AddFormValues = z.infer<typeof addSchema>;
 
 const editSchema = z.object({
-  role: z.enum(["super_admin", "admin", "support", "finance"] as const),
+  roles: z.array(z.enum(ALL_ROLES)).min(1, "Select at least one role"),
 });
 type EditFormValues = z.infer<typeof editSchema>;
+
+// ── Role checkbox group ───────────────────────────────────────────────────────
+
+function RoleCheckboxes({
+  value,
+  onChange,
+  hideSuper,
+}: {
+  value: AdminRole[];
+  onChange: (v: AdminRole[]) => void;
+  hideSuper?: boolean;
+}) {
+  const options = (hideSuper ? ALL_ROLES.filter(r => r !== "super_admin") : ALL_ROLES) as AdminRole[];
+  return (
+    <div className="space-y-2">
+      {options.map(role => (
+        <label
+          key={role}
+          className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 hover:border-zinc-600 cursor-pointer transition-colors"
+        >
+          <Checkbox
+            checked={value.includes(role)}
+            onCheckedChange={(checked) => {
+              onChange(
+                checked ? [...value, role] : value.filter(r => r !== role)
+              );
+            }}
+            className="mt-0.5 border-zinc-500 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+          />
+          <div className="flex-1 min-w-0">
+            <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded mb-1 ${ROLE_BADGE[role]}`}>
+              {ROLE_LABEL[role]}
+            </span>
+            <p className="text-xs text-zinc-400 leading-snug">{ROLE_DESC[role]}</p>
+          </div>
+        </label>
+      ))}
+    </div>
+  );
+}
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AdminTeam() {
   const { toast } = useToast();
   const currentUser = getUser();
-  const adminRole = currentUser?.adminRole as AdminRole | null;
+  const rawMyRoles = currentUser?.adminRole;
+  const myRoles: AdminRole[] = Array.isArray(rawMyRoles)
+    ? (rawMyRoles as AdminRole[])
+    : rawMyRoles ? [(rawMyRoles as unknown) as AdminRole] : [];
+  const isSuperAdmin = myRoles.includes("super_admin");
 
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminTeamMember | null>(null);
@@ -95,7 +145,7 @@ export default function AdminTeam() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/team"] });
       setEditTarget(null);
-      toast({ title: "Role updated" });
+      toast({ title: "Roles updated" });
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -113,27 +163,19 @@ export default function AdminTeam() {
   // ── Add form ───────────────────────────────────────────────────────────────
   const addForm = useForm<AddFormValues>({
     resolver: zodResolver(addSchema),
-    defaultValues: { email: "", role: "admin", note: "" },
+    defaultValues: { email: "", roles: ["admin"], note: "" },
   });
 
   // ── Edit form ──────────────────────────────────────────────────────────────
   const editForm = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
-    defaultValues: { role: "admin" },
+    defaultValues: { roles: ["admin"] },
   });
 
   function openEdit(member: AdminTeamMember) {
     setEditTarget(member);
-    editForm.reset({ role: member.adminRole });
+    editForm.reset({ roles: member.adminRole });
   }
-
-  // ── Role options based on current user's role ─────────────────────────────
-  const roleOptions: { value: AdminRole; label: string }[] = [
-    ...(adminRole === "super_admin" ? [{ value: "super_admin" as AdminRole, label: "Super Admin" }] : []),
-    { value: "admin",   label: "Admin" },
-    { value: "support", label: "Support" },
-    { value: "finance", label: "Finance" },
-  ];
 
   return (
     <AdminLayout>
@@ -148,7 +190,7 @@ export default function AdminTeam() {
             </div>
           </div>
           <Button
-            onClick={() => { addForm.reset(); setAddOpen(true); }}
+            onClick={() => { addForm.reset({ email: "", roles: ["admin"], note: "" }); setAddOpen(true); }}
             className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
           >
             <UserPlus className="w-4 h-4 mr-2" />
@@ -156,19 +198,14 @@ export default function AdminTeam() {
           </Button>
         </div>
 
-        {/* ── Permission legend ───────────────────────────────────── */}
+        {/* ── Role legend ─────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          {(["super_admin", "admin", "support", "finance"] as AdminRole[]).map(role => (
+          {ALL_ROLES.map(role => (
             <div key={role} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
               <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded mb-2 ${ROLE_BADGE[role]}`}>
                 {ROLE_LABEL[role]}
               </span>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                {role === "super_admin" && "Full access including settings and team management"}
-                {role === "admin" && "Full access except settings and team management"}
-                {role === "support" && "View organizers and events, no editing"}
-                {role === "finance" && "View analytics and subscriptions only"}
-              </p>
+              <p className="text-xs text-zinc-400 leading-relaxed">{ROLE_DESC[role]}</p>
             </div>
           ))}
         </div>
@@ -187,7 +224,7 @@ export default function AdminTeam() {
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-400 text-xs uppercase tracking-wide">
                   <th className="px-4 py-3 text-left font-medium">Email</th>
-                  <th className="px-4 py-3 text-left font-medium">Role</th>
+                  <th className="px-4 py-3 text-left font-medium">Roles</th>
                   <th className="px-4 py-3 text-left font-medium">Date Added</th>
                   <th className="px-4 py-3 text-left font-medium">Last Login</th>
                   <th className="px-4 py-3 text-left font-medium">Added By</th>
@@ -197,6 +234,7 @@ export default function AdminTeam() {
               <tbody className="divide-y divide-zinc-800/50">
                 {team.map(member => {
                   const isSelf = member.id === currentUser?.id;
+                  const memberIsSuperAdmin = member.adminRole.includes("super_admin");
                   return (
                     <tr key={member.id} className="hover:bg-zinc-800/30 transition-colors">
                       <td className="px-4 py-3 text-zinc-100 font-medium">
@@ -206,9 +244,13 @@ export default function AdminTeam() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${ROLE_BADGE[member.adminRole]}`}>
-                          {ROLE_LABEL[member.adminRole]}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {member.adminRole.map(r => (
+                            <span key={r} className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${ROLE_BADGE[r]}`}>
+                              {ROLE_LABEL[r]}
+                            </span>
+                          ))}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-zinc-400">{fmtDate(member.adminAddedAt)}</td>
                       <td className="px-4 py-3 text-zinc-400">{fmtDate(member.lastLoginAt)}</td>
@@ -222,8 +264,8 @@ export default function AdminTeam() {
                             variant="ghost"
                             className="h-7 px-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700"
                             onClick={() => openEdit(member)}
-                            disabled={isSelf && member.adminRole === "super_admin"}
-                            title={isSelf && member.adminRole === "super_admin" ? "Cannot change your own role" : "Edit role"}
+                            disabled={isSelf && memberIsSuperAdmin}
+                            title={isSelf && memberIsSuperAdmin ? "Cannot change your own super_admin role" : "Edit roles"}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
@@ -273,28 +315,21 @@ export default function AdminTeam() {
                   </FormItem>
                 )}
               />
-              <FormField
+              <Controller
                 control={addForm.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-zinc-300">Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="bg-zinc-800 border-zinc-600 text-zinc-100">
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="bg-zinc-800 border-zinc-700">
-                        {roleOptions.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value} className="text-zinc-100 focus:bg-zinc-700">
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+                name="roles"
+                render={({ field, fieldState }) => (
+                  <div className="space-y-2">
+                    <FormLabel className="text-zinc-300">Roles</FormLabel>
+                    <RoleCheckboxes
+                      value={field.value}
+                      onChange={field.onChange}
+                      hideSuper={!isSuperAdmin}
+                    />
+                    {fieldState.error && (
+                      <p className="text-sm text-red-400">{fieldState.error.message}</p>
+                    )}
+                  </div>
                 )}
               />
               <FormField
@@ -337,11 +372,11 @@ export default function AdminTeam() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Role Dialog ─────────────────────────────────────── */}
+      {/* ── Edit Roles Dialog ────────────────────────────────────── */}
       <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
-        <DialogContent className="bg-zinc-900 border-zinc-700 text-zinc-100 sm:max-w-sm">
+        <DialogContent className="bg-zinc-900 border-zinc-700 text-zinc-100 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white">Edit Admin Role</DialogTitle>
+            <DialogTitle className="text-white">Edit Admin Roles</DialogTitle>
           </DialogHeader>
           {editTarget && (
             <Form {...editForm}>
@@ -352,30 +387,23 @@ export default function AdminTeam() {
                 className="space-y-4"
               >
                 <p className="text-sm text-zinc-400">
-                  Changing role for <span className="text-zinc-100 font-medium">{editTarget.email}</span>
+                  Updating roles for <span className="text-zinc-100 font-medium">{editTarget.email}</span>
                 </p>
-                <FormField
+                <Controller
                   control={editForm.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-zinc-300">New role</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="bg-zinc-800 border-zinc-600 text-zinc-100">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="bg-zinc-800 border-zinc-700">
-                          {roleOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value} className="text-zinc-100 focus:bg-zinc-700">
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                  name="roles"
+                  render={({ field, fieldState }) => (
+                    <div className="space-y-2">
+                      <FormLabel className="text-zinc-300">Roles</FormLabel>
+                      <RoleCheckboxes
+                        value={field.value}
+                        onChange={field.onChange}
+                        hideSuper={!isSuperAdmin}
+                      />
+                      {fieldState.error && (
+                        <p className="text-sm text-red-400">{fieldState.error.message}</p>
+                      )}
+                    </div>
                   )}
                 />
                 <DialogFooter>
@@ -392,7 +420,7 @@ export default function AdminTeam() {
                     disabled={editMutation.isPending}
                     className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
                   >
-                    {editMutation.isPending ? "Saving..." : "Save Role"}
+                    {editMutation.isPending ? "Saving..." : "Save Roles"}
                   </Button>
                 </DialogFooter>
               </form>

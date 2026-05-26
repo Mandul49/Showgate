@@ -224,76 +224,59 @@ export function registerAdminRoutes(app: Express) {
   });
 
   app.post("/api/admin/team", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
-    console.log("[admin/team] Admin team route hit", { body: req.body });
     try {
       const schema = z.object({
         email: z.string().email("Enter a valid email address"),
-        role: z.enum(["super_admin", "admin", "support", "finance"]),
+        roles: z.array(z.enum(["super_admin", "admin", "support", "finance"])).min(1, "Select at least one role"),
         note: z.string().max(500).optional().default(""),
       });
       const parsed = schema.safeParse(req.body);
-      if (!parsed.success) {
-        console.log("[admin/team] Check failed at: schema validation", parsed.error.errors);
-        return res.status(400).json({ message: parsed.error.errors[0].message });
-      }
-      const { email, role, note } = parsed.data;
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      const { email, roles, note } = parsed.data;
 
       // Only super_admins can grant super_admin role
-      if (role === "super_admin" && req.userAdminRole !== "super_admin") {
-        console.log("[admin/team] Check failed at: requester not super_admin");
+      if (roles.includes("super_admin") && !req.userAdminRole?.includes("super_admin")) {
         return res.status(403).json({ message: "Only super admins can grant super_admin role" });
       }
 
-      console.log("[admin/team] Looking up email:", email);
-
-      // Raw query to verify what is actually in the users table
-      const rawRows = await db.execute(sql`SELECT id, email, role FROM users WHERE email = ${email.toLowerCase()}`);
-      console.log("[admin/team] Raw SQL result (users table):", JSON.stringify(rawRows.rows ?? rawRows));
-
       let target = await storage.getUserByEmail(email);
-      console.log("[admin/team] User lookup result:", JSON.stringify(target));
-
       let wasCreated = false;
       if (!target) {
-        console.log("[admin/team] User not found — auto-creating stub account for", email);
-        // Create a stub account with a random unusable password hash
         const stubHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
         target = await storage.createUser(email.toLowerCase(), stubHash, "organizer", "free");
         wasCreated = true;
-        console.log("[admin/team] Stub account created, id:", target.id);
       }
 
-      const user = await storage.grantAdminAccess(target.id, role, req.userEmail!, note);
-      audit(req, "grant_admin_access", "user", target.id, { role, note, email, wasCreated });
+      const user = await storage.grantAdminAccess(target.id, roles as any, req.userEmail!, note);
+      audit(req, "grant_admin_access", "user", target.id, { roles, note, email, wasCreated });
 
-      // Always send a set-password invite so the new admin can log in
       const inviteToken = crypto.randomBytes(32).toString("hex");
-      const inviteExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+      const inviteExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
       await storage.setPasswordResetToken(target.id, inviteToken, inviteExpires);
       const origin = `${req.protocol}://${req.get("host")}`;
-      const setPasswordUrl = `${origin}/reset-password?token=${inviteToken}`;
-      sendAdminInviteEmail({ to: email.toLowerCase(), setPasswordUrl, invitedBy: req.userEmail!, role }).catch(err =>
-        console.error("[admin/team] Invite email failed:", err.message)
-      );
+      sendAdminInviteEmail({
+        to: email.toLowerCase(),
+        setPasswordUrl: `${origin}/reset-password?token=${inviteToken}`,
+        invitedBy: req.userEmail!,
+        role: roles[0],
+      }).catch(err => console.error("[admin/team] Invite email failed:", err.message));
 
-      console.log("[admin/team] Success — admin access granted to", email, wasCreated ? "(new account)" : "(existing account)");
       return res.status(201).json({ ...user, wasCreated });
-    } catch (err: any) {
-      console.log("[admin/team] Caught exception:", err.message, err.stack);
-      return res.status(500).json({ message: err.message });
-    }
+    } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
   app.patch("/api/admin/team/:userId", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
     try {
-      const schema = z.object({ role: z.enum(["super_admin", "admin", "support", "finance"]) });
+      const schema = z.object({
+        roles: z.array(z.enum(["super_admin", "admin", "support", "finance"])).min(1, "Select at least one role"),
+      });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-      const { role } = parsed.data;
+      const { roles } = parsed.data;
 
-      // Super admin cannot downgrade their own role
-      if (req.params.userId === req.userId && req.userAdminRole === "super_admin" && role !== "super_admin") {
-        return res.status(400).json({ message: "Super admins cannot change their own role" });
+      // Super admin cannot remove their own super_admin role
+      if (req.params.userId === req.userId && req.userAdminRole?.includes("super_admin") && !roles.includes("super_admin")) {
+        return res.status(400).json({ message: "Super admins cannot remove their own super_admin role" });
       }
 
       const target = await storage.getUserById(req.params.userId);
@@ -301,9 +284,9 @@ export function registerAdminRoutes(app: Express) {
         return res.status(404).json({ message: "Admin user not found" });
       }
 
-      const oldRole = target.adminRole;
-      const user = await storage.updateAdminRole(req.params.userId, role);
-      audit(req, "update_admin_role", "user", req.params.userId, { oldRole, newRole: role });
+      const oldRoles = target.adminRole;
+      const user = await storage.updateAdminRole(req.params.userId, roles as any);
+      audit(req, "update_admin_role", "user", req.params.userId, { oldRoles, newRoles: roles });
       return res.json(user);
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
