@@ -1,7 +1,9 @@
 import type { Express, Response } from "express";
+import crypto from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
-import { requireAdmin, requireAdminRole, type AuthRequest } from "./auth";
+import { requireAdmin, requireAdminRole, buildTrustedBase, type AuthRequest } from "./auth";
+import { sendAdminInviteEmail } from "./email";
 
 // ── Permission gates (chained after requireAdmin) ─────────────────────────────
 const SUPER_ONLY    = requireAdminRole(["super_admin"]);
@@ -234,17 +236,37 @@ export function registerAdminRoutes(app: Express) {
         return res.status(403).json({ message: "Only super admins can grant super_admin role" });
       }
 
-      const target = await storage.getUserByEmail(email);
+      let target = await storage.getUserByEmail(email);
+      let invited = false;
+
       if (!target) {
-        return res.status(404).json({ message: "No account found with that email. They must sign up first." });
-      }
-      if (target.role === "admin") {
+        // No account yet — create one and send an invite to set their password
+        const tempPassword = crypto.randomBytes(24).toString("hex");
+        const bcrypt = await import("bcrypt");
+        const passwordHash = await bcrypt.hash(tempPassword, 12);
+        target = await storage.createUser(email, passwordHash, "organizer", "free");
+        invited = true;
+      } else if (target.role === "admin") {
         return res.status(409).json({ message: "This user is already an admin. Use edit to change their role." });
       }
 
       const user = await storage.grantAdminAccess(target.id, role, req.userEmail!, note);
-      audit(req, "grant_admin_access", "user", target.id, { role, note, email });
-      return res.status(201).json(user);
+      audit(req, "grant_admin_access", "user", target.id, { role, note, email, invited });
+
+      if (invited) {
+        const token = crypto.randomBytes(32).toString("hex");
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
+        await storage.setPasswordResetToken(target.id, token, expires);
+        const base = buildTrustedBase();
+        if (base) {
+          const setPasswordUrl = `${base}/reset-password?token=${token}`;
+          await sendAdminInviteEmail({ to: email, setPasswordUrl, invitedBy: req.userEmail! });
+        } else {
+          console.warn("[admin] Cannot send invite email: no base URL configured");
+        }
+      }
+
+      return res.status(201).json({ ...user, invited });
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 

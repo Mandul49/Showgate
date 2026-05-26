@@ -80,11 +80,15 @@ export default function AdminTeam() {
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const addMutation = useMutation({
-    mutationFn: (data: AddFormValues) => apiRequest("POST", "/api/admin/team", data),
-    onSuccess: () => {
+    mutationFn: (data: AddFormValues) => apiRequest("POST", "/api/admin/team", data).then(r => r.json()),
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/team"] });
       setAddOpen(false);
-      toast({ title: "Admin access granted" });
+      if (data?.invited) {
+        toast({ title: "Invite sent", description: "They'll receive an email to set their password." });
+      } else {
+        toast({ title: "Admin access granted" });
+      }
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });

@@ -113,7 +113,7 @@ const loginSchema = z.object({
 // In-memory resend cooldown (60 seconds per email)
 const resendCooldown = new Map<string, number>();
 
-function buildTrustedBase(): string | null {
+export function buildTrustedBase(): string | null {
   return process.env.APP_BASE_URL
     || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}` : null);
 }
