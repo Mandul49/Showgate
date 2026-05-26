@@ -307,7 +307,6 @@ export class DbStorage implements IStorage {
       resetTokenExpires: row.resetTokenExpires ?? null,
       emailVerified: row.emailVerified,
       emailVerificationToken: row.emailVerificationToken ?? null,
-      suspended: row.suspended ?? false,
       createdAt: row.createdAt,
     };
   }

@@ -83,10 +83,6 @@ export default function Login() {
       queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
-      if (json.user.role === "admin") {
-        navigate("/admin/dashboard");
-        return;
-      }
       await checkOnboardingAndNavigate(json.token);
     } catch (err: any) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
