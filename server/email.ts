@@ -1,3 +1,5 @@
+import { Resend } from "resend";
+
 export interface ConfirmationEmailOptions {
   to: string;
   buyerName: string;
@@ -17,25 +19,26 @@ export interface ConfirmationEmailOptions {
   accountName?: string;
 }
 
-export async function sendVerificationEmail(opts: { to: string; verifyUrl: string }): Promise<void> {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  return new Resend(key);
+}
 
-  if (!host || !user || !pass) {
-    console.warn(`[email] Verification NOT sent to ${opts.to}: SMTP_HOST/SMTP_USER/SMTP_PASS not configured.`);
+const FROM_ADDRESS = "Showgate <onboarding@resend.dev>";
+
+export async function sendVerificationEmail(opts: { to: string; verifyUrl: string }): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn(`[email] Verification NOT sent to ${opts.to}: RESEND_API_KEY not configured.`);
     return;
   }
 
   try {
-    const nodemailer = (await import("nodemailer")).default;
-    const transporter = nodemailer.createTransport({ host, port: 587, secure: false, auth: { user, pass } });
-    await transporter.sendMail({
-      from: `"Showgate" <${from}>`,
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
       to: opts.to,
       subject: "Confirm your Showgate email address",
-      text: `Welcome to Showgate!\n\nPlease verify your email address by visiting this link:\n${opts.verifyUrl}\n\nIf you didn't create a Showgate account, you can safely ignore this email.`,
       html: `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
           <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
@@ -52,29 +55,27 @@ export async function sendVerificationEmail(opts: { to: string; verifyUrl: strin
           </div>
         </div>`,
     });
-    console.log(`[email] Verification email sent to ${opts.to}`);
+
+    if (error) {
+      console.error(`[email] Verification send failed for ${opts.to}:`, JSON.stringify(error));
+    } else {
+      console.log(`[email] Verification email sent to ${opts.to}`);
+    }
   } catch (err: any) {
-    console.error(`[email] Verification send failed:`, err.message);
+    console.error(`[email] Verification send exception for ${opts.to}:`, err.message);
   }
 }
 
 export async function sendPasswordResetEmail(opts: { to: string; resetUrl: string }): Promise<void> {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
-
-  if (!host || !user || !pass) {
-    // Never log the resetUrl — it contains a live credential. Log only that delivery was skipped.
-    console.warn(`[email] Password reset NOT sent to ${opts.to}: SMTP_HOST/SMTP_USER/SMTP_PASS not configured. User cannot complete reset.`);
+  const resend = getResend();
+  if (!resend) {
+    console.warn(`[email] Password reset NOT sent to ${opts.to}: RESEND_API_KEY not configured.`);
     return;
   }
 
   try {
-    const nodemailer = (await import("nodemailer")).default;
-    const transporter = nodemailer.createTransport({ host, port: 587, secure: false, auth: { user, pass } });
-    await transporter.sendMail({
-      from: `"Showgate" <${from}>`,
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
       to: opts.to,
       subject: "Reset your Showgate password",
       html: `
@@ -93,20 +94,44 @@ export async function sendPasswordResetEmail(opts: { to: string; resetUrl: strin
           </div>
         </div>`,
     });
-    console.log(`[email] Password reset sent to ${opts.to}`);
+
+    if (error) {
+      console.error(`[email] Password reset send failed for ${opts.to}:`, JSON.stringify(error));
+    } else {
+      console.log(`[email] Password reset sent to ${opts.to}`);
+    }
   } catch (err: any) {
-    console.error(`[email] Password reset send failed:`, err.message);
+    console.error(`[email] Password reset exception for ${opts.to}:`, err.message);
+  }
+}
+
+export async function sendTestEmail(to: string): Promise<{ ok: boolean; detail: string }> {
+  const resend = getResend();
+  if (!resend) {
+    return { ok: false, detail: "RESEND_API_KEY not configured" };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to,
+      subject: "Showgate — test email",
+      html: `<p style="font-family:sans-serif;">This is a test email from Showgate. If you received this, the email service is working correctly.</p>`,
+    });
+
+    if (error) {
+      return { ok: false, detail: JSON.stringify(error) };
+    }
+    return { ok: true, detail: `Resend message id: ${data?.id}` };
+  } catch (err: any) {
+    return { ok: false, detail: err.message };
   }
 }
 
 export async function sendConfirmationEmail(opts: ConfirmationEmailOptions): Promise<void> {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
-
-  if (!host || !user || !pass) {
-    console.log(`[email] Confirmation for ${opts.to} — ref: ${opts.reference} (set SMTP_HOST/SMTP_USER/SMTP_PASS to enable emails)`);
+  const resend = getResend();
+  if (!resend) {
+    console.log(`[email] Confirmation for ${opts.to} — ref: ${opts.reference} (set RESEND_API_KEY to enable emails)`);
     return;
   }
 
@@ -149,10 +174,8 @@ export async function sendConfirmationEmail(opts: ConfirmationEmailOptions): Pro
     : `You're in, ${opts.buyerName.split(" ")[0]}! 🎉`;
 
   try {
-    const nodemailer = (await import("nodemailer")).default;
-    const transporter = nodemailer.createTransport({ host, port: 587, secure: false, auth: { user, pass } });
-    await transporter.sendMail({
-      from: `"${brandName}" <${from}>`,
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
       to: opts.to,
       subject: opts.isBankTransfer
         ? `🏦 Bank transfer details for ${opts.eventTitle}`
@@ -179,8 +202,13 @@ export async function sendConfirmationEmail(opts: ConfirmationEmailOptions): Pro
           </div>
         </div>`,
     });
-    console.log(`[email] Confirmation sent to ${opts.to}`);
+
+    if (error) {
+      console.error(`[email] Confirmation send failed for ${opts.to}:`, JSON.stringify(error));
+    } else {
+      console.log(`[email] Confirmation sent to ${opts.to}`);
+    }
   } catch (err: any) {
-    console.error(`[email] Send failed:`, err.message);
+    console.error(`[email] Confirmation exception for ${opts.to}:`, err.message);
   }
 }

@@ -14,7 +14,7 @@ import { registerAnalyticsRoutes } from "./analytics";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { registerOgRoutes } from "./og";
 import { registerDiscountRoutes } from "./discounts";
-import { sendConfirmationEmail } from "./email";
+import { sendConfirmationEmail, sendTestEmail } from "./email";
 
 async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
   const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
@@ -93,6 +93,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
+  });
+
+  // ─── Test email (diagnostic) ──────────────────────────────────────────────
+  app.get("/api/test-email", async (_req, res) => {
+    const result = await sendTestEmail("manduljohnson@gmail.com");
+    console.log(`[test-email] ${result.ok ? "SUCCESS" : "FAILED"}: ${result.detail}`);
+    return res.json(result);
   });
 
   // ─── Public Stats ──────────────────────────────────────────────────────────
