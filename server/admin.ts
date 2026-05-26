@@ -1,5 +1,7 @@
 import type { Express, Response } from "express";
 import { z } from "zod";
+import { sql } from "drizzle-orm";
+import { db } from "./db";
 import { storage } from "./storage";
 import { requireAdmin, requireAdminRole, type AuthRequest } from "./auth";
 
@@ -219,6 +221,7 @@ export function registerAdminRoutes(app: Express) {
   });
 
   app.post("/api/admin/team", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
+    console.log("[admin/team] Admin team route hit", { body: req.body });
     try {
       const schema = z.object({
         email: z.string().email("Enter a valid email address"),
@@ -226,23 +229,40 @@ export function registerAdminRoutes(app: Express) {
         note: z.string().max(500).optional().default(""),
       });
       const parsed = schema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      if (!parsed.success) {
+        console.log("[admin/team] Check failed at: schema validation", parsed.error.errors);
+        return res.status(400).json({ message: parsed.error.errors[0].message });
+      }
       const { email, role, note } = parsed.data;
 
       // Only super_admins can grant super_admin role
       if (role === "super_admin" && req.userAdminRole !== "super_admin") {
+        console.log("[admin/team] Check failed at: requester not super_admin");
         return res.status(403).json({ message: "Only super admins can grant super_admin role" });
       }
 
+      console.log("[admin/team] Looking up email:", email);
+
+      // Raw query to verify what is actually in the users table
+      const rawRows = await db.execute(sql`SELECT id, email, role FROM users WHERE email = ${email.toLowerCase()}`);
+      console.log("[admin/team] Raw SQL result (users table):", JSON.stringify(rawRows.rows ?? rawRows));
+
       const target = await storage.getUserByEmail(email);
+      console.log("[admin/team] User lookup result:", JSON.stringify(target));
+
       if (!target) {
+        console.log("[admin/team] Check failed at: user not found in users table");
         return res.status(404).json({ message: "No account found with that email. They must sign up first." });
       }
 
       const user = await storage.grantAdminAccess(target.id, role, req.userEmail!, note);
       audit(req, "grant_admin_access", "user", target.id, { role, note, email });
+      console.log("[admin/team] Success — admin access granted to", email);
       return res.status(201).json(user);
-    } catch (err: any) { return res.status(500).json({ message: err.message }); }
+    } catch (err: any) {
+      console.log("[admin/team] Caught exception:", err.message, err.stack);
+      return res.status(500).json({ message: err.message });
+    }
   });
 
   app.patch("/api/admin/team/:userId", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
