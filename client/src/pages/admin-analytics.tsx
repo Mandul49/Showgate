@@ -10,6 +10,7 @@ import {
   Ticket, Users, BarChart2, PieChartIcon, Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminLayout } from "@/components/admin-layout";
 
 interface AdminAnalyticsData {
   revenueByMonth: { month: string; subscriptionRevenue: number; ticketFeeRevenue: number }[];
@@ -141,42 +142,26 @@ export default function AdminAnalytics() {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-zinc-950 border-b border-zinc-800 px-6 py-3 flex items-center gap-3">
-        <ShieldCheck className="w-5 h-5 text-amber-500" />
-        <span className="text-sm font-semibold text-amber-500 tracking-wide uppercase">Showgate Admin</span>
-        <span className="text-zinc-600 text-sm">/</span>
-        <span className="text-sm text-zinc-300">Platform Analytics</span>
-        <div className="flex-1" />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={exportCSV}
-          className="gap-1.5 text-xs bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
-        >
-          <Download className="w-3.5 h-3.5" />
-          Export CSV
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-zinc-400 hover:text-zinc-100 gap-1.5 text-xs"
-          onClick={() => navigate("/admin")}
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Dashboard
-        </Button>
-      </header>
-
+    <AdminLayout>
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Title */}
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-50 flex items-center gap-2">
-            <BarChart2 className="w-6 h-6 text-amber-500" />
-            Platform Analytics
-          </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">All-time platform performance and growth metrics</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-zinc-50 flex items-center gap-2">
+              <BarChart2 className="w-6 h-6 text-amber-500" />
+              Platform Analytics
+            </h1>
+            <p className="text-sm text-zinc-500 mt-0.5">All-time platform performance and growth metrics</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportCSV}
+            className="gap-1.5 text-xs bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 flex-shrink-0 mt-1"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </Button>
         </div>
 
         {/* Summary stat cards */}
@@ -393,7 +378,7 @@ export default function AdminAnalytics() {
           </div>
         </div>
       </main>
-    </div>
+    </AdminLayout>
   );
 }
 

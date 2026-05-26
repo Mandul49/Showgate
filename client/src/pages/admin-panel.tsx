@@ -26,6 +26,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AdminLayout } from "@/components/admin-layout";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -465,30 +466,7 @@ export default function AdminPanel() {
   if (me.role !== "admin") return null;
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-4 h-4 text-black" />
-            </div>
-            <div>
-              <h1 className="text-white font-bold text-sm leading-none">Showgate Admin</h1>
-              <p className="text-zinc-600 text-xs mt-0.5">{me.email}</p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2"
-            onClick={() => navigate("/dashboard")}
-          >
-            <ArrowLeft className="w-4 h-4" /> Dashboard
-          </Button>
-        </div>
-      </header>
-
+    <AdminLayout>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
         {/* Stats row 1 */}
@@ -561,26 +539,6 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        {/* Navigation links */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Organizers", icon: Users, path: "/admin/organizers", color: "text-sky-400" },
-            { label: "Subscriptions", icon: CreditCard, path: "/admin/subscriptions", color: "text-violet-400" },
-            { label: "Events", icon: Calendar, path: "/admin/events", color: "text-emerald-400" },
-            { label: "Analytics", icon: BarChart2, path: "/admin/analytics", color: "text-amber-400" },
-            { label: "Settings", icon: Settings, path: "/admin/settings", color: "text-rose-400" },
-          ].map(({ label, icon: Icon, path, color }) => (
-            <button
-              key={path}
-              onClick={() => navigate(path)}
-              className="flex items-center gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 px-4 py-3 text-sm font-medium text-zinc-300 hover:text-white transition-colors text-left"
-            >
-              <Icon className={`w-4 h-4 ${color}`} />
-              {label}
-            </button>
-          ))}
-        </div>
-
         {/* Tab bar */}
         <div>
           <div className="flex gap-1 border-b border-zinc-800 mb-6">
@@ -616,6 +574,6 @@ export default function AdminPanel() {
           )}
         </div>
       </main>
-    </div>
+    </AdminLayout>
   );
 }

@@ -1,0 +1,46 @@
+Add the ability for the main admin to create and manage other admin users. Do not touch any other features.
+Database changes
+Add an admin_role column to the users table using ALTER TABLE with these possible values: 'super_admin', 'admin', 'support', 'finance'. Default is null for regular organizers.
+Update manduljohnson@gmail.com to super_admin: UPDATE users SET role = 'admin', admin_role = 'super_admin' WHERE email = 'manduljohnson@gmail.com'
+Permission levels
+
+super_admin: full access to everything including creating/deleting other admins and platform settings
+admin: full access except cannot create super_admins or access platform settings
+support: can view organizers, events, and tickets but cannot edit tier, suspend, delete, or access financials
+finance: can view all revenue analytics and subscriptions but cannot modify organizers or events
+
+Admin team page
+Add a new page at /admin/team accessible only to super_admin. Show a table of all admin users with columns:
+
+Name / Email
+Admin role (badge)
+Date added
+Last login
+Added by (which super_admin created them)
+Actions: Edit role, Remove admin access
+
+Add new admin form
+On /admin/team, show an "Add Admin" button that opens a modal with:
+
+Email input — must be an existing organizer account on the platform
+Role dropdown: admin, support, finance (super_admin option only visible to super_admins)
+Optional note about why they were given access
+Submit button: "Grant Admin Access"
+
+On submit, call POST /api/admin/team with the email and role. Backend finds the user by email, updates their role to 'admin' and admin_role to the selected value. If email does not exist in the users table, return error "No account found with that email. They must sign up first."
+Edit role
+Clicking Edit on an existing admin opens the same modal pre-filled. On save, call PATCH /api/admin/team/:userId. Super admin cannot downgrade their own role.
+Remove admin access
+Clicking Remove opens a confirmation dialog: "Remove admin access for [email]? They will return to being a regular organizer." On confirm, set role back to 'organizer' and admin_role to null. Log the action to admin_audit_log.
+Middleware updates
+Update the admin middleware to check admin_role for permission gating:
+
+Routes under /admin/settings: super_admin only
+Routes under /admin/team: super_admin only
+Routes under /admin/analytics and /admin/subscriptions: super_admin and finance
+Routes under /admin/organizers and /admin/events: super_admin, admin, support
+All other admin routes: all admin roles
+
+Add the admin role to the JWT payload so the frontend can show or hide navigation items based on the current admin's permission level.
+Audit log
+Every role change must be logged to admin_audit_log with: who made the change, what changed, old role, new role, timestamp.

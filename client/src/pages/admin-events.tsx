@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminLayout } from "@/components/admin-layout";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -151,25 +152,7 @@ export default function AdminEvents() {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-zinc-950 border-b border-zinc-800 px-6 py-3 flex items-center gap-3">
-        <ShieldCheck className="w-5 h-5 text-amber-500" />
-        <span className="text-sm font-semibold text-amber-500 tracking-wide uppercase">Showgate Admin</span>
-        <span className="text-zinc-600 text-sm">/</span>
-        <span className="text-sm text-zinc-300">Events</span>
-        <div className="flex-1" />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-zinc-400 hover:text-zinc-100 gap-1.5 text-xs"
-          onClick={() => navigate("/admin")}
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Dashboard
-        </Button>
-      </header>
-
+    <AdminLayout>
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
         {/* Title row */}
         <div className="flex items-center justify-between">
@@ -407,6 +390,6 @@ export default function AdminEvents() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AdminLayout>
   );
 }

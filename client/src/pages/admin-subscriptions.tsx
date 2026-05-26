@@ -7,6 +7,7 @@ import {
   ChevronDown, Crown, Ban, CheckCircle, RotateCcw, ArrowUpCircle, Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminLayout } from "@/components/admin-layout";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -183,32 +184,12 @@ export default function AdminSubscriptions() {
   if (me.role !== "admin") return null;
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-4 h-4 text-black" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => navigate("/admin")} className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors">
-                  Showgate Admin
-                </button>
-                <span className="text-zinc-700">/</span>
-                <span className="text-white text-sm font-semibold">Subscriptions</span>
-              </div>
-              <p className="text-zinc-600 text-xs mt-0.5">{allSubs.length} Pro accounts total</p>
-            </div>
-          </div>
-          <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2"
-            onClick={() => navigate("/admin")}>
-            <ArrowLeft className="w-4 h-4" /> Admin
-          </Button>
-        </div>
-      </header>
-
+    <AdminLayout>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-50">Subscriptions</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">{allSubs.length} Pro accounts total</p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard icon={Users} label="Active Subscribers" value={stats?.activeSubscribers ?? "—"} accent="blue" />
           <StatCard icon={TrendingDown} label="Churned This Month" value={stats?.churnedThisMonth ?? "—"} accent="red" />
@@ -393,6 +374,6 @@ export default function AdminSubscriptions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminLayout>
   );
 }

@@ -7,6 +7,7 @@ import {
   DollarSign, Calendar, Ban, CheckCircle, Trash2, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminLayout } from "@/components/admin-layout";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -200,24 +201,25 @@ export default function AdminOrganizerDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-4 h-4 text-black" />
+    <AdminLayout>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-bold text-white">{org.businessName}</h2>
+              {org.tier === "pro"
+                ? <span className="text-xs font-bold text-amber-400 bg-amber-500/15 border border-amber-500/25 px-2 py-0.5 rounded-full">Pro</span>
+                : <span className="text-xs font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full">Free</span>}
+              {org.suspended && (
+                <span className="text-xs font-bold text-red-400 bg-red-500/15 border border-red-500/25 px-2 py-0.5 rounded-full">Suspended</span>
+              )}
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => navigate("/admin")} className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors">Admin</button>
-                <span className="text-zinc-700">/</span>
-                <button onClick={() => navigate("/admin/organizers")} className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors">Organizers</button>
-                <span className="text-zinc-700">/</span>
-                <span className="text-white text-sm font-semibold truncate max-w-[160px]">{org.businessName}</span>
-              </div>
-            </div>
+            <p className="text-zinc-500 text-sm mt-1">{org.email} · Joined {fmtDate(org.createdAt)}</p>
+            {org.tier === "pro" && org.proExpiresAt && (
+              <p className="text-zinc-600 text-xs mt-0.5">Pro expires {fmtDate(org.proExpiresAt)}</p>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5">
@@ -254,36 +256,13 @@ export default function AdminOrganizerDetail() {
                     <Ban className="w-3.5 h-3.5" /> Suspend account
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuSeparator className="bg-zinc-800" />
                 <DropdownMenuItem className="gap-2 cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800 text-red-400"
                   onClick={() => setConfirmDelete(true)}>
                   <Trash2 className="w-3.5 h-3.5" /> Delete account
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-zinc-800 gap-2"
-              onClick={() => navigate("/admin/organizers")}>
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-2xl font-bold text-white">{org.businessName}</h2>
-              {org.tier === "pro"
-                ? <span className="text-xs font-bold text-amber-400 bg-amber-500/15 border border-amber-500/25 px-2 py-0.5 rounded-full">Pro</span>
-                : <span className="text-xs font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full">Free</span>}
-              {org.suspended && (
-                <span className="text-xs font-bold text-red-400 bg-red-500/15 border border-red-500/25 px-2 py-0.5 rounded-full">Suspended</span>
-              )}
-            </div>
-            <p className="text-zinc-500 text-sm mt-1">{org.email} · Joined {fmtDate(org.createdAt)}</p>
-            {org.tier === "pro" && org.proExpiresAt && (
-              <p className="text-zinc-600 text-xs mt-0.5">Pro expires {fmtDate(org.proExpiresAt)}</p>
-            )}
           </div>
         </div>
 
@@ -483,6 +462,6 @@ export default function AdminOrganizerDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AdminLayout>
   );
 }
