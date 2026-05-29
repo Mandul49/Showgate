@@ -197,10 +197,16 @@ function TierEditor({ tier, index, onChange, onRemove }: {
 
 function SecretInput({ field, placeholder }: { field: any; placeholder: string }) {
   const [show, setShow] = useState(false);
+  const isConfigured = field.value === "__SET__";
   return (
     <div className="relative">
-      <Input {...field} type={show ? "text" : "password"} placeholder={placeholder}
-        className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-600 focus:border-amber-400 h-10 font-mono text-sm pr-10" />
+      <Input
+        {...field}
+        type={show ? "text" : "password"}
+        placeholder={isConfigured ? "Configured — enter new key to replace" : placeholder}
+        className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-500 focus:border-amber-400 h-10 font-mono text-sm pr-10"
+        onFocus={() => { if (isConfigured) field.onChange(""); }}
+      />
       <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
         {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
       </button>

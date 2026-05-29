@@ -97,7 +97,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/config/admin", requireAuth, async (_req, res) => {
     try {
-      return res.json(await storage.getEventConfig());
+      const config = await storage.getEventConfig();
+      return res.json({
+        ...config,
+        paystackSecretKey: config.paystackSecretKey ? "__SET__" : "",
+        stripeSecretKey:   config.stripeSecretKey   ? "__SET__" : "",
+        paypalSecretKey:   config.paypalSecretKey   ? "__SET__" : "",
+      });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
@@ -107,7 +113,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const parsed = eventConfigSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid configuration", errors: parsed.error.errors });
-      const saved = await storage.saveEventConfig(parsed.data);
+
+      // Preserve existing secret keys if the client sent back the sentinel or blank
+      const existing = await storage.getEventConfig();
+      const data = { ...parsed.data };
+      if (!data.paystackSecretKey || data.paystackSecretKey === "__SET__") data.paystackSecretKey = existing.paystackSecretKey;
+      if (!data.stripeSecretKey   || data.stripeSecretKey   === "__SET__") data.stripeSecretKey   = existing.stripeSecretKey;
+      if (!data.paypalSecretKey   || data.paypalSecretKey   === "__SET__") data.paypalSecretKey   = existing.paypalSecretKey;
+
+      const saved = await storage.saveEventConfig(data);
       const { paystackSecretKey: _ps, stripeSecretKey: _ss, paypalSecretKey: _pp, ...publicConfig } = saved;
       return res.json(publicConfig);
     } catch (err: any) {
