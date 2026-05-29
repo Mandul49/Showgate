@@ -1,5 +1,4 @@
 import type { Express } from "express";
-import Stripe from "stripe";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import {
@@ -272,7 +271,6 @@ export function registerEventsRoutes(app: Express) {
         },
         paystackPublicKey: getPaystackPublicKey(),
         paystackEnv: isTestMode() ? "test" : "live",
-        stripePublicKey: process.env.STRIPE_PUBLIC_KEY || "",
         flutterwavePublicKey: (organizer?.tier === "pro" && organizer.flutterwavePublicKey) ? organizer.flutterwavePublicKey : "",
       });
     } catch (err: any) {
@@ -399,121 +397,6 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
-  // ── POST /api/public/events/:id/purchase/stripe-intent ────────────────────
-  // Amount is computed server-side from ticket price × quantity — never trusted from client.
-  app.post("/api/public/events/:id/purchase/stripe-intent", async (req, res) => {
-    try {
-      const event = await storage.getEventById(req.params.id);
-      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
-
-      const { ticketTypeId, quantity, customerEmail, discountCode } = req.body;
-
-      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
-      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount } = resolved;
-
-      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
-      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
-
-      const secretKey = process.env.STRIPE_SECRET_KEY;
-      if (!secretKey) return res.status(500).json({ message: "Stripe not configured" });
-
-      const stripe = new Stripe(secretKey);
-      const intent = await stripe.paymentIntents.create({
-        // Amount is authoritative: computed from DB price (minus discount), not client-provided
-        amount: Math.round(chargedAmount * 100),
-        currency: "usd",
-        receipt_email: customerEmail || undefined,
-        metadata: {
-          eventId: event.id,
-          ticketTypeId: String(ticketTypeId),
-          quantity: String(qty),
-          discountCode: discountCode || "",
-        },
-      });
-
-      return res.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id, chargedAmount });
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
-  // ── POST /api/public/events/:id/purchase/stripe ───────────────────────────
-  app.post("/api/public/events/:id/purchase/stripe", async (req, res) => {
-    try {
-      const event = await storage.getEventById(req.params.id);
-      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
-
-      const { paymentIntentId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails } = req.body;
-      if (!paymentIntentId) return res.status(400).json({ message: "Missing paymentIntentId" });
-
-      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
-      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
-
-      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
-      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
-
-      const secretKey = process.env.STRIPE_SECRET_KEY;
-      if (!secretKey) return res.status(500).json({ message: "Stripe not configured" });
-
-      const stripe = new Stripe(secretKey);
-      const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
-      if (intent.status !== "succeeded") return res.status(400).json({ message: "Payment not completed" });
-
-      if (intent.amount < Math.round(chargedAmount * 100))
-        return res.status(400).json({ message: "Paid amount is less than ticket price" });
-
-      if (intent.metadata.eventId && intent.metadata.eventId !== event.id)
-        return res.status(400).json({ message: "Payment intent event mismatch" });
-
-      const parsed = insertOrderSchema.safeParse({
-        eventId: event.id,
-        ticketTypeId: ticketType.id,
-        customerName,
-        customerEmail,
-        customerPhone,
-        instagramHandle: instagramHandle || null,
-        ticketType: ticketType.name,
-        quantity: qty,
-        totalAmount: chargedAmount,
-        discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
-        discountAmount: discount.discountAmount,
-        attendeeDetails: attendeeDetails || null,
-      });
-      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-
-      const stripeOrganizer = await storage.getOrganizerById(event.organizerId);
-      const monthlyCheck = await checkMonthlyTicketLimit(stripeOrganizer!, qty);
-      if (!monthlyCheck.allowed) {
-        return res.status(403).json({ message: monthlyCheck.message, code: monthlyCheck.code });
-      }
-
-      const order = await storage.createOrder(parsed.data, "confirmed");
-      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
-      if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
-
-      const isPro = stripeOrganizer?.tier === "pro";
-      sendConfirmationEmail({
-        to: customerEmail,
-        buyerName: customerName,
-        eventTitle: event.title,
-        eventDate: event.date,
-        eventLocation: event.location,
-        ticketTypeName: ticketType.name,
-        quantity: qty,
-        amount: totalAmount,
-        reference: order.id,
-        brandName: (isPro && stripeOrganizer?.customBrandName) ? stripeOrganizer.customBrandName : undefined,
-        brandLogoUrl: (isPro && stripeOrganizer?.customLogoUrl) ? stripeOrganizer.customLogoUrl : null,
-        isPro,
-      }).catch(console.error);
-
-      return res.status(201).json(order);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
 
   // ── POST /api/public/events/:id/purchase/bank ─────────────────────────────
   app.post("/api/public/events/:id/purchase/bank", async (req, res) => {

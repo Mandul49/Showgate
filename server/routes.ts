@@ -1,6 +1,5 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import Stripe from "stripe";
 import { storage } from "./storage";
 import { insertOrderSchema, eventConfigSchema } from "@shared/schema";
 import { registerAuthRoutes, requireAuth } from "./auth";
@@ -16,20 +15,6 @@ import { registerOgRoutes } from "./og";
 import { registerDiscountRoutes } from "./discounts";
 import { registerAdminRoutes } from "./admin";
 import { sendConfirmationEmail, sendTestEmail } from "./email";
-
-async function getPaypalAccessToken(clientId: string, secret: string): Promise<string> {
-  const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(`${clientId}:${secret}`).toString("base64")}`,
-    },
-    body: "grant_type=client_credentials",
-  });
-  const data: any = await res.json();
-  if (!data.access_token) throw new Error("Failed to get PayPal access token");
-  return data.access_token;
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ─── OG / Social preview (must be before Vite catch-all) ─────────────────
@@ -88,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/config", async (_req, res) => {
     try {
       const config = await storage.getEventConfig();
-      const { paystackSecretKey: _ps, stripeSecretKey: _ss, paypalSecretKey: _pp, ...publicConfig } = config;
+      const { paystackSecretKey: _ps, ...publicConfig } = config;
       return res.json(publicConfig);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -101,8 +86,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({
         ...config,
         paystackSecretKey: config.paystackSecretKey ? "__SET__" : "",
-        stripeSecretKey:   config.stripeSecretKey   ? "__SET__" : "",
-        paypalSecretKey:   config.paypalSecretKey   ? "__SET__" : "",
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -118,11 +101,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await storage.getEventConfig();
       const data = { ...parsed.data };
       if (!data.paystackSecretKey || data.paystackSecretKey === "__SET__") data.paystackSecretKey = existing.paystackSecretKey;
-      if (!data.stripeSecretKey   || data.stripeSecretKey   === "__SET__") data.stripeSecretKey   = existing.stripeSecretKey;
-      if (!data.paypalSecretKey   || data.paypalSecretKey   === "__SET__") data.paypalSecretKey   = existing.paypalSecretKey;
-
       const saved = await storage.saveEventConfig(data);
-      const { paystackSecretKey: _ps, stripeSecretKey: _ss, paypalSecretKey: _pp, ...publicConfig } = saved;
+      const { paystackSecretKey: _ps, ...publicConfig } = saved;
       return res.json(publicConfig);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -216,150 +196,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payments/verify", async (req, res) => {
     req.url = "/api/payments/paystack/verify";
     return app._router.handle(req, res, () => {});
-  });
-
-  // ─── Stripe ───────────────────────────────────────────────────────────────
-
-  app.post("/api/payments/stripe/create-intent", async (req, res) => {
-    try {
-      const { amount, currency, customerEmail, metadata } = req.body;
-      const config = await storage.getEventConfig();
-      const secretKey = config.stripeSecretKey || process.env.STRIPE_SECRET_KEY;
-      if (!secretKey) return res.status(500).json({ message: "Stripe secret key not configured" });
-
-      const stripe = new Stripe(secretKey);
-      const intent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100),
-        currency: (currency || "usd").toLowerCase(),
-        receipt_email: customerEmail,
-        metadata,
-      });
-
-      return res.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id });
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/payments/stripe/verify", async (req, res) => {
-    try {
-      const { paymentIntentId, orderData } = req.body;
-      if (!paymentIntentId || !orderData) return res.status(400).json({ message: "Missing data" });
-
-      const config = await storage.getEventConfig();
-      const secretKey = config.stripeSecretKey || process.env.STRIPE_SECRET_KEY;
-      if (!secretKey) return res.status(500).json({ message: "Stripe secret key not configured" });
-
-      const stripe = new Stripe(secretKey);
-      const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
-      if (intent.status !== "succeeded") return res.status(400).json({ message: "Payment not completed" });
-
-      const sold = await storage.getTotalTicketsSold();
-      if (sold + orderData.quantity > config.totalTickets)
-        return res.status(400).json({ message: "Not enough tickets remaining" });
-
-      const parsed = insertOrderSchema.safeParse(orderData);
-      if (!parsed.success) return res.status(400).json({ message: "Invalid order data" });
-
-      const order = await storage.createOrder(parsed.data, "confirmed");
-
-      if (order.customerEmail) {
-        const event = order.eventId ? await storage.getEventById(order.eventId) : null;
-        sendConfirmationEmail({
-          to: order.customerEmail,
-          buyerName: order.customerName,
-          eventTitle: event?.title ?? "Your Event",
-          eventDate: event?.date,
-          eventLocation: event?.location,
-          ticketTypeName: order.ticketType,
-          quantity: order.quantity,
-          amount: order.totalAmount,
-          reference: order.id,
-        }).catch(console.error);
-      }
-
-      return res.status(201).json(order);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
-  // ─── PayPal ───────────────────────────────────────────────────────────────
-
-  app.post("/api/payments/paypal/create-order", async (req, res) => {
-    try {
-      const { amount, currency } = req.body;
-      const config = await storage.getEventConfig();
-      const clientId = config.paypalClientId || process.env.PAYPAL_CLIENT_ID;
-      const secret = config.paypalSecretKey || process.env.PAYPAL_SECRET_KEY;
-      if (!clientId || !secret) return res.status(500).json({ message: "PayPal not configured" });
-
-      const accessToken = await getPaypalAccessToken(clientId, secret);
-      const orderRes = await fetch("https://api-m.paypal.com/v2/checkout/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({
-          intent: "CAPTURE",
-          purchase_units: [{ amount: { currency_code: (currency || "USD").toUpperCase(), value: amount.toFixed(2) } }],
-        }),
-      });
-
-      const orderData: any = await orderRes.json();
-      if (!orderRes.ok) return res.status(400).json({ message: orderData.message || "Failed to create PayPal order" });
-      return res.json({ id: orderData.id });
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/payments/paypal/capture", async (req, res) => {
-    try {
-      const { paypalOrderId, orderData } = req.body;
-      if (!paypalOrderId || !orderData) return res.status(400).json({ message: "Missing data" });
-
-      const config = await storage.getEventConfig();
-      const clientId = config.paypalClientId || process.env.PAYPAL_CLIENT_ID;
-      const secret = config.paypalSecretKey || process.env.PAYPAL_SECRET_KEY;
-      if (!clientId || !secret) return res.status(500).json({ message: "PayPal not configured" });
-
-      const accessToken = await getPaypalAccessToken(clientId, secret);
-      const captureRes = await fetch(`https://api-m.paypal.com/v2/checkout/orders/${paypalOrderId}/capture`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      });
-
-      const captureData: any = await captureRes.json();
-      if (!captureRes.ok || captureData.status !== "COMPLETED")
-        return res.status(400).json({ message: "PayPal payment not completed" });
-
-      const sold = await storage.getTotalTicketsSold();
-      if (sold + orderData.quantity > config.totalTickets)
-        return res.status(400).json({ message: "Not enough tickets remaining" });
-
-      const parsed = insertOrderSchema.safeParse(orderData);
-      if (!parsed.success) return res.status(400).json({ message: "Invalid order data" });
-
-      const order = await storage.createOrder(parsed.data, "confirmed");
-
-      if (order.customerEmail) {
-        const event = order.eventId ? await storage.getEventById(order.eventId) : null;
-        sendConfirmationEmail({
-          to: order.customerEmail,
-          buyerName: order.customerName,
-          eventTitle: event?.title ?? "Your Event",
-          eventDate: event?.date,
-          eventLocation: event?.location,
-          ticketTypeName: order.ticketType,
-          quantity: order.quantity,
-          amount: order.totalAmount,
-          reference: order.id,
-        }).catch(console.error);
-      }
-
-      return res.status(201).json(order);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
   });
 
   // ─── Bank Transfer ────────────────────────────────────────────────────────

@@ -178,7 +178,7 @@ export interface PublicOrganizer {
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 export type EventStatus = "active" | "inactive" | "draft";
-export type PaymentMethod = "paystack" | "stripe" | "paypal" | "bank_transfer" | "flutterwave";
+export type PaymentMethod = "paystack" | "bank_transfer" | "flutterwave";
 
 export const events = pgTable("events", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -247,7 +247,7 @@ export const createEventSchema = z.object({
   startTime: z.string().optional().nullable(),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.number().min(1, "Must have at least 1 ticket"),
-  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer", "flutterwave"]),
+  paymentMethod: z.enum(["paystack", "bank_transfer", "flutterwave"]),
   isActive: z.boolean().default(true),
   description: z.string().optional().nullable(),
   coverImageUrl: z.string().optional().nullable(),
@@ -515,10 +515,6 @@ export interface EventConfig {
   paymentMethod: PaymentMethod;
   paystackPublicKey: string;
   paystackSecretKey: string;
-  stripePublicKey: string;
-  stripeSecretKey: string;
-  paypalClientId: string;
-  paypalSecretKey: string;
   bankName: string;
   bankAccountName: string;
   bankAccountNumber: string;
@@ -555,13 +551,9 @@ export const eventConfigSchema = z.object({
   contactEmail: z.string().email().or(z.literal("")),
   contactPhone: z.string(),
   currency: z.string(),
-  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer"]),
+  paymentMethod: z.enum(["paystack", "bank_transfer", "flutterwave"]),
   paystackPublicKey: z.string(),
   paystackSecretKey: z.string(),
-  stripePublicKey: z.string(),
-  stripeSecretKey: z.string(),
-  paypalClientId: z.string(),
-  paypalSecretKey: z.string(),
   bankName: z.string(),
   bankAccountName: z.string(),
   bankAccountNumber: z.string(),

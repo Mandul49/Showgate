@@ -2,7 +2,7 @@ import { storage } from "./storage";
 import type { Organizer } from "@shared/schema";
 
 export const FREE_ALLOWED_PAYMENT_METHODS = ["paystack"];
-export const PRO_PAYMENT_METHODS = ["paystack", "flutterwave", "stripe", "paypal", "bank_transfer"];
+export const PRO_PAYMENT_METHODS = ["paystack", "flutterwave", "bank_transfer"];
 
 export async function getFreeMaxActiveEvents(): Promise<number> {
   const val = await storage.getPlatformSetting("free_max_active_events", "1");
@@ -40,7 +40,7 @@ export async function checkEventTierLimits(
   if (paymentMethod && !FREE_ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
     return {
       allowed: false,
-      message: "Free plan only supports Paystack. Upgrade to Pro for Stripe, PayPal, and Bank Transfer.",
+      message: "Free plan only supports Paystack. Upgrade to Pro for Flutterwave and Bank Transfer.",
       code: "TIER_PAYMENT_METHOD",
     };
   }

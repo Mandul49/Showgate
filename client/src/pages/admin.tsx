@@ -31,13 +31,9 @@ const formSchema = z.object({
   accentColor: z.string(),
   bgColor: z.string(),
   currency: z.string(),
-  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer"]),
+  paymentMethod: z.enum(["paystack", "bank_transfer", "flutterwave"]),
   paystackPublicKey: z.string(),
   paystackSecretKey: z.string(),
-  stripePublicKey: z.string(),
-  stripeSecretKey: z.string(),
-  paypalClientId: z.string(),
-  paypalSecretKey: z.string(),
   bankName: z.string(),
   bankAccountName: z.string(),
   bankAccountNumber: z.string(),
@@ -49,8 +45,6 @@ type FormValues = z.infer<typeof formSchema>;
 
 const PAYMENT_METHODS: { id: PaymentMethod; label: string; subtitle: string; badge: string; color: string }[] = [
   { id: "paystack", label: "Paystack", subtitle: "Nigeria · Ghana · Kenya · S.Africa", badge: "Africa", color: "#00C3F7" },
-  { id: "stripe", label: "Stripe", subtitle: "US · UK · EU · 135+ countries", badge: "Global", color: "#635BFF" },
-  { id: "paypal", label: "PayPal", subtitle: "200+ countries worldwide", badge: "Global", color: "#003087" },
   { id: "bank_transfer", label: "Bank Transfer", subtitle: "Manual — any bank, worldwide", badge: "Manual", color: "#22C55E" },
 ];
 
@@ -258,10 +252,6 @@ export default function Admin() {
         paymentMethod: data.paymentMethod || "paystack",
         paystackPublicKey: data.paystackPublicKey || "",
         paystackSecretKey: data.paystackSecretKey || "",
-        stripePublicKey: data.stripePublicKey || "",
-        stripeSecretKey: data.stripeSecretKey || "",
-        paypalClientId: data.paypalClientId || "",
-        paypalSecretKey: data.paypalSecretKey || "",
         bankName: data.bankName || "",
         bankAccountName: data.bankAccountName || "",
         bankAccountNumber: data.bankAccountNumber || "",
@@ -285,8 +275,6 @@ export default function Admin() {
       accentColor: "#D97706", bgColor: "#0d0d0d", currency: "NGN",
       paymentMethod: "paystack",
       paystackPublicKey: "", paystackSecretKey: "",
-      stripePublicKey: "", stripeSecretKey: "",
-      paypalClientId: "", paypalSecretKey: "",
       bankName: "", bankAccountName: "", bankAccountNumber: "",
       bankRoutingCode: "", bankTransferInstructions: "",
       isPublished: false,
@@ -575,50 +563,6 @@ export default function Admin() {
                     <FormItem>
                       <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Secret Key</FormLabel>
                       <FormControl><SecretInput field={field} placeholder="sk_live_..." /></FormControl>
-                    </FormItem>
-                  )} />
-                </div>
-              )}
-
-              {/* Stripe fields */}
-              {selectedMethod === "stripe" && (
-                <div className="space-y-4">
-                  <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-4 flex gap-3">
-                    <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-zinc-400 text-xs">Get your keys from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">dashboard.stripe.com/apikeys</a>. Use <strong className="text-zinc-300">Live</strong> keys (<code className="text-blue-300">pk_live_</code> and <code className="text-blue-300">sk_live_</code>) for real payments.</p>
-                  </div>
-                  <FormField control={form.control} name="stripePublicKey" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Publishable Key</FormLabel>
-                      <FormControl><Input {...field} placeholder="pk_live_..." className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-600 focus:border-amber-400 h-10 font-mono text-sm" /></FormControl>
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="stripeSecretKey" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Secret Key</FormLabel>
-                      <FormControl><SecretInput field={field} placeholder="sk_live_..." /></FormControl>
-                    </FormItem>
-                  )} />
-                </div>
-              )}
-
-              {/* PayPal fields */}
-              {selectedMethod === "paypal" && (
-                <div className="space-y-4">
-                  <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-4 flex gap-3">
-                    <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-zinc-400 text-xs">Create a REST API app at <a href="https://developer.paypal.com/developer/applications" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">developer.paypal.com</a> and copy your <strong className="text-zinc-300">Live</strong> Client ID and Secret.</p>
-                  </div>
-                  <FormField control={form.control} name="paypalClientId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Client ID</FormLabel>
-                      <FormControl><Input {...field} placeholder="AaBbCc..." className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-600 focus:border-amber-400 h-10 font-mono text-sm" /></FormControl>
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="paypalSecretKey" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Secret</FormLabel>
-                      <FormControl><SecretInput field={field} placeholder="EeXx..." /></FormControl>
                     </FormItem>
                   )} />
                 </div>

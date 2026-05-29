@@ -84,7 +84,7 @@ const newEventSchema = z.object({
   startTime: z.string().optional().nullable(),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.coerce.number().min(1, "Must be at least 1"),
-  paymentMethod: z.enum(["paystack", "stripe", "paypal", "bank_transfer", "flutterwave"]),
+  paymentMethod: z.enum(["paystack", "bank_transfer", "flutterwave"]),
   isActive: z.boolean(),
   description: z.string().optional(),
   coverImageUrl: z.string().optional().nullable(),
@@ -121,7 +121,7 @@ function fmtPrice(n: number) {
 }
 
 const PM_LABELS: Record<string, string> = {
-  paystack: "Paystack", stripe: "Stripe", paypal: "PayPal", bank_transfer: "Bank Transfer", flutterwave: "Flutterwave",
+  paystack: "Paystack", bank_transfer: "Bank Transfer", flutterwave: "Flutterwave",
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -326,8 +326,6 @@ function NewEventPanel({
                 <option value="paystack">Paystack</option>
                 {!isFree && <>
                   <option value="flutterwave">Flutterwave</option>
-                  <option value="stripe">Stripe</option>
-                  <option value="paypal">PayPal</option>
                   <option value="bank_transfer">Bank Transfer</option>
                 </>}
               </select>
