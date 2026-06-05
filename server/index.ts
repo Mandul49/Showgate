@@ -1,8 +1,25 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+  : null;
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // In dev (no ALLOWED_ORIGINS set) allow everything
+    if (!allowedOrigins) return callback(null, true);
+    // In prod allow same-origin requests and explicitly listed origins
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
+
 app.use(express.json({
   verify: (req: any, _res, buf) => { req.rawBody = buf; },
 }));

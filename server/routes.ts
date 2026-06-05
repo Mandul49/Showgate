@@ -17,6 +17,11 @@ import { registerAdminRoutes } from "./admin";
 import { sendConfirmationEmail, sendTestEmail } from "./email";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ─── Health check ─────────────────────────────────────────────────────────
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
   // ─── OG / Social preview (must be before Vite catch-all) ─────────────────
   registerOgRoutes(app);
 
