@@ -1,13 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { getToken } from "./auth";
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-
-function resolveUrl(url: string): string {
-  if (url.startsWith("/api") && API_BASE) return `${API_BASE}${url}`;
-  return url;
-}
-
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     if (res.status === 403) {
@@ -39,7 +32,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(resolveUrl(url), {
+  const res = await fetch(url, {
     method,
     headers: buildHeaders(data),
     body: data ? JSON.stringify(data) : undefined,
@@ -60,7 +53,7 @@ export const getQueryFn: <T>(options: {
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(resolveUrl(queryKey[0] as string), {
+    const res = await fetch(queryKey[0] as string, {
       headers,
       credentials: "include",
     });
