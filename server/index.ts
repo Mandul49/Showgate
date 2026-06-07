@@ -1,8 +1,32 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+const allowedOrigins = [
+  /\.vercel\.app$/,
+  /\.railway\.app$/,
+  /localhost/,
+  ...(process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+    : []),
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const allowed = allowedOrigins.some(p =>
+      typeof p === "string" ? p === origin : p.test(origin)
+    );
+    callback(null, allowed);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 app.use(express.json({
   verify: (req: any, _res, buf) => { req.rawBody = buf; },
 }));
