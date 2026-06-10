@@ -79,14 +79,7 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    try {
-      serveStatic(app);
-    } catch (err: any) {
-      log(`Static files not available (${err.message}) — running in API-only mode`);
-      app.use("*", (_req, res) => {
-        res.status(404).json({ message: "Frontend is served separately." });
-      });
-    }
+    serveStatic(app);
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
