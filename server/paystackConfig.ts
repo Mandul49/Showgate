@@ -24,7 +24,7 @@ export function getPaystackSecretKey(): string {
 export function getPaystackPublicKey(): string {
   return (
     isTestMode()
-      ? process.env.PAYSTACK_TEST_PUBBLIC_KEY
+      ? process.env.PAYSTACK_TEST_PUBLIC_KEY
       : process.env.PAYSTACK_PUBLIC_KEY
   ) || "";
 }
