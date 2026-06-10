@@ -1,7 +1,11 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function escapeHtml(str: string): string {
   return str
@@ -42,12 +46,12 @@ function buildOgTags(opts: {
 
 async function getIndexHtml(): Promise<string> {
   // In production the built files live at server/public/index.html
-  const prodPath = path.resolve(import.meta.dirname, "public", "index.html");
+  const prodPath = path.resolve(__dirname, "public", "index.html");
   if (fs.existsSync(prodPath)) {
     return fs.promises.readFile(prodPath, "utf-8");
   }
   // In development read the source template directly
-  const devPath = path.resolve(import.meta.dirname, "..", "client", "index.html");
+  const devPath = path.resolve(__dirname, "..", "client", "index.html");
   return fs.promises.readFile(devPath, "utf-8");
 }
 
