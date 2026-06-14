@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Mail, RefreshCw, ArrowLeft, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { clearToken, getUser } from "@/lib/auth";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 export default function CheckYourEmail() {
   const [location] = useLocation();
