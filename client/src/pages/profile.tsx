@@ -11,7 +11,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { Ticket, Lock, EyeOff, Eye, ArrowLeft, Mail, ShieldAlert, Trash2, LogOut, UserCircle } from "lucide-react";
 import { useEffect } from "react";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 function PasswordInput({ field, placeholder }: { field: any; placeholder: string }) {
   const [show, setShow] = useState(false);
