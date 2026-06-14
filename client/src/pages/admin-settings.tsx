@@ -91,13 +91,13 @@ export default function AdminSettings() {
 
   return (
     <AdminLayout>
-      <main className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50 flex items-center gap-2">
-            <Settings className="w-6 h-6 text-amber-500" />
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-50 flex items-center gap-2">
+            <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
             Platform Settings
           </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Global configuration for the Showgate platform</p>
+          <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">Global configuration for the Showgate platform</p>
         </div>
 
         {/* Maintenance Mode */}
