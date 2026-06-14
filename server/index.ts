@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, log } from "./vite";
 
 const app = express();
 
@@ -79,7 +79,9 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    app.get("/", (_req, res) => {
+      res.json({ status: "Showgate API running" });
+    });
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
