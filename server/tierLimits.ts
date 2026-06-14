@@ -31,8 +31,10 @@ export async function checkEventTierLimits(
     paymentMethod?: string;
     activating?: boolean;
     excludeEventId?: string;
+    userRole?: string;
   }
 ): Promise<TierCheckResult> {
+  if (opts.userRole === "admin") return { allowed: true };
   if (organizer.tier !== "free") return { allowed: true };
 
   const { paymentMethod, activating, excludeEventId } = opts;
@@ -69,8 +71,10 @@ export async function checkEventTierLimits(
  */
 export async function checkMonthlyTicketLimit(
   organizer: Organizer,
-  qty: number
+  qty: number,
+  userRole?: string
 ): Promise<TierCheckResult> {
+  if (userRole === "admin") return { allowed: true };
   if (organizer.tier !== "free") return { allowed: true };
 
   const maxMonthlyTickets = await getFreeMaxMonthlyTickets();
