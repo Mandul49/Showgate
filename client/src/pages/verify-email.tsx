@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { CheckCircle2, XCircle, Loader2, Ticket } from "lucide-react";
 import { setToken, saveUser } from "@/lib/auth";
 import { queryClient } from "@/lib/queryClient";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 type Status = "loading" | "success" | "error";
 
