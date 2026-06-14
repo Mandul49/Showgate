@@ -6,7 +6,7 @@ import {
   Zap, BarChart2, Palette, ArrowRight, Check, X, Menu,
   ChevronRight,
 } from "lucide-react";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 interface PublicStats {
   totalEvents: number;
