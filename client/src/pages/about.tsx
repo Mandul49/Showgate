@@ -1,7 +1,6 @@
 import { Link } from "wouter";
 import { Check, ArrowRight } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
-import heroImg from "@assets/aboutus_1781464618752.jpeg";
 
 export default function About() {
   return (
@@ -30,22 +29,14 @@ export default function About() {
         </div>
       </nav>
 
-      {/* ── Hero image ─────────────────────────────────────────────────────── */}
-      <section className="relative w-full min-h-[250px] sm:min-h-[400px] flex items-center justify-center overflow-hidden">
-        <img
-          src={heroImg}
-          alt="Showgate — West African event ticketing"
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-black/55" />
-        <div className="relative z-10 text-center px-5 py-16 sm:py-24">
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight drop-shadow-lg">
-            <span className="text-amber-400">About</span>{" "}
-            <span className="text-white">Showgate</span>
+      {/* ── Hero heading ───────────────────────────────────────────────────── */}
+      <section className="pt-20 pb-12 px-5 border-b border-zinc-800/50">
+        <div className="max-w-3xl mx-auto">
+          <h1 className="text-4xl sm:text-5xl font-black mb-4">
+            <span className="text-amber-400">About</span> Showgate
+            <img src={sgLogo} alt="" className="inline-block h-[40px] w-auto ml-3 align-middle" />
           </h1>
-          <p className="mt-4 text-zinc-300 text-base sm:text-lg max-w-xl mx-auto drop-shadow">
-            West African event ticketing, built for the people who make things happen.
-          </p>
+          <p className="text-zinc-500 text-lg">West African event ticketing, built for the people who make things happen.</p>
         </div>
       </section>
 
