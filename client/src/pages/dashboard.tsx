@@ -14,7 +14,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle,
+  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 
@@ -2274,6 +2274,7 @@ export default function Dashboard() {
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [showCancelSubModal, setShowCancelSubModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [downloadingRef, setDownloadingRef] = useState<string | null>(null);
   const [showProPopover, setShowProPopover] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const user = getUser();
@@ -2796,9 +2797,40 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      <p className="text-zinc-300 text-xs font-semibold flex-shrink-0">
-                        {new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(item.amountKobo / 100)}
-                      </p>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <p className="text-zinc-300 text-xs font-semibold">
+                          {new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(item.amountKobo / 100)}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setDownloadingRef(item.reference);
+                            const token = getToken();
+                            const url = `/api/upgrade/receipt/${encodeURIComponent(item.reference)}`;
+                            fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+                              .then((r) => { if (!r.ok) throw new Error("Failed"); return r.blob(); })
+                              .then((blob) => {
+                                const blobUrl = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = blobUrl;
+                                a.download = `receipt-${item.reference.slice(-8)}.pdf`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                              })
+                              .catch(() => toast({ title: "Download failed", description: "Could not generate receipt", variant: "destructive" }))
+                              .finally(() => setDownloadingRef(null));
+                          }}
+                          disabled={downloadingRef === item.reference}
+                          title="Download receipt"
+                          className="p-1 rounded-md border border-zinc-700 text-zinc-500 hover:text-zinc-200 hover:border-zinc-500 transition-colors disabled:opacity-40"
+                        >
+                          {downloadingRef === item.reference
+                            ? <RefreshCw className="w-3 h-3 animate-spin" />
+                            : <Download className="w-3 h-3" />
+                          }
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

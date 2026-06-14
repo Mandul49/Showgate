@@ -6,8 +6,9 @@ import { isAuthenticated } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Crown, ArrowLeft, Calendar, CreditCard, AlertTriangle,
-  CheckCircle2, Clock, Zap, Receipt, RefreshCw, X,
+  CheckCircle2, Clock, Zap, Receipt, RefreshCw, X, Download,
 } from "lucide-react";
+import { getToken } from "@/lib/auth";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +63,7 @@ export default function SubscriptionPage() {
   const qc = useQueryClient();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [downloadingRef, setDownloadingRef] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -268,9 +270,40 @@ export default function SubscriptionPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-white font-semibold text-sm">{fmtAmount(item.amountKobo)}</p>
-                    <p className="text-zinc-600 text-xs font-mono truncate max-w-[100px]">{item.reference.slice(-8)}</p>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="text-right">
+                      <p className="text-white font-semibold text-sm">{fmtAmount(item.amountKobo)}</p>
+                      <p className="text-zinc-600 text-xs font-mono truncate max-w-[100px]">{item.reference.slice(-8)}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDownloadingRef(item.reference);
+                        const token = getToken();
+                        const url = `/api/upgrade/receipt/${encodeURIComponent(item.reference)}`;
+                        fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+                          .then((r) => { if (!r.ok) throw new Error("Failed"); return r.blob(); })
+                          .then((blob) => {
+                            const blobUrl = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = blobUrl;
+                            a.download = `receipt-${item.reference.slice(-8)}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                          })
+                          .catch(() => toast({ title: "Download failed", description: "Could not generate receipt", variant: "destructive" }))
+                          .finally(() => setDownloadingRef(null));
+                      }}
+                      disabled={downloadingRef === item.reference}
+                      title="Download receipt"
+                      className="p-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-40"
+                    >
+                      {downloadingRef === item.reference
+                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        : <Download className="w-3.5 h-3.5" />
+                      }
+                    </button>
                   </div>
                 </div>
               ))}

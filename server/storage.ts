@@ -260,6 +260,7 @@ export interface IStorage {
   getMonthlyTicketCountByOrganizerId(organizerId: string): Promise<number>;
   // Subscription References (upgrade replay-attack prevention)
   hasSubscriptionReference(reference: string): Promise<boolean>;
+  getSubscriptionByReference(reference: string): Promise<SubscriptionReference | undefined>;
   recordSubscriptionReference(reference: string, userId: string, plan: string, amountKobo?: number): Promise<void>;
   getSubscriptionHistory(userId: string): Promise<SubscriptionReference[]>;
   // Subscription management
@@ -768,6 +769,13 @@ export class DbStorage implements IStorage {
       .from(subscriptionReferences)
       .where(eq(subscriptionReferences.reference, reference));
     return !!row;
+  }
+
+  async getSubscriptionByReference(reference: string): Promise<SubscriptionReference | undefined> {
+    const [row] = await db.select()
+      .from(subscriptionReferences)
+      .where(eq(subscriptionReferences.reference, reference));
+    return row;
   }
 
   async recordSubscriptionReference(reference: string, userId: string, plan: string, amountKobo?: number): Promise<void> {

@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import PDFDocument from "pdfkit";
 import type { Express, Request, Response } from "express";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
@@ -441,6 +442,109 @@ export function registerUpgradeRoutes(app: Express): void {
       );
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/upgrade/receipt/:reference — generate and download a PDF receipt
+  app.get("/api/upgrade/receipt/:reference", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { reference } = req.params;
+      const userId = req.userId!;
+
+      const record = await storage.getSubscriptionByReference(reference);
+      if (!record) {
+        return res.status(404).json({ message: "Receipt not found" });
+      }
+      if (record.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const [user, organizer] = await Promise.all([
+        storage.getUserById(userId),
+        storage.getOrganizerByUserId(userId),
+      ]);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const pa = await getPlanAmountsFromDb();
+      const amountKobo = record.amountKobo ?? (record.plan === "yearly" ? pa.yearly : pa.monthly);
+      const amountNaira = amountKobo / 100;
+      const planLabel = record.plan === "yearly" ? "Pro Yearly" : "Pro Monthly";
+      const dateStr = new Date(record.fulfilledAt).toLocaleDateString("en-GB", {
+        day: "numeric", month: "long", year: "numeric",
+      });
+      const amountStr = new Intl.NumberFormat("en-NG", {
+        style: "currency", currency: "NGN", minimumFractionDigits: 0,
+      }).format(amountNaira);
+      const businessName = organizer?.businessName ?? null;
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="receipt-${reference.slice(-8)}.pdf"`
+      );
+
+      const doc = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
+      doc.pipe(res);
+
+      // Header bar
+      doc.rect(0, 0, doc.page.width, 6).fill("#7c3aed");
+
+      // Title
+      doc.moveDown(1.5);
+      doc.font("Helvetica-Bold").fontSize(22).fillColor("#1a1a1a").text("Payment Receipt", { align: "left" });
+      doc.moveDown(0.3);
+      doc.font("Helvetica").fontSize(11).fillColor("#666666").text("Showgate Pro Subscription", { align: "left" });
+
+      // Divider
+      doc.moveDown(1.2);
+      doc.moveTo(60, doc.y).lineTo(doc.page.width - 60, doc.y).strokeColor("#e5e7eb").lineWidth(1).stroke();
+      doc.moveDown(1);
+
+      // Receipt details table
+      const labelX = 60;
+      const valueX = 220;
+      const rowH = 24;
+
+      function row(label: string, value: string, bold = false) {
+        const y = doc.y;
+        doc.font("Helvetica").fontSize(10).fillColor("#888888").text(label, labelX, y);
+        doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(10).fillColor("#1a1a1a").text(value, valueX, y);
+        doc.moveDown(0.75);
+      }
+
+      row("Date", dateStr);
+      row("Reference", reference);
+      row("Plan", planLabel);
+      if (businessName) row("Organizer", businessName);
+      row("Email", user.email);
+      doc.moveDown(0.3);
+
+      // Amount highlight box
+      doc.moveDown(0.5);
+      const boxY = doc.y;
+      doc.rect(labelX, boxY, doc.page.width - 120, 40).fill("#f5f3ff");
+      doc.font("Helvetica").fontSize(10).fillColor("#7c3aed").text("Amount Paid", labelX + 14, boxY + 9);
+      doc.font("Helvetica-Bold").fontSize(14).fillColor("#5b21b6").text(amountStr, valueX + 40, boxY + 6);
+      doc.moveDown(3);
+
+      // Status badge
+      doc.moveDown(0.5);
+      doc.font("Helvetica-Bold").fontSize(10).fillColor("#059669").text("✓ Payment confirmed", labelX);
+
+      // Footer
+      doc.moveDown(2.5);
+      doc.moveTo(60, doc.y).lineTo(doc.page.width - 60, doc.y).strokeColor("#e5e7eb").lineWidth(1).stroke();
+      doc.moveDown(0.8);
+      doc.font("Helvetica").fontSize(9).fillColor("#aaaaaa")
+        .text("Showgate · This receipt was generated automatically and is valid without a signature.", labelX, doc.y, {
+          align: "center", width: doc.page.width - 120,
+        });
+
+      doc.end();
+    } catch (err: any) {
+      if (!res.headersSent) {
+        return res.status(500).json({ message: err.message });
+      }
     }
   });
 
