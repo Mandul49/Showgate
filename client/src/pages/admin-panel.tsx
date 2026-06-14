@@ -106,14 +106,14 @@ function StatCard({ icon: Icon, label, value, sub }: {
   sub?: string;
 }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex items-center gap-4">
-      <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-        <Icon className="w-5 h-5 text-amber-400" />
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-5 flex items-center gap-2 sm:gap-4">
+      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
       </div>
       <div className="min-w-0">
-        <p className="text-zinc-500 text-xs uppercase tracking-widest mb-0.5">{label}</p>
-        <p className="text-white font-bold text-xl leading-none">{value.toLocaleString()}</p>
-        {sub && <p className="text-zinc-600 text-xs mt-0.5">{sub}</p>}
+        <p className="text-zinc-500 text-[10px] sm:text-xs uppercase tracking-widest mb-0.5 leading-tight">{label}</p>
+        <p className="text-white font-bold text-base sm:text-xl leading-none">{value.toLocaleString()}</p>
+        {sub && <p className="text-zinc-600 text-[10px] sm:text-xs mt-0.5 leading-tight">{sub}</p>}
       </div>
     </div>
   );
@@ -467,7 +467,7 @@ export default function AdminPanel() {
 
   return (
     <AdminLayout>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
 
         {/* Stats row 1 */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
