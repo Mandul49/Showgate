@@ -1,14 +1,4 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "../dist/public"
-      }
-    }
-  ],
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://showgate-production.up.railway.app/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
