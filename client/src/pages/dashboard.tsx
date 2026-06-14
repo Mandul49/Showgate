@@ -2439,48 +2439,49 @@ export default function Dashboard() {
                 )}
               </div>
             )}
-            {user && upgradeStatus?.proExpiresAt && (
+            {user && (
               <div className="relative sm:hidden">
                 <button
                   onClick={() => setShowProPopover(v => !v)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
-                  aria-label="Subscription details"
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800"
+                  aria-label="Account info"
                 >
-                  {tier === "pro" ? (
-                    <TierBadge tier="pro" />
-                  ) : (
-                    <span className="text-[11px] font-semibold text-zinc-500">Pro – expired</span>
-                  )}
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-zinc-700 text-[10px] font-bold text-zinc-300 uppercase leading-none">
+                    {user.email.slice(0, 2)}
+                  </span>
+                  <TierBadge tier={tier || user.tier} />
                 </button>
                 {showProPopover && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowProPopover(false)} />
                     <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[180px] rounded-lg bg-zinc-900 border border-zinc-800 shadow-xl px-3 py-2.5">
                       <p className="text-zinc-400 text-xs truncate mb-1">{user.email}</p>
-                      {tier === "pro" ? (
-                        <p className="text-zinc-500 text-[11px]">
-                          {upgradeStatus.cancelledAt ? "Expires" : "Renews"}{" "}
-                          <span className="text-zinc-300 font-medium">
-                            {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                          </span>
-                        </p>
-                      ) : (
-                        <>
+                      {upgradeStatus?.proExpiresAt ? (
+                        tier === "pro" ? (
                           <p className="text-zinc-500 text-[11px]">
-                            Expired{" "}
+                            {upgradeStatus.cancelledAt ? "Expires" : "Renews"}{" "}
                             <span className="text-zinc-300 font-medium">
                               {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                             </span>
                           </p>
-                          <a
-                            href="/subscription"
-                            onClick={() => setShowProPopover(false)}
-                            className="mt-2 block text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors"
-                          >
-                            Renew Pro →
-                          </a>
-                        </>
-                      )}
+                        ) : (
+                          <>
+                            <p className="text-zinc-500 text-[11px]">
+                              Expired{" "}
+                              <span className="text-zinc-300 font-medium">
+                                {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
+                            </p>
+                            <a
+                              href="/subscription"
+                              onClick={() => setShowProPopover(false)}
+                              className="mt-2 block text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                            >
+                              Renew Pro →
+                            </a>
+                          </>
+                        )
+                      ) : null}
                     </div>
                   </>
                 )}
