@@ -202,16 +202,21 @@ export function registerEventsRoutes(app: Express) {
 
       const { name, price, quantityAvailable, groupSize, groupLabel } = parsed.data;
 
+      // Validate the new tier doesn't exceed the event's total capacity
+      const existingTypes = await storage.getTicketTypesByEventId(event.id);
+      const alreadyAllocated = existingTypes.reduce((sum, t) => sum + t.quantityAvailable, 0);
+      if (alreadyAllocated + quantityAvailable > event.maxTickets) {
+        const remaining = event.maxTickets - alreadyAllocated;
+        return res.status(400).json({
+          message: `Would exceed event capacity. Only ${remaining} ticket${remaining === 1 ? "" : "s"} remain unallocated.`,
+        });
+      }
+
       const ticketType = await storage.createTicketType({
         eventId: event.id, name, price, quantityAvailable,
         groupSize: groupSize ?? 1,
         groupLabel: groupLabel ?? null,
       });
-
-      // Sync event capacity to sum of all ticket tiers
-      const allTypesAfterCreate = await storage.getTicketTypesByEventId(event.id);
-      const newCapacity = allTypesAfterCreate.reduce((sum, t) => sum + t.quantityAvailable, 0);
-      await storage.updateEvent(event.id, { maxTickets: newCapacity });
 
       return res.status(201).json(ticketType);
     } catch (err: any) {
@@ -667,12 +672,20 @@ export function registerEventsRoutes(app: Express) {
         });
       }
 
-      const updated = await storage.updateTicketType(ticketType.id, updates);
+      // Validate the updated quantity doesn't push total allocation above event capacity
+      if (updates.quantityAvailable !== undefined) {
+        const allTypes = await storage.getTicketTypesByEventId(event.id);
+        const otherAllocated = allTypes
+          .filter((t) => t.id !== ticketType.id)
+          .reduce((sum, t) => sum + t.quantityAvailable, 0);
+        if (otherAllocated + updates.quantityAvailable > event.maxTickets) {
+          return res.status(400).json({
+            message: `Would exceed event capacity of ${event.maxTickets} tickets.`,
+          });
+        }
+      }
 
-      // Sync event capacity to sum of all ticket tiers
-      const allTypesAfterUpdate = await storage.getTicketTypesByEventId(event.id);
-      const newCapacity = allTypesAfterUpdate.reduce((sum, t) => sum + t.quantityAvailable, 0);
-      await storage.updateEvent(event.id, { maxTickets: newCapacity });
+      const updated = await storage.updateTicketType(ticketType.id, updates);
 
       return res.json(updated);
     } catch (err: any) {

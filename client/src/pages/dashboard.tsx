@@ -1194,6 +1194,7 @@ function EventCard({
     const newVal = parseInt(capInput, 10);
     if (isNaN(newVal) || newVal < 1) { setCapError("Must be a valid number."); return; }
     if (newVal < totalSold) { setCapError(`Cannot set below tickets already sold (${totalSold}).`); return; }
+    if (newVal < totalAvailable) { setCapError(`Cannot set below allocated tier total (${totalAvailable}).`); return; }
     setSavingCapacity(true);
     try {
       const res = await apiRequest("PATCH", `/api/events/${event.id}`, { maxTickets: newVal });
