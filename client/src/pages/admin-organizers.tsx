@@ -154,10 +154,10 @@ export default function AdminOrganizers() {
 
   return (
     <AdminLayout>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Organizers</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">{data.length} total registered</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-50">Organizers</h1>
+          <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">{data.length} total registered</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
