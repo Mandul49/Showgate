@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Ticket, Mail, ArrowLeft, RefreshCw, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 export default function ResendVerification() {
   const [email, setEmail] = useState("");
