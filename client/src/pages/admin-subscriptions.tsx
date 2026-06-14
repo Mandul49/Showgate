@@ -87,14 +87,14 @@ function StatCard({ icon: Icon, label, value, sub, accent = "amber" }: {
     green: "text-green-400 bg-green-500/10",
   };
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex items-center gap-4">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cols[accent] ?? cols.amber}`}>
-        <Icon className="w-5 h-5" />
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cols[accent] ?? cols.amber}`}>
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
       </div>
       <div>
-        <p className="text-zinc-500 text-xs uppercase tracking-widest">{label}</p>
-        <p className="text-white font-bold text-xl leading-tight">{typeof value === "number" ? value.toLocaleString() : value}</p>
-        {sub && <p className="text-zinc-600 text-xs mt-0.5">{sub}</p>}
+        <p className="text-zinc-500 text-[10px] sm:text-xs uppercase tracking-widest">{label}</p>
+        <p className="text-white font-bold text-base sm:text-xl leading-tight">{typeof value === "number" ? value.toLocaleString() : value}</p>
+        {sub && <p className="text-zinc-600 text-[10px] sm:text-xs mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -185,12 +185,12 @@ export default function AdminSubscriptions() {
 
   return (
     <AdminLayout>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Subscriptions</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">{allSubs.length} Pro accounts total</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-50">Subscriptions</h1>
+          <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">{allSubs.length} Pro accounts total</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <StatCard icon={Users} label="Active Subscribers" value={stats?.activeSubscribers ?? "—"} accent="blue" />
           <StatCard icon={TrendingDown} label="Churned This Month" value={stats?.churnedThisMonth ?? "—"} accent="red" />
           <StatCard icon={DollarSign} label="Revenue This Month" value={stats ? fmtNaira(stats.revenueThisMonth) : "—"} accent="green" />
