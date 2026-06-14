@@ -7,7 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Ticket, Lock, EyeOff, Eye, ArrowLeft, KeyRound } from "lucide-react";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 const schema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
