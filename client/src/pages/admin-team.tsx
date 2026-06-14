@@ -179,21 +179,22 @@ export default function AdminTeam() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         {/* ── Header ─────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start sm:items-center justify-between gap-3 mb-6 sm:mb-8">
           <div className="flex items-center gap-3">
-            <UsersRound className="w-6 h-6 text-amber-400" />
+            <UsersRound className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 flex-shrink-0" />
             <div>
-              <h1 className="text-2xl font-bold text-white">Admin Team</h1>
-              <p className="text-sm text-zinc-400 mt-0.5">Manage who has admin access to the platform</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Admin Team</h1>
+              <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">Manage who has admin access to the platform</p>
             </div>
           </div>
           <Button
             onClick={() => { addForm.reset({ email: "", roles: ["admin"], note: "" }); setAddOpen(true); }}
-            className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
+            className="bg-amber-500 hover:bg-amber-400 text-black font-semibold flex-shrink-0 text-xs sm:text-sm px-3 sm:px-4"
+            size="sm"
           >
-            <UserPlus className="w-4 h-4 mr-2" />
+            <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" />
             Add Admin
           </Button>
         </div>
