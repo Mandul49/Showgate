@@ -46,6 +46,16 @@ export interface AuthRequest extends Request {
   userAdminRole?: AdminRole[] | null;
 }
 
+/** Returns true for any user that should bypass all subscription/tier gates. */
+export function isAdminUser(role?: string | null, adminRole?: AdminRole[] | null): boolean {
+  return role === "admin" || (Array.isArray(adminRole) && adminRole.includes("super_admin"));
+}
+
+/** Returns the effective tier for a user — always "pro" for admin accounts. */
+export function effectiveTier(tier: string, role?: string | null, adminRole?: AdminRole[] | null): "free" | "pro" {
+  return isAdminUser(role, adminRole) ? "pro" : (tier as "free" | "pro");
+}
+
 export function requireAdminRole(allowedRoles: AdminRole[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     const roles = req.userAdminRole ?? [];
@@ -92,8 +102,8 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
       return res.status(401).json({ message: "User not found. Please log in again." });
     }
     req.userId = payload.userId;
-    req.userRole = payload.role;
-    req.userTier = payload.tier;
+    req.userRole = user.role;
+    req.userTier = effectiveTier(user.tier, user.role, user.adminRole);
     next();
   } catch {
     return res.status(401).json({ message: "Invalid or expired token. Please log in again." });
@@ -193,7 +203,7 @@ export function registerAuthRoutes(app: Express) {
 
       return res.json({
         token,
-        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: user.emailVerified, adminRole: user.adminRole ?? null },
+        user: { id: user.id, email: user.email, role: user.role, tier: effectiveTier(user.tier, user.role, user.adminRole), emailVerified: user.emailVerified, adminRole: user.adminRole ?? null },
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -224,7 +234,7 @@ export function registerAuthRoutes(app: Express) {
 
       return res.json({
         token: newJwt,
-        user: { id: user.id, email: user.email, role: user.role, tier: user.tier, emailVerified: true },
+        user: { id: user.id, email: user.email, role: user.role, tier: effectiveTier(user.tier, user.role, user.adminRole), emailVerified: true },
       });
     } catch (err: any) {
       console.error("[auth] verify-email error:", err);
@@ -453,7 +463,7 @@ export function registerAuthRoutes(app: Express) {
     try {
       const user = await storage.getUserById(req.userId!);
       if (!user) return res.status(404).json({ message: "User not found" });
-      return res.json({ id: user.id, email: user.email, role: user.role, tier: user.tier });
+      return res.json({ id: user.id, email: user.email, role: user.role, tier: effectiveTier(user.tier, user.role, user.adminRole) });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
