@@ -7,7 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Ticket, Mail, ArrowLeft, KeyRound, CheckCircle2 } from "lucide-react";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email address"),
