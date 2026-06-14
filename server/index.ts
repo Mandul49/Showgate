@@ -5,22 +5,31 @@ import { setupVite, log } from "./vite";
 
 const app = express();
 
-const allowedOrigins = [
+const allowedOrigins: (string | RegExp)[] = [
+  // Explicit Vercel deployment URLs
+  "https://showgate-b6kfqc07f-mandul-johnson-s-projects.vercel.app",
+  "https://showgate.vercel.app",
+  // Local development
+  "http://localhost:5000",
+  "http://localhost:3000",
+  // Catch-all patterns for any Vercel/Railway preview URLs
   /\.vercel\.app$/,
   /\.railway\.app$/,
   /localhost/,
+  // Any extra origins injected via environment variable (comma-separated)
   ...(process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
     : []),
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow non-browser requests (curl, server-to-server) with no Origin header
     if (!origin) return callback(null, true);
-    const allowed = allowedOrigins.some(p =>
+    const allowed = allowedOrigins.some((p) =>
       typeof p === "string" ? p === origin : p.test(origin)
     );
-    callback(null, allowed);
+    callback(allowed ? null : new Error(`CORS: origin not allowed — ${origin}`), allowed);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
