@@ -16,7 +16,7 @@ import {
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
   Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle,
 } from "lucide-react";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
