@@ -15,6 +15,7 @@ const allowedOrigins: (string | RegExp)[] = [
   // Catch-all patterns for any Vercel/Railway preview URLs
   /\.vercel\.app$/,
   /\.railway\.app$/,
+  /\.replit\.dev$/,
   /localhost/,
   // Any extra origins injected via environment variable (comma-separated)
   ...(process.env.ALLOWED_ORIGINS
