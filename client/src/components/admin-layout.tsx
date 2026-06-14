@@ -4,7 +4,7 @@ import {
   Settings, ArrowLeft, ShieldCheck, UsersRound,
 } from "lucide-react";
 import { getUser } from "@/lib/auth";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 type AdminRole = "super_admin" | "admin" | "support" | "finance";
 
