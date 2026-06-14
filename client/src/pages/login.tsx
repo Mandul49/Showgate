@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { setToken, saveUser } from "@/lib/auth";
 import { queryClient } from "@/lib/queryClient";
 import { Ticket, Mail, Lock, EyeOff, Eye, ArrowLeft, Zap } from "lucide-react";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
