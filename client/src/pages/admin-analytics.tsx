@@ -143,15 +143,15 @@ export default function AdminAnalytics() {
 
   return (
     <AdminLayout>
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {/* Title */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-zinc-50 flex items-center gap-2">
-              <BarChart2 className="w-6 h-6 text-amber-500" />
+            <h1 className="text-xl sm:text-2xl font-bold text-zinc-50 flex items-center gap-2">
+              <BarChart2 className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
               Platform Analytics
             </h1>
-            <p className="text-sm text-zinc-500 mt-0.5">All-time platform performance and growth metrics</p>
+            <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">All-time platform performance and growth metrics</p>
           </div>
           <Button
             variant="outline"
@@ -384,13 +384,13 @@ export default function AdminAnalytics() {
 
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-1">
-      <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 sm:p-4 space-y-1">
+      <div className="flex items-center gap-2 text-[10px] sm:text-xs text-zinc-500 mb-1 sm:mb-2">
         {icon}
         {label}
       </div>
-      <div className="text-2xl font-bold text-zinc-50 tabular-nums">{value}</div>
-      <div className="text-[10px] text-zinc-600">{sub}</div>
+      <div className="text-lg sm:text-2xl font-bold text-zinc-50 tabular-nums">{value}</div>
+      <div className="text-[10px] text-zinc-600 leading-tight">{sub}</div>
     </div>
   );
 }
