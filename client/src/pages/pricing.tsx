@@ -5,7 +5,7 @@ import { Check, X, Zap, Loader2, Ticket, ArrowLeft } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 interface UpgradeStatus {
   tier: "free" | "pro";
