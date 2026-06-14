@@ -25,12 +25,14 @@ import AdminEvents from "@/pages/admin-events";
 import AdminAnalytics from "@/pages/admin-analytics";
 import AdminSettings from "@/pages/admin-settings";
 import AdminTeam from "@/pages/admin-team";
+import About from "@/pages/about";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/about" component={About} />
       <Route path="/e/:id" component={EventPage} />
       <Route path="/purchase-success" component={PurchaseSuccess} />
       <Route path="/success" component={Success} />

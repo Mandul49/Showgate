@@ -1,0 +1,35 @@
+Here's the complete combined prompt:
+
+---
+
+> Find the About Us section or page in the frontend code and replace its content with the following text exactly as written. If there is no dedicated About page, add one at the route `/about` and add an "About" link to the navigation menu.
+>
+> **Page title:** About Showgate
+>
+> **Body content:**
+>
+> Showgate is a West African event ticketing platform built for the people who make things happen — the organizers, promoters, creatives, and community builders who bring people together.
+>
+> Founded in 2026, Showgate was created out of a simple frustration: existing ticketing platforms were too complex, too expensive, and not built with African organizers in mind. Foreign platforms charge high fees, require foreign cards, and offer tools that feel disconnected from how events actually work on the ground in Nigeria and across West Africa.
+>
+> We built something different.
+>
+> Showgate gives individual event organizers everything they need to sell tickets online, collect payments seamlessly through Paystack, and understand their audience through accurate, real-time data — all in one clean, affordable platform.
+>
+> No hidden fees. No foreign card friction. No unnecessary complexity.
+>
+> **Our Mission:** To make event ticketing simple, accessible, and affordable for every organizer in West Africa — from the independent concert promoter in Lagos to the church coordinator in Jos.
+>
+> **Our Vision:** To make event ticketing simple, accessible, and affordable for every organizer.
+>
+> Style it to match the existing dark/gold Showgate design theme. Mission and Vision should be visually distinct — bold labels with the text beside or below them.
+>
+> Below the main About content, add a **Core Values** section with three values styled exactly like the PRO pricing tier card — dark background, gold accents, checkmark icons, and gold border. The three core values are:
+>
+> **Simplicity First** — Powerful tools don't have to be complicated. Everything we build is designed to be used by anyone — no technical skill required.
+>
+> **Built for Here** — We build for African realities — local payment systems, local infrastructure, local organizers. Not an adaptation of something foreign. Built from the ground up for this context.
+>
+> **Data That Empowers** — Organizers deserve to know their audience. Real numbers, real insights, real decisions — so every event is better than the last.
+>
+> Display the three core value cards in a row on desktop and stacked on mobile. Do NOT add the core values to the home page — only on the `/about` page.

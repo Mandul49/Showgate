@@ -93,6 +93,11 @@ export default function Home() {
           </span>
           {/* Desktop links */}
           <div className="hidden sm:flex items-center gap-3">
+            <Link href="/about">
+              <button className="px-4 py-2 text-zinc-400 hover:text-white text-sm font-semibold transition-colors">
+                About
+              </button>
+            </Link>
             {authed ? (
               <Link href="/dashboard">
                 <button className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors">
@@ -121,6 +126,11 @@ export default function Home() {
         </div>
         {menuOpen && (
           <div className="sm:hidden border-t border-zinc-800 px-5 py-4 flex flex-col gap-3 bg-[#0d0d0d]">
+            <Link href="/about">
+              <button className="w-full px-4 py-2.5 rounded-xl border border-zinc-800 text-zinc-400 font-semibold text-sm hover:border-zinc-600 hover:text-white transition-colors text-left">
+                About
+              </button>
+            </Link>
             {authed ? (
               <Link href="/dashboard">
                 <button className="w-full px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm transition-colors">
@@ -388,11 +398,23 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-black mb-8"><span className="text-amber-400">About</span> Showgate<img src={sgLogo} alt="" className="inline-block h-[36px] w-auto ml-2 align-middle" /></h2>
             <div className="space-y-5 text-zinc-400 leading-relaxed text-base">
               <p>
-                Showgate was built for event organizers who are tired of complicated platforms that take a cut of everything and make buyers feel like they are on someone else's stage. We built the tools you need and got out of the way.
+                Showgate is a West African event ticketing platform built for the people who make things happen — the organizers, promoters, creatives, and community builders who bring people together.
               </p>
               <p>
-                Whether you are running a concert, a conference, a church event, or a private dinner — Showgate gives you the infrastructure to sell professionally, brand boldly, and understand your audience fully.
+                Founded in 2026, Showgate was created out of a simple frustration: existing ticketing platforms were too complex, too expensive, and not built with African organizers in mind. Foreign platforms charge high fees, require foreign cards, and offer tools that feel disconnected from how events actually work on the ground in Nigeria and across West Africa.
               </p>
+              <p className="text-white font-semibold">We built something different.</p>
+              <p>
+                Showgate gives individual event organizers everything they need to sell tickets online, collect payments seamlessly through Paystack, and understand their audience through accurate, real-time data — all in one clean, affordable platform.
+              </p>
+              <p className="text-amber-400 font-semibold">No hidden fees. No foreign card friction. No unnecessary complexity.</p>
+            </div>
+            <div className="mt-8">
+              <Link href="/about">
+                <button className="text-sm text-amber-400 hover:text-amber-300 font-semibold transition-colors underline underline-offset-4">
+                  Read more about us →
+                </button>
+              </Link>
             </div>
           </FadeSection>
         </div>
