@@ -13,7 +13,7 @@ import {
   Building2, Landmark, Hash, ShieldCheck, CheckCircle2,
   ArrowRight, Ticket, ChevronDown, Loader2, BadgeCheck, AlertCircle
 } from "lucide-react";
-import sgLogo from "@assets/showgate-logo.png";
+import sgLogo from "../assets/showgate-logo.png";
 
 interface PaystackBank {
   id: number;
