@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { requireAuth, type AuthRequest } from "./auth";
+import { requireAuth, effectiveTier, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import {
   createEventSchema, updateEventSchema,
@@ -43,9 +43,11 @@ export function registerEventsRoutes(app: Express) {
       const maxActiveEvents = await getFreeMaxActiveEvents();
       const maxMonthlyTickets = await getFreeMaxMonthlyTickets();
 
+      const resolvedTier = effectiveTier(organizer.tier, req.userRole);
+
       return res.json({
         events: eventsWithTypes,
-        tier: organizer.tier,
+        tier: resolvedTier,
         paystackMode: getPaystackMode(),
         organizer: {
           testSubaccountCode: organizer.testSubaccountCode,
@@ -53,9 +55,9 @@ export function registerEventsRoutes(app: Express) {
           hasLiveSubaccount: !!organizer.subaccountCode,
         },
         limits: {
-          maxActiveEvents: organizer.tier === "free" ? maxActiveEvents : null,
-          maxMonthlyTickets: organizer.tier === "free" ? maxMonthlyTickets : null,
-          allowedPaymentMethods: organizer.tier === "free" ? FREE_ALLOWED_PAYMENT_METHODS : null,
+          maxActiveEvents: resolvedTier === "free" ? maxActiveEvents : null,
+          maxMonthlyTickets: resolvedTier === "free" ? maxMonthlyTickets : null,
+          allowedPaymentMethods: resolvedTier === "free" ? FREE_ALLOWED_PAYMENT_METHODS : null,
         },
       });
     } catch (err: any) {
