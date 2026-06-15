@@ -144,12 +144,9 @@ export default function Home() {
             <Zap className="w-3.5 h-3.5" /> Built for serious event organizers
           </div>
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight leading-[1.05] mb-6">
-            The easiest way to
-            <span className="block text-amber-400">run your event.</span>
+            <span className="text-white">Create events, sell tickets,</span>
+            <span className="block text-amber-400">and get paid directly.</span>
           </h1>
-          <p className="text-lg sm:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Create events, sell tickets, get paid directly.
-          </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/login">
               <button className="flex items-center gap-2 px-7 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-base transition-colors shadow-lg shadow-amber-900/30">
