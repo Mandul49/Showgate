@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { isAuthenticated } from "@/lib/auth";
 import {
   Zap, BarChart2, Palette, ArrowRight, Check, X, Menu,
-  ChevronRight, CreditCard, Clock,
+  ChevronRight, CreditCard, Clock, ImageIcon,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 
@@ -292,6 +292,55 @@ export default function Home() {
                   </div>
                   <h3 className="text-base font-bold mb-2">{feat.title}</h3>
                   <p className="text-zinc-400 text-sm leading-relaxed">{feat.desc}</p>
+                </div>
+              </FadeSection>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Dashboard Screenshots ─────────────────────────────────────────── */}
+      <section className="py-24 px-5">
+        <div className="max-w-6xl mx-auto">
+          <FadeSection className="text-center mb-14">
+            <h2 className="text-3xl sm:text-4xl font-black mb-4">
+              See your event{" "}
+              <span className="text-amber-400">clearly</span>
+            </h2>
+            <p className="text-zinc-400 max-w-xl mx-auto">
+              Track ticket sales, revenue, attendees, and performance from one dashboard.
+            </p>
+          </FadeSection>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              { src: "/screenshots/dashboard-1.png", label: "Analytics Overview" },
+              { src: "/screenshots/dashboard-2.png", label: "Revenue & Sales" },
+              { src: "/screenshots/dashboard-3.png", label: "Buyers & Comparison" },
+            ].map((item, i) => (
+              <FadeSection key={i}>
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 overflow-hidden group hover:border-amber-500/30 transition-all">
+                  <div className="relative w-full aspect-video bg-zinc-900">
+                    <img
+                      src={item.src}
+                      alt={item.label}
+                      className="w-full h-full object-cover object-top"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
+                      }}
+                    />
+                    <div
+                      className="absolute inset-0 hidden flex-col items-center justify-center gap-3 bg-zinc-900"
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center">
+                        <ImageIcon className="w-6 h-6 text-zinc-600" />
+                      </div>
+                      <span className="text-zinc-600 text-xs font-medium tracking-wide">Dashboard Preview</span>
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 border-t border-zinc-800">
+                    <p className="text-xs font-medium text-zinc-400 tracking-wide">{item.label}</p>
+                  </div>
                 </div>
               </FadeSection>
             ))}
