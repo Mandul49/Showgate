@@ -50,3 +50,8 @@ input:focus, textarea:focus {
   border-color: #EAB308 !important;
   box-shadow: 0 0 0 1px #EAB30840 !important;
 }
+
+@keyframes lightboxFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

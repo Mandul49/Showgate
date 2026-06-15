@@ -40,6 +40,7 @@ function FadeSection({ children, className = "" }: { children: React.ReactNode; 
 export default function Home() {
   const authed = isAuthenticated();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const howItWorksRef = useRef<HTMLElement>(null);
 
   function scrollToHowItWorks(e: React.MouseEvent) {
@@ -318,20 +319,21 @@ export default function Home() {
               { src: "/screenshots/dashboard-3.png", label: "Buyers & Comparison" },
             ].map((item, i) => (
               <FadeSection key={i}>
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 overflow-hidden group hover:border-amber-500/30 transition-all">
+                <div
+                  className="rounded-2xl border border-zinc-800 bg-zinc-900/50 overflow-hidden group hover:border-amber-500/30 transition-all cursor-zoom-in"
+                  onClick={() => setLightbox(item.src)}
+                >
                   <div className="relative w-full aspect-video bg-zinc-900">
                     <img
                       src={item.src}
                       alt={item.label}
-                      className="w-full h-full object-cover object-top"
+                      className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display = "none";
                         (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
                       }}
                     />
-                    <div
-                      className="absolute inset-0 hidden flex-col items-center justify-center gap-3 bg-zinc-900"
-                    >
+                    <div className="absolute inset-0 hidden flex-col items-center justify-center gap-3 bg-zinc-900">
                       <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center">
                         <ImageIcon className="w-6 h-6 text-zinc-600" />
                       </div>
@@ -345,6 +347,29 @@ export default function Home() {
               </FadeSection>
             ))}
           </div>
+
+          {/* Lightbox */}
+          {lightbox && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm animate-fadeIn"
+              onClick={() => setLightbox(null)}
+              style={{ animation: "lightboxFadeIn 0.2s ease-out" }}
+            >
+              <button
+                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-800/80 hover:bg-zinc-700 flex items-center justify-center transition-colors z-10"
+                onClick={() => setLightbox(null)}
+                aria-label="Close"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+              <img
+                src={lightbox}
+                alt="Dashboard preview"
+                className="max-w-[92vw] max-h-[88vh] rounded-xl shadow-2xl object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
         </div>
       </section>
 
