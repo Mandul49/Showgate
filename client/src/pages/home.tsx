@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { isAuthenticated } from "@/lib/auth";
 import {
   Zap, BarChart2, Palette, ArrowRight, Check, X, Menu,
-  ChevronRight,
+  ChevronRight, CreditCard, Clock,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 
-interface PublicStats {
-  totalEvents: number;
-  totalTicketsSold: number;
-}
 
 function useFadeIn() {
   const ref = useRef<HTMLDivElement>(null);
@@ -29,22 +24,6 @@ function useFadeIn() {
   return { ref, visible };
 }
 
-function useCountUp(target: number, trigger: boolean, duration = 1800) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!trigger || target === 0) return;
-    let start: number | null = null;
-    const step = (ts: number) => {
-      if (!start) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(eased * target));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [trigger, target, duration]);
-  return count;
-}
 
 function FadeSection({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   const { ref, visible } = useFadeIn();
@@ -61,14 +40,6 @@ function FadeSection({ children, className = "" }: { children: React.ReactNode; 
 export default function Home() {
   const authed = isAuthenticated();
   const [menuOpen, setMenuOpen] = useState(false);
-  const { data: stats } = useQuery<PublicStats>({
-    queryKey: ["/api/stats"],
-  });
-
-  const { ref: statsRef, visible: statsVisible } = useFadeIn();
-  const eventsCount = useCountUp(stats?.totalEvents ?? 0, statsVisible && !!stats);
-  const ticketsCount = useCountUp(stats?.totalTicketsSold ?? 0, statsVisible && !!stats);
-
   const howItWorksRef = useRef<HTMLElement>(null);
 
   function scrollToHowItWorks(e: React.MouseEvent) {
@@ -177,7 +148,7 @@ export default function Home() {
             <span className="block text-amber-400">run your event.</span>
           </h1>
           <p className="text-lg sm:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Sell tickets, brand your experience, and understand your audience — all in one place.
+            Create events, sell tickets, get paid directly.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/login">
@@ -195,26 +166,56 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Stats ─────────────────────────────────────────────────────────── */}
+      {/* ── Benefits ──────────────────────────────────────────────────────── */}
       <section className="border-y border-zinc-800 bg-zinc-900/40">
-        <div className="max-w-3xl mx-auto px-5 py-16">
-          <div
-            ref={statsRef}
-            className={`grid grid-cols-2 gap-8 transition-all duration-700 ${statsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-          >
-            {[
-              { value: eventsCount, label: "Events Created" },
-              { value: ticketsCount, label: "Tickets Sold" },
-            ].map(({ value, label }) => (
-              <div key={label} className="text-center">
-                <div className="text-5xl sm:text-6xl font-black tabular-nums mb-2">
-                  {value.toLocaleString()}
-                </div>
-                <div className="text-zinc-400 font-semibold text-base mb-1">{label}</div>
-                <div className="text-amber-500/70 text-xs font-medium">and growing every day</div>
-              </div>
-            ))}
+        <div className="max-w-5xl mx-auto px-5 py-16">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="flex flex-col gap-3 p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-amber-400/30 transition-colors">
+              <span className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-400" />
+              </span>
+              <h3 className="text-white font-black text-lg">Fast Setup</h3>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                Go from sign-up to selling tickets in under five minutes. No technical skills or developer required.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-amber-400/30 transition-colors">
+              <span className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-amber-400" />
+              </span>
+              <h3 className="text-white font-black text-lg">Instant Payments</h3>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                Payments go directly to you via Paystack. No foreign cards, no middlemen, no waiting.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-amber-400/30 transition-colors">
+              <span className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
+                <BarChart2 className="w-5 h-5 text-amber-400" />
+              </span>
+              <h3 className="text-white font-black text-lg">Real-time Analytics</h3>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                Watch ticket sales and audience data update live. Know your numbers before the event even starts.
+              </p>
+            </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Social Proof ──────────────────────────────────────────────────── */}
+      <section className="py-20 px-5 border-b border-zinc-800">
+        <div className="max-w-3xl mx-auto text-center">
+          <FadeSection>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-semibold mb-6">
+              <Zap className="w-3.5 h-3.5" /> Made in Nigeria
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black mb-5">
+              Built by organizers,{" "}
+              <span className="text-amber-400">for organizers</span>
+            </h2>
+            <p className="text-zinc-400 text-base sm:text-lg leading-relaxed max-w-2xl mx-auto">
+              Showgate was created for real event organizers who need a simpler way to create events, sell tickets, receive payments, and understand their audience.
+            </p>
+          </FadeSection>
         </div>
       </section>
 
