@@ -6,6 +6,9 @@ import { setupVite, log } from "./vite";
 const app = express();
 
 const allowedOrigins: (string | RegExp)[] = [
+  // Production custom domain
+  "https://showgate.ng",
+  "https://www.showgate.ng",
   // Explicit Vercel deployment URLs
   "https://showgate-b6kfqc07f-mandul-johnson-s-projects.vercel.app",
   "https://showgate.vercel.app",
