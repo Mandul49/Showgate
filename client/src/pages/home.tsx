@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import heroWoman from "@assets/IMG_9654_1781631698906.png";
 import { Link } from "wouter";
 import { isAuthenticated } from "@/lib/auth";
 import {
@@ -148,26 +149,42 @@ export default function Home() {
             backgroundSize: "48px 48px",
           }}
         />
-        <div className="relative z-10 max-w-4xl mx-auto px-5 text-center py-24">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-semibold mb-8">
-            <Zap className="w-3.5 h-3.5" /> Built for serious event organizers
-          </div>
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight leading-[1.05] mb-6">
-            <span className="text-white">Create events, sell tickets,</span>
-            <span className="block text-amber-400">and get paid directly.</span>
-          </h1>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/login">
-              <button className="flex items-center gap-2 px-7 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-base transition-colors shadow-lg shadow-amber-900/30">
-                Create Your Event <ArrowRight className="w-4 h-4" />
+        {/* Amber glow behind the woman */}
+        <div className="absolute right-0 top-0 w-[55%] h-full bg-[radial-gradient(ellipse_at_80%_60%,rgba(245,158,11,0.13)_0%,transparent_60%)] pointer-events-none" />
+
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-5 py-16 flex flex-col lg:flex-row items-center gap-8 lg:gap-0">
+          {/* ── Left: copy ─────────────────────────────────────────────────── */}
+          <div className="flex-1 text-center lg:text-left lg:pr-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-semibold mb-8">
+              <Zap className="w-3.5 h-3.5" /> Built for serious event organizers
+            </div>
+            <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight leading-[1.05] mb-6">
+              <span className="text-white">Create events, sell tickets,</span>
+              <span className="block text-amber-400">and get paid directly.</span>
+            </h1>
+            <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
+              <Link href="/login">
+                <button className="flex items-center gap-2 px-7 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-base transition-colors shadow-lg shadow-amber-900/30">
+                  Create Your Event <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+              <button
+                onClick={scrollToHowItWorks}
+                className="flex items-center gap-2 px-7 py-3.5 rounded-xl border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white font-semibold text-base transition-colors"
+              >
+                See How It Works
               </button>
-            </Link>
-            <button
-              onClick={scrollToHowItWorks}
-              className="flex items-center gap-2 px-7 py-3.5 rounded-xl border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white font-semibold text-base transition-colors"
-            >
-              See How It Works
-            </button>
+            </div>
+          </div>
+
+          {/* ── Right: woman image ──────────────────────────────────────────── */}
+          <div className="relative flex-shrink-0 w-[300px] sm:w-[380px] lg:w-[420px] xl:w-[480px] lg:-mb-16 select-none">
+            <img
+              src={heroWoman}
+              alt="Event organizer holding a digital ticket"
+              className="w-full h-auto object-contain drop-shadow-[0_0_40px_rgba(245,158,11,0.25)]"
+              style={{ mixBlendMode: "screen" }}
+            />
           </div>
         </div>
       </section>
