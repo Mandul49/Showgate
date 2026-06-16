@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Check, ArrowRight } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
-import aboutHero from "@assets/About-us_1781630795603.jpeg";
+import aboutHero from "@/assets/About-us_1781630795603.jpeg";
 
 export default function About() {
   return (
