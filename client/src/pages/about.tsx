@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Check, ArrowRight } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
+import aboutHero from "@assets/About-us_1781630795603.jpeg";
 
 export default function About() {
   return (
@@ -30,13 +31,23 @@ export default function About() {
       </nav>
 
       {/* ── Hero heading ───────────────────────────────────────────────────── */}
-      <section className="pt-20 pb-12 px-5 border-b border-zinc-800/50">
-        <div className="max-w-3xl mx-auto">
+      <section className="relative overflow-hidden min-h-[320px] sm:min-h-[380px] flex items-center pt-20 pb-12 px-5 border-b border-zinc-800/50">
+        {/* Background image */}
+        <img
+          src={aboutHero}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-50"
+        />
+        {/* Dark gradient to keep text legible */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0d0d0d]/80 via-[#0d0d0d]/40 to-transparent" />
+        {/* Text content */}
+        <div className="relative z-10 max-w-3xl mx-auto w-full">
           <h1 className="text-4xl sm:text-5xl font-black mb-4">
             <span className="text-amber-400">About</span> Showgate
             <img src={sgLogo} alt="" className="inline-block h-[40px] w-auto ml-3 align-middle" />
           </h1>
-          <p className="text-zinc-500 text-lg">West African event ticketing, built for the people who make things happen.</p>
+          <p className="text-zinc-400 text-lg">West African event ticketing, built for the people who make things happen.</p>
         </div>
       </section>
 
