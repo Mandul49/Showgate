@@ -37,17 +37,17 @@ export default function About() {
           src={aboutHero}
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-50"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-45"
         />
         {/* Dark gradient to keep text legible */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#0d0d0d]/80 via-[#0d0d0d]/40 to-transparent" />
         {/* Text content */}
-        <div className="relative z-10 max-w-3xl mx-auto w-full">
+        <div className="relative z-10 max-w-3xl mx-auto w-full text-center">
           <h1 className="text-4xl sm:text-5xl font-black mb-4">
             <span className="text-amber-400">About</span> Showgate
             <img src={sgLogo} alt="" className="inline-block h-[40px] w-auto ml-3 align-middle" />
           </h1>
-          <p className="text-zinc-400 text-lg">West African event ticketing, built for the people who make things happen.</p>
+          <p className="text-white text-lg">West African event ticketing, built for the people who make things happen.</p>
         </div>
       </section>
 
