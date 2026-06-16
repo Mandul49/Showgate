@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { isAuthenticated } from "@/lib/auth";
 import {
@@ -42,6 +43,13 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const howItWorksRef = useRef<HTMLElement>(null);
+
+  const { data: publicSettings } = useQuery<{ proMonthlyNaira: number; proYearlyNaira: number; feePercent: number }>({
+    queryKey: ["/api/settings/public"],
+  });
+  const proMonthly = publicSettings?.proMonthlyNaira ?? 10000;
+  const proYearly = publicSettings?.proYearlyNaira ?? 100000;
+  const proSaving = proMonthly * 12 - proYearly;
 
   function scrollToHowItWorks(e: React.MouseEvent) {
     e.preventDefault();
@@ -426,13 +434,13 @@ export default function Home() {
                 <div className="mb-6">
                   <div className="text-xs font-semibold text-amber-500 uppercase tracking-widest mb-2">Pro</div>
                   <div className="flex items-end gap-2 mb-1">
-                    <span className="text-4xl font-black">₦10,000</span>
+                    <span className="text-4xl font-black">₦{proMonthly.toLocaleString("en-NG")}</span>
                     <span className="text-zinc-400 text-sm mb-1.5">/month</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                    <span className="text-[1.2rem] font-[800] text-white">or ₦100,000/year</span>
+                    <span className="text-[1.2rem] font-[800] text-white">or ₦{proYearly.toLocaleString("en-NG")}/year</span>
                     <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
-                      Save ₦20,000
+                      Save ₦{proSaving.toLocaleString("en-NG")}
                     </span>
                   </div>
                 </div>

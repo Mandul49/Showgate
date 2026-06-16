@@ -55,13 +55,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── Public settings ─────────────────────────────────────────────────────
   app.get("/api/settings/public", async (_req, res) => {
     try {
-      const [maintenanceVal, feeVal] = await Promise.all([
+      const [maintenanceVal, feeVal, monthlyKoboVal, yearlyKoboVal] = await Promise.all([
         storage.getPlatformSetting("maintenance_mode", "false"),
         storage.getPlatformSetting("platform_fee_percent", "2"),
+        storage.getPlatformSetting("pro_monthly_price_kobo", "1000000"),
+        storage.getPlatformSetting("pro_yearly_price_kobo", "10000000"),
       ]);
       return res.json({
         maintenanceMode: maintenanceVal === "true",
         feePercent: parseFloat(feeVal) || 2,
+        proMonthlyNaira: Math.round(parseInt(monthlyKoboVal, 10) / 100) || 10000,
+        proYearlyNaira: Math.round(parseInt(yearlyKoboVal, 10) / 100) || 100000,
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
