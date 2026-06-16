@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Calendar, MapPin, Ticket, Loader2, X, ChevronRight } from "lucide-react";
+import { Calendar, Clock, MapPin, Ticket, Loader2, X, ChevronRight } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,9 +20,22 @@ interface PublicEvent {
   id: string;
   title: string;
   date: string;
+  startTime: string | null;
   location: string;
   organizerName: string;
   ticketTypes: PublicTicketType[];
+}
+
+function fmtTime(t: string | null | undefined) {
+  if (!t) return null;
+  try {
+    const [h, m] = t.split(":").map(Number);
+    const d = new Date();
+    d.setHours(h, m);
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  } catch {
+    return t;
+  }
 }
 
 const buyerSchema = z.object({
@@ -145,6 +158,12 @@ export default function EventPublic() {
               <Calendar className="w-4 h-4 text-amber-400/70 flex-shrink-0" />
               {fmtDate(event.date)}
             </span>
+            {fmtTime(event.startTime) && (
+              <span className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400/70 flex-shrink-0" />
+                {fmtTime(event.startTime)}
+              </span>
+            )}
             <span className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-amber-400/70 flex-shrink-0" />
               {event.location}
@@ -317,6 +336,15 @@ export default function EventPublic() {
                     <p className="text-white text-sm font-semibold leading-snug">{fmtDate(event.date)}</p>
                   </div>
                 </div>
+                {fmtTime(event.startTime) && (
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-zinc-500 text-[11px] uppercase tracking-widest mb-0.5">Time</p>
+                      <p className="text-white text-sm font-semibold leading-snug">{fmtTime(event.startTime)}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start gap-3">
                   <MapPin className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
                   <div>
