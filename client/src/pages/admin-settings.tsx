@@ -45,6 +45,7 @@ export default function AdminSettings() {
 
   // Local state for form fields
   const [feePercent, setFeePercent] = useState("");
+  const [proTicketFee, setProTicketFee] = useState("");
   const [monthlyPriceNaira, setMonthlyPriceNaira] = useState("");
   const [yearlyPriceNaira, setYearlyPriceNaira] = useState("");
   const [maxMonthlyTickets, setMaxMonthlyTickets] = useState("");
@@ -55,6 +56,7 @@ export default function AdminSettings() {
   useEffect(() => {
     if (!settings) return;
     setFeePercent(settings.platform_fee_percent ?? "2");
+    setProTicketFee(settings.pro_ticket_fee_percent ?? "2");
     setMonthlyPriceNaira(String(Math.round((parseInt(settings.pro_monthly_price_kobo ?? "1000000", 10)) / 100)));
     setYearlyPriceNaira(String(Math.round((parseInt(settings.pro_yearly_price_kobo ?? "10000000", 10)) / 100)));
     setMaxMonthlyTickets(settings.free_max_monthly_tickets ?? "500");
@@ -173,6 +175,41 @@ export default function AdminSettings() {
             </Button>
           </div>
           <p className="text-xs text-zinc-600 mt-2">Current: {settings?.platform_fee_percent ?? "2.5"}%</p>
+        </SettingSection>
+
+        {/* Pro Ticket Fee */}
+        <SettingSection
+          icon={<DollarSign className="w-4 h-4 text-amber-400" />}
+          title="Pro Ticket Fee"
+          description="Percentage fee charged on ticket sales for Pro tier organizers."
+        >
+          <div className="flex items-end gap-3">
+            <div className="flex-1 space-y-1.5">
+              <label className="text-xs font-medium text-zinc-400">Fee Percentage</label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={proTicketFee}
+                  onChange={e => setProTicketFee(e.target.value)}
+                  className="bg-zinc-900 border-zinc-700 text-zinc-100 pr-8 h-9 text-sm"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">%</span>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => saveField("pro_ticket_fee_percent", proTicketFee, "Pro ticket fee")}
+              disabled={saveMutation.isPending || proTicketFee === settings?.pro_ticket_fee_percent}
+              className="bg-amber-500 hover:bg-amber-400 text-black font-semibold gap-1.5 h-9"
+            >
+              <Save className="w-3.5 h-3.5" />
+              Save
+            </Button>
+          </div>
+          <p className="text-xs text-zinc-600 mt-2">Current: {settings?.pro_ticket_fee_percent ?? "2"}%</p>
         </SettingSection>
 
         {/* Pro Pricing */}

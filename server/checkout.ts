@@ -96,7 +96,7 @@ export function registerCheckoutRoutes(app: Express) {
       if (organizer.tier === "free") {
         feePct = FREE_TIER_FEE_PCT;
       } else {
-        const feePercentStr = await storage.getPlatformSetting("platform_fee_percent", "2");
+        const feePercentStr = await storage.getPlatformSetting("pro_ticket_fee_percent", "2");
         feePct = parseFloat(feePercentStr) / 100 || DEFAULT_PLATFORM_FEE_PCT;
       }
       const platformFeeKobo = ticketType.price > 0 ? Math.round(amountKobo * feePct) : 0;
