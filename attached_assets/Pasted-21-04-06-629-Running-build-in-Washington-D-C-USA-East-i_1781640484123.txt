@@ -1,0 +1,45 @@
+21:04:06.629 Running build in Washington, D.C., USA (East) – iad1
+21:04:06.630 Build machine configuration: 2 cores, 8 GB
+21:04:06.643 Cloning github.com/Mandul49/Showgate (Branch: main, Commit: 6b08743)
+21:04:06.644 Skipping build cache, deployment was triggered without cache.
+21:04:07.854 Cloning completed: 1.211s
+21:04:08.162 Running "vercel build"
+21:04:08.185 Vercel CLI 54.14.0
+21:04:08.896 Installing dependencies...
+21:04:21.400 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+21:04:21.431 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+21:04:21.762 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+21:04:22.668 npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+21:04:23.124 npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+21:04:23.136 npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+21:04:28.695 
+21:04:28.696 added 642 packages in 20s
+21:04:28.696 
+21:04:28.697 90 packages are looking for funding
+21:04:28.697   run `npm fund` for details
+21:04:28.809 Running "npm run build"
+21:04:28.917 
+21:04:28.918 > rest-express@1.0.0 build
+21:04:28.918 > cd client && vite build
+21:04:28.918 
+21:04:29.128 vite v5.4.19 building for production...
+21:04:29.182 transforming...
+21:04:29.445 Browserslist: browsers data (caniuse-lite) is 20 months old. Please run:
+21:04:29.445   npx update-browserslist-db@latest
+21:04:29.446   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+21:04:30.640 ✓ 17 modules transformed.
+21:04:30.647 x Build failed in 1.49s
+21:04:30.647 error during build:
+21:04:30.648 [vite]: Rollup failed to resolve import "@assets/IMG_9654_1781631698906.png" from "/vercel/path0/client/src/pages/home.tsx".
+21:04:30.648 This is most likely unintended because it can break your application at runtime.
+21:04:30.648 If you do want to externalize this module explicitly add it to
+21:04:30.648 `build.rollupOptions.external`
+21:04:30.648     at viteWarn (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-C6uTJdX2.js:65839:17)
+21:04:30.649     at onwarn (file:///vercel/path0/node_modules/@vitejs/plugin-react/dist/index.mjs:280:9)
+21:04:30.649     at onRollupWarning (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-C6uTJdX2.js:65869:5)
+21:04:30.649     at onwarn (file:///vercel/path0/node_modules/vite/dist/node/chunks/dep-C6uTJdX2.js:65534:7)
+21:04:30.649     at file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:19452:13
+21:04:30.649     at Object.logger [as onLog] (file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:21178:9)
+21:04:30.650     at ModuleLoader.handleInvalidResolvedId (file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:20067:26)
+21:04:30.650     at file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:20025:26
+21:04:30.676 Error: Command "npm run build" exited with 1
