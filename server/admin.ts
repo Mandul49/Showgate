@@ -208,7 +208,7 @@ export function registerAdminRoutes(app: Express) {
       const { key } = req.params;
       const { value } = req.body;
       if (typeof value !== "string") return res.status(400).json({ message: "value must be a string" });
-      const allowed = ["platform_fee_percent", "pro_monthly_price_kobo", "pro_yearly_price_kobo", "free_max_monthly_tickets", "free_max_active_events", "maintenance_mode"];
+      const allowed = ["platform_fee_percent", "pro_ticket_fee_percent", "pro_monthly_price_kobo", "pro_yearly_price_kobo", "free_max_monthly_tickets", "free_max_active_events", "maintenance_mode"];
       if (!allowed.includes(key)) return res.status(400).json({ message: "Unknown setting key" });
       await storage.setPlatformSetting(key, value);
       audit(req, "update_setting", "setting", key, { value });
