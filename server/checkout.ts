@@ -6,7 +6,7 @@ import { fulfillUpgrade } from "./upgrade";
 import { sendConfirmationEmail } from "./email";
 import { getPaystackSecretKey, isTestMode } from "./paystackConfig";
 
-const PLATFORM_FEE_PCT = 0.025; // 2.5% charged to organizer's subaccount on free tier
+const DEFAULT_PLATFORM_FEE_PCT = 0.02; // 2% default — overridden by platform_fee_percent DB setting
 
 export function registerCheckoutRoutes(app: Express) {
   // ── GET /api/events/:id/public ────────────────────────────────────────────
@@ -91,7 +91,9 @@ export function registerCheckoutRoutes(app: Express) {
       }
 
       const amountKobo = ticketType.price * quantity * 100;
-      const platformFeeKobo = organizer.tier === "free" ? Math.round(amountKobo * PLATFORM_FEE_PCT) : 0;
+      const feePercentStr = await storage.getPlatformSetting("platform_fee_percent", "2");
+      const feePct = parseFloat(feePercentStr) / 100 || DEFAULT_PLATFORM_FEE_PCT;
+      const platformFeeKobo = ticketType.price > 0 ? Math.round(amountKobo * feePct) : 0;
       const callbackUrl = `${req.protocol}://${req.get("host")}/purchase-success`;
 
       const payload: Record<string, any> = {

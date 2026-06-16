@@ -6,8 +6,8 @@ import { storage } from "./storage";
 import { getPaystackSecretKey } from "./paystackConfig";
 
 export const PLANS = {
-  monthly: { amountKobo: 1_200_000, label: "Monthly", durationDays: 31 },
-  yearly:  { amountKobo: 12_000_000, label: "Yearly",  durationDays: 366 },
+  monthly: { amountKobo: 1_000_000, label: "Monthly", durationDays: 31 },
+  yearly:  { amountKobo: 10_000_000, label: "Yearly",  durationDays: 366 },
 } as const;
 type PlanKey = keyof typeof PLANS;
 

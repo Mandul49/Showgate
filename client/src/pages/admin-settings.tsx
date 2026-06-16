@@ -54,9 +54,9 @@ export default function AdminSettings() {
   // Seed from settings when loaded
   useEffect(() => {
     if (!settings) return;
-    setFeePercent(settings.platform_fee_percent ?? "2.5");
-    setMonthlyPriceNaira(String(Math.round((parseInt(settings.pro_monthly_price_kobo ?? "1200000", 10)) / 100)));
-    setYearlyPriceNaira(String(Math.round((parseInt(settings.pro_yearly_price_kobo ?? "12000000", 10)) / 100)));
+    setFeePercent(settings.platform_fee_percent ?? "2");
+    setMonthlyPriceNaira(String(Math.round((parseInt(settings.pro_monthly_price_kobo ?? "1000000", 10)) / 100)));
+    setYearlyPriceNaira(String(Math.round((parseInt(settings.pro_yearly_price_kobo ?? "10000000", 10)) / 100)));
     setMaxMonthlyTickets(settings.free_max_monthly_tickets ?? "500");
     setMaxActiveEvents(settings.free_max_active_events ?? "1");
     setMaintenanceMode(settings.maintenance_mode === "true");

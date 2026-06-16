@@ -57,11 +57,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const [maintenanceVal, feeVal] = await Promise.all([
         storage.getPlatformSetting("maintenance_mode", "false"),
-        storage.getPlatformSetting("platform_fee_percent", "2.5"),
+        storage.getPlatformSetting("platform_fee_percent", "2"),
       ]);
       return res.json({
         maintenanceMode: maintenanceVal === "true",
-        feePercent: parseFloat(feeVal) || 2.5,
+        feePercent: parseFloat(feeVal) || 2,
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });

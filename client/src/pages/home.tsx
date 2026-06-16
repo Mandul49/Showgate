@@ -391,7 +391,7 @@ export default function Home() {
                   <div className="text-zinc-500 text-sm">forever</div>
                 </div>
                 <ul className="space-y-3 flex-1 mb-8">
-                  {["1 active event", "500 tickets per month", "Basic analytics", "2.5% platform fee"].map((f) => (
+                  {["1 active event", "500 tickets per month", "Basic analytics", "2% platform fee"].map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-zinc-300">
                       <Check className="w-4 h-4 text-emerald-400 shrink-0" /> {f}
                     </li>
@@ -426,13 +426,13 @@ export default function Home() {
                 <div className="mb-6">
                   <div className="text-xs font-semibold text-amber-500 uppercase tracking-widest mb-2">Pro</div>
                   <div className="flex items-end gap-2 mb-1">
-                    <span className="text-4xl font-black">₦12,000</span>
+                    <span className="text-4xl font-black">₦10,000</span>
                     <span className="text-zinc-400 text-sm mb-1.5">/month</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                    <span className="text-[1.2rem] font-[800] text-white">or ₦120,000/year</span>
+                    <span className="text-[1.2rem] font-[800] text-white">or ₦100,000/year</span>
                     <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
-                      Save ₦24,000
+                      Save ₦20,000
                     </span>
                   </div>
                 </div>
@@ -442,7 +442,7 @@ export default function Home() {
                     "Unlimited tickets",
                     "All payment providers",
                     "Full analytics dashboard",
-                    "0% platform fee",
+                    "2% platform fee",
                     "Custom branding",
                     "Priority support",
                   ].map((f) => (
