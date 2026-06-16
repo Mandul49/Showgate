@@ -45,12 +45,20 @@ export default function Home() {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const howItWorksRef = useRef<HTMLElement>(null);
 
-  const { data: publicSettings } = useQuery<{ proMonthlyNaira: number; proYearlyNaira: number; feePercent: number }>({
+  const { data: publicSettings } = useQuery<{
+    proMonthlyNaira: number;
+    proYearlyNaira: number;
+    feePercent: number;
+    freeFeePercent: number;
+    proTicketFeePercent: number;
+  }>({
     queryKey: ["/api/settings/public"],
   });
   const proMonthly = publicSettings?.proMonthlyNaira ?? 10000;
   const proYearly = publicSettings?.proYearlyNaira ?? 100000;
   const proSaving = proMonthly * 12 - proYearly;
+  const freeFee = publicSettings?.freeFeePercent ?? 2.5;
+  const proFee = publicSettings?.proTicketFeePercent ?? 2;
 
   function scrollToHowItWorks(e: React.MouseEvent) {
     e.preventDefault();
@@ -416,7 +424,7 @@ export default function Home() {
                   <div className="text-zinc-500 text-sm">forever</div>
                 </div>
                 <ul className="space-y-3 flex-1 mb-8">
-                  {["1 active event", "500 tickets per month", "Basic analytics", "2.5% platform fee"].map((f) => (
+                  {["1 active event", "500 tickets per month", "Basic analytics", `${freeFee}% platform fee`].map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-zinc-300">
                       <Check className="w-4 h-4 text-emerald-400 shrink-0" /> {f}
                     </li>
@@ -467,7 +475,7 @@ export default function Home() {
                     "Unlimited tickets",
                     "All payment providers",
                     "Full analytics dashboard",
-                    "2% platform fee",
+                    `${proFee}% platform fee`,
                     "Custom branding",
                     "Priority support",
                   ].map((f) => (
