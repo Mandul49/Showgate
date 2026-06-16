@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import heroWoman from "@assets/IMG_9654_1781631698906.png";
+import heroWoman from "@/assets/IMG_9654_1781631698906.png";
 import { Link } from "wouter";
 import { isAuthenticated } from "@/lib/auth";
 import {
