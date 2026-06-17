@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { z } from "zod";
 import { storage } from "./storage";
-import { sendPasswordResetEmail } from "./email";
+import { sendPasswordResetEmail, sendWelcomeEmail, sendVerificationEmail } from "./email";
 import type { AdminRole } from "@shared/schema";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
@@ -154,7 +154,6 @@ export function registerAuthRoutes(app: Express) {
       // Send welcome email — fire-and-forget, never blocks signup
       console.log("[signup] attempting welcome email for:", email);
       try {
-        const { sendWelcomeEmail } = await import("./email.js");
         const firstName = email.split("@")[0].replace(/[._\-+]/g, " ").split(" ")[0];
         console.log("[signup] email value passed to sendWelcomeEmail:", email, "| firstName:", firstName);
         await sendWelcomeEmail(email, firstName.charAt(0).toUpperCase() + firstName.slice(1));
