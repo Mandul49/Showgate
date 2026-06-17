@@ -10,7 +10,8 @@ type ToasterToast = {
 }
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 1000
+const TOAST_DISMISS_DELAY = 4000
 
 type ActionType =
   | {
@@ -139,6 +140,8 @@ function toast(props: Toast) {
       },
     },
   })
+
+  setTimeout(dismiss, TOAST_DISMISS_DELAY)
 
   return {
     id: id,
