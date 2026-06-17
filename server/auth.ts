@@ -151,6 +151,15 @@ export function registerAuthRoutes(app: Express) {
         { expiresIn: JWT_EXPIRES }
       );
 
+      // Send welcome email — fire-and-forget, never blocks signup
+      try {
+        const { sendWelcomeEmail } = await import("./email.js");
+        const firstName = email.split("@")[0].replace(/[._\-+]/g, " ").split(" ")[0];
+        await sendWelcomeEmail(email, firstName.charAt(0).toUpperCase() + firstName.slice(1));
+      } catch (emailErr: any) {
+        console.warn("[signup] welcome email failed:", emailErr.message);
+      }
+
       return res.status(201).json({
         token,
         user: { id: user.id, email: user.email, role: user.role, tier: user.tier },
