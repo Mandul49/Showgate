@@ -156,6 +156,7 @@ export function registerAuthRoutes(app: Express) {
       try {
         const { sendWelcomeEmail } = await import("./email.js");
         const firstName = email.split("@")[0].replace(/[._\-+]/g, " ").split(" ")[0];
+        console.log("[signup] email value passed to sendWelcomeEmail:", email, "| firstName:", firstName);
         await sendWelcomeEmail(email, firstName.charAt(0).toUpperCase() + firstName.slice(1));
         console.log("[signup] welcome email dispatched successfully for:", email);
       } catch (emailErr: any) {
