@@ -46,6 +46,9 @@ function PasswordInput({ field, placeholder }: { field: any; placeholder: string
 export default function Login() {
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
+  const [emailNotVerified, setEmailNotVerified] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -77,6 +80,7 @@ export default function Login() {
 
   async function handleLogin(data: LoginForm) {
     setLoading(true);
+    setEmailNotVerified(false);
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -84,7 +88,14 @@ export default function Login() {
         body: JSON.stringify(data),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message);
+      if (!res.ok) {
+        if (json.emailNotVerified) {
+          setEmailNotVerified(true);
+          setUnverifiedEmail(json.email ?? data.email);
+          return;
+        }
+        throw new Error(json.message);
+      }
       queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
@@ -93,6 +104,31 @@ export default function Login() {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendCooldown(60);
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: unverifiedEmail }),
+      });
+      const json = await res.json();
+      if (res.status === 429) {
+        toast({ title: "Too soon", description: json.message, variant: "destructive" });
+      } else {
+        toast({ title: "Verification email sent!", description: "Check your inbox." });
+      }
+    } catch {
+      toast({ title: "Failed to resend", description: "Please try again.", variant: "destructive" });
     }
   }
 
@@ -195,6 +231,21 @@ export default function Login() {
                 </button>
               </form>
             </Form>
+          )}
+
+          {/* Email-not-verified banner */}
+          {tab === "login" && emailNotVerified && (
+            <div className="mt-4 p-4 rounded-xl bg-amber-400/10 border border-amber-400/20 text-sm text-zinc-300 leading-relaxed">
+              Please check your inbox and verify your email. Didn't get it?{" "}
+              {resendCooldown > 0 ? (
+                <span className="text-zinc-500">Resend in {resendCooldown}s...</span>
+              ) : (
+                <button type="button" onClick={handleResend}
+                  className="text-amber-400 hover:text-amber-300 transition-colors underline underline-offset-2">
+                  Resend verification email
+                </button>
+              )}
+            </div>
           )}
 
           {/* Signup Form */}
