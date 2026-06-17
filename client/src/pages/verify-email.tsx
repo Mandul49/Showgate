@@ -13,12 +13,10 @@ export default function VerifyEmail() {
   const token = params.get("token") || "";
 
   const [status, setStatus] = useState<Status>("loading");
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!token) {
       setStatus("error");
-      setMessage("No verification token found. Please use the link from your email.");
       return;
     }
 
@@ -27,21 +25,14 @@ export default function VerifyEmail() {
         const json = await res.json();
         if (!res.ok) {
           setStatus("error");
-          setMessage(json.message || "Verification failed.");
           return;
         }
-        // Store the new JWT and user
         queryClient.clear();
         setToken(json.token);
         saveUser(json.user);
         setStatus("success");
-        // Navigate to onboarding after a short delay so the user sees the success state
-        setTimeout(() => navigate("/onboarding?verified=1"), 1800);
       })
-      .catch(() => {
-        setStatus("error");
-        setMessage("Something went wrong. Please try again.");
-      });
+      .catch(() => setStatus("error"));
   }, [token]);
 
   return (
@@ -61,6 +52,7 @@ export default function VerifyEmail() {
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md text-center">
+
           {status === "loading" && (
             <>
               <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto mb-6">
@@ -77,9 +69,13 @@ export default function VerifyEmail() {
                 <CheckCircle2 className="w-8 h-8 text-green-400" />
               </div>
               <h1 className="text-2xl font-black text-white tracking-tight mb-2">Email verified!</h1>
-              <p className="text-zinc-400 text-sm">
-                Your account is active. Taking you to setup…
-              </p>
+              <p className="text-zinc-400 text-sm mb-8">Welcome to Showgate 🎉</p>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black uppercase tracking-widest text-sm transition-colors"
+              >
+                Go to Dashboard
+              </button>
             </>
           )}
 
@@ -88,16 +84,17 @@ export default function VerifyEmail() {
               <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-6">
                 <XCircle className="w-8 h-8 text-red-400" />
               </div>
-              <h1 className="text-2xl font-black text-white tracking-tight mb-2">Verification failed</h1>
-              <p className="text-zinc-400 text-sm mb-8">{message}</p>
-              <a
-                href="/login"
-                className="inline-block px-6 py-3 rounded-xl bg-amber-400 text-black font-bold text-sm hover:bg-amber-300 transition-colors"
+              <h1 className="text-2xl font-black text-white tracking-tight mb-2">Link invalid or expired</h1>
+              <p className="text-zinc-400 text-sm mb-8">This link is invalid or has expired.</p>
+              <button
+                onClick={() => navigate("/login")}
+                className="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black uppercase tracking-widest text-sm transition-colors"
               >
-                Back to login
-              </a>
+                Request a New Link
+              </button>
             </>
           )}
+
         </div>
       </div>
     </div>
