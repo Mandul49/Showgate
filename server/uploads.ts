@@ -2,6 +2,7 @@ import type { Express } from "express";
 import multer from "multer";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import ws from "ws";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -20,7 +21,9 @@ function getSupabaseClient() {
   if (!url || !key) {
     throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variable is not set");
   }
-  return createClient(url, key);
+  return createClient(url, key, {
+    realtime: { transport: ws as any },
+  });
 }
 
 export function registerUploadRoutes(app: Express) {
