@@ -41,7 +41,7 @@ export function registerAdminRoutes(app: Express) {
   });
 
   app.get("/api/admin/env-keys", requireAdmin, async (_req: AuthRequest, res) => {
-    const prefixes = ["PAYSTACK", "RESEND", "BREVO", "STRIPE", "PAYPAL", "VITE_", "DATABASE", "OBJECT_STORAGE", "REPL_", "DEFAULT_OBJECT", "PRIVATE_OBJECT", "PUBLIC_OBJECT", "NODE_ENV", "PORT"];
+    const prefixes = ["PAYSTACK", "RESEND", "STRIPE", "PAYPAL", "VITE_", "DATABASE", "OBJECT_STORAGE", "REPL_", "DEFAULT_OBJECT", "PRIVATE_OBJECT", "PUBLIC_OBJECT", "NODE_ENV", "PORT"];
     const keys = Object.keys(process.env).filter(k => prefixes.some(p => k.startsWith(p))).sort();
     return res.json({ keys });
   });
