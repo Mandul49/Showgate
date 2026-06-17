@@ -1050,9 +1050,6 @@ export default function EventPage() {
                 </div>
               )
             )}
-            <p className="text-xs font-bold uppercase tracking-[0.3em] mb-2" style={{ color: primary }}>
-              {event.branding?.name ?? event.organizer?.businessName}
-            </p>
             <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-4">
               {event.title}
             </h1>
