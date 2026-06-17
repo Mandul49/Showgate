@@ -83,6 +83,21 @@ export default function About() {
               </p>
             </div>
           </div>
+
+          {/* Contact Us */}
+          <div className="mt-5 bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+            <span className="text-amber-400 font-black text-xs uppercase tracking-widest block mb-4">Contact Us</span>
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-10">
+              <div>
+                <p className="text-zinc-500 text-xs uppercase tracking-widest mb-1">Email</p>
+                <a href="mailto:support@showgate.ng" className="text-zinc-300 text-sm hover:text-amber-400 transition-colors">support@showgate.ng</a>
+              </div>
+              <div>
+                <p className="text-zinc-500 text-xs uppercase tracking-widest mb-1">Address</p>
+                <p className="text-zinc-300 text-sm">F10 Shaka, Jos, Nigeria</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
