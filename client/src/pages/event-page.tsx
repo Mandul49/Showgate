@@ -409,6 +409,34 @@ function PurchaseForm({
   async function onFormSubmit(data: RegistrationForm) {
     setFormData(data);
 
+    // Free ticket — bypass all payment providers
+    if (total === 0) {
+      setProcessing(true);
+      try {
+        const res = await apiRequest("POST", `/api/public/events/${event.id}/purchase/free`, {
+          ticketTypeId: ticket.id,
+          quantity: data.quantity,
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          customerPhone: data.customerPhone,
+          instagramHandle: data.instagramHandle || null,
+          attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
+        });
+        const order = await res.json();
+        if (!res.ok) {
+          toast({ title: "Registration failed", description: order.message, variant: "destructive" });
+          return;
+        }
+        qc.invalidateQueries({ queryKey: [`/api/public/events/${event.id}`] });
+        onSuccess(order.id, data.customerName, 0, data.quantity);
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
+
     if (paymentMethod === "paystack") {
       const pubKey = event.paystackPublicKey;
       if (!pubKey) {
@@ -744,18 +772,20 @@ function PurchaseForm({
 
             <button type="submit" disabled={processing}
               className="w-full py-4 rounded-lg font-black uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={paymentMethod === "paystack" || paymentMethod === "stripe" || paymentMethod === "flutterwave"
+              style={total === 0 || paymentMethod === "paystack" || paymentMethod === "stripe" || paymentMethod === "flutterwave"
                 ? { backgroundColor: primary, color: "#000" }
                 : { border: `2px solid ${primary}`, color: primary }}>
               {processing
                 ? <><span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" /> Processing...</>
-                : paymentMethod === "paystack"
-                  ? <><ShieldCheck className="w-4 h-4" /> Pay {formatPrice(total)} with Paystack</>
-                  : paymentMethod === "flutterwave"
-                    ? <><ShieldCheck className="w-4 h-4" /> Pay {formatPrice(total)} with Flutterwave</>
-                    : paymentMethod === "stripe"
-                      ? <><CreditCard className="w-4 h-4" /> Continue to Card Payment</>
-                      : <><Building2 className="w-4 h-4" /> View Bank Details</>
+                : total === 0
+                  ? <><Ticket className="w-4 h-4" /> Register Free</>
+                  : paymentMethod === "paystack"
+                    ? <><ShieldCheck className="w-4 h-4" /> Pay {formatPrice(total)} with Paystack</>
+                    : paymentMethod === "flutterwave"
+                      ? <><ShieldCheck className="w-4 h-4" /> Pay {formatPrice(total)} with Flutterwave</>
+                      : paymentMethod === "stripe"
+                        ? <><CreditCard className="w-4 h-4" /> Continue to Card Payment</>
+                        : <><Building2 className="w-4 h-4" /> View Bank Details</>
               }
             </button>
 
