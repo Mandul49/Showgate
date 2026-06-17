@@ -1,0 +1,29 @@
+Railway deployment failed — Build Error
+
+Regenerate the package-lock.json file outside of Replit to fix this build failure. The lockfile was generated inside Replit and contains resolved package URLs pointing to Replit's internal proxy (package-firewall.replit.local), which is unreachable on Railway. The npm ci install step fails with a DNS error because it strictly follows these lockfile URLs instead of fetching from the public npm registry.
+
+Repository: https://github.com/Mandul49/Showgate
+Branch: main · Commit: 64ea422 — fix: remove organiser name from public event page
+Root directory: /
+Deployment ID: eeaf8885-1027-4909-9421-2eadfc35bce8
+Service ID: 3d28173c-54f4-4fe4-8c0a-7f2829235adf
+Environment ID: 2b59d43e-fc35-4b14-85a2-50cb10509fbc
+
+---
+
+## Problem
+The build fails at the Railpack auto-detected install step (`npm ci`) with:
+```
+npm error network request to http://package-firewall.replit.local/npm/typedarray/-/typedarray-0.0.6.tgz failed, reason: getaddrinfo ENOTFOUND package-firewall.replit.local
+```
+The builder is RAILPACK, which auto-detects `npm ci` as the install command. This runs before the user-configured `buildCommand` from `railway.json` (`npm install --legacy-peer-deps && npm run build:server`). The failure occurs at stage-0 step 11/15.
+
+## Diagnosis
+The `package-lock.json` was generated inside Replit's environment, which routes npm traffic through an internal proxy (`package-firewall.replit.local`). When `npm ci` runs on Railway, it strictly follows the resolved URLs in the lockfile and cannot reach Replit's internal proxy. The lockfile on `main` HEAD is identical to the failed commit — the Replit proxy URLs have not been cleaned up, so this failure can recur whenever the npm build cache is cold. A previous deployment (928e986a) failed with the exact same root cause.
+
+## Fix
+1. **File: `package-lock.json`** — Delete this file from the repository root entirely.
+2. Outside of Replit (locally or in a clean environment), run `npm install` (or `npm install --legacy-peer-deps` if needed to match the build command) to generate a fresh `package-lock.json` where all `resolved` fields point to `https://registry.npmjs.org/` instead of `http://package-firewall.replit.local/npm/`.
+3. Commit and push the new `package-lock.json` to the `main` branch.
+
+Alternatively, as a text-only workaround, find and replace all occurrences of `http://package-firewall.replit.local/npm/` with `https://registry.npmjs.org/` in the existing `package-lock.json`, though a full regeneration is more reliable and ensures integrity hashes remain valid.
