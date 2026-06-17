@@ -173,6 +173,7 @@ export default function About() {
             <img src={sgLogo} alt="" className="inline-block h-[20px] w-auto ml-2 align-middle" />
           </span>
           <p className="text-zinc-500 text-xs">The easiest way to run your event.</p>
+          <a href="mailto:support@showgate.ng" className="text-zinc-500 text-xs hover:text-amber-400 transition-colors">support@showgate.ng</a>
           <p className="text-zinc-600 text-xs mt-1">© {new Date().getFullYear()} Showgate. All rights reserved.</p>
         </div>
       </footer>
