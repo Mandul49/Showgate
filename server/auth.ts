@@ -216,6 +216,10 @@ export function registerAuthRoutes(app: Express) {
         return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
       }
 
+      if (!user.emailVerified) {
+        return res.status(403).json({ message: "Please verify your email address.", emailNotVerified: true, email });
+      }
+
       clearLoginAttempts(email);
       storage.updateLastLogin(user.id).catch(err => console.error("[auth] updateLastLogin:", err));
 
