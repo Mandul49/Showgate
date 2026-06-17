@@ -235,16 +235,18 @@ export default function Login() {
 
           {/* Email-not-verified banner */}
           {tab === "login" && emailNotVerified && (
-            <div className="mt-4 p-4 rounded-xl bg-amber-400/10 border border-amber-400/20 text-sm text-zinc-300 leading-relaxed">
-              Please check your inbox and verify your email. Didn't get it?{" "}
-              {resendCooldown > 0 ? (
-                <span className="text-zinc-500">Resend in {resendCooldown}s...</span>
-              ) : (
-                <button type="button" onClick={handleResend}
-                  className="text-amber-400 hover:text-amber-300 transition-colors underline underline-offset-2">
-                  Resend verification email
-                </button>
-              )}
+            <div className="mt-4 space-y-3">
+              <p className="text-sm text-zinc-400">
+                Please verify your email address. Didn't get the email?
+              </p>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCooldown > 0}
+                className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black uppercase tracking-widest text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s...` : "Resend Verification Email"}
+              </button>
             </div>
           )}
 
