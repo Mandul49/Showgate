@@ -304,6 +304,7 @@ export function registerAuthRoutes(app: Express) {
       resendCooldown.set(email, Date.now());
 
       const trustedBase = buildTrustedBase();
+      console.log("[auth] buildTrustedBase result:", trustedBase);
       if (trustedBase) {
         const verifyUrl = `${trustedBase}/verify-email?token=${verificationToken}`;
         sendVerificationEmail({ to: email, verifyUrl }).catch((err) =>
