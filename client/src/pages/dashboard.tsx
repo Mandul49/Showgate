@@ -208,21 +208,12 @@ function NewEventPanel({
 
     setUploadingImage(true);
     try {
-      const urlRes = await apiRequest("POST", "/api/uploads/request-url", {
-        name: file.name,
-        size: file.size,
-        contentType: file.type,
-      });
-      const { uploadURL, objectPath } = await urlRes.json();
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-
-      await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-
-      form.setValue("coverImageUrl", objectPath);
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads/cover-image", { method: "POST", body: formData });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Upload failed");
+      form.setValue("coverImageUrl", json.url);
       const reader = new FileReader();
       reader.onload = (ev) => setImagePreview(ev.target?.result as string);
       reader.readAsDataURL(file);
@@ -651,18 +642,12 @@ function EditEventPanel({
     }
     setUploadingImage(true);
     try {
-      const urlRes = await apiRequest("POST", "/api/uploads/request-url", {
-        name: file.name, size: file.size, contentType: file.type,
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await urlRes.json();
-
-      const putRes = await fetch(uploadURL, {
-        method: "PUT", body: file, headers: { "Content-Type": file.type },
-      });
-      if (!putRes.ok) throw new Error("Upload failed");
-
-      form.setValue("coverImageUrl", objectPath);
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads/cover-image", { method: "POST", body: formData });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Upload failed");
+      form.setValue("coverImageUrl", json.url);
       const reader = new FileReader();
       reader.onload = (ev) => setImagePreview(ev.target?.result as string);
       reader.readAsDataURL(file);

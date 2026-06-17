@@ -132,7 +132,6 @@ export class ObjectStorageService {
 
   // Gets the upload URL for an object entity.
   async getObjectEntityUploadURL(): Promise<string> {
-    console.log("[objectStorage] getObjectEntityUploadURL called");
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
       throw new Error(
@@ -141,15 +140,10 @@ export class ObjectStorageService {
       );
     }
 
-    console.log("[objectStorage] PRIVATE_OBJECT_DIR prefix:", privateObjectDir.slice(0, 8) + "****");
-
     const objectId = randomUUID();
     const fullPath = `${privateObjectDir}/uploads/${objectId}`;
-    console.log("[objectStorage] fullPath prefix:", fullPath.slice(0, 20) + "...");
 
     const { bucketName, objectName } = parseObjectPath(fullPath);
-    console.log("[objectStorage] bucketName:", bucketName);
-    console.log("[objectStorage] calling signObjectURL with method=PUT, ttl=900...");
 
     // Sign URL for PUT method with TTL
     return signObjectURL({
@@ -277,43 +271,30 @@ async function signObjectURL({
   method: "GET" | "PUT" | "DELETE" | "HEAD";
   ttlSec: number;
 }): Promise<string> {
-  const sidecarUrl = `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`;
-  console.log("[signObjectURL] sidecar endpoint:", REPLIT_SIDECAR_ENDPOINT);
-  console.log("[signObjectURL] calling:", sidecarUrl);
-  console.log("[signObjectURL] bucket:", bucketName, "| method:", method);
-
   const request = {
     bucket_name: bucketName,
     object_name: objectName,
     method,
     expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
   };
-
-  let response: Response;
-  try {
-    response = await fetch(sidecarUrl, {
+  const response = await fetch(
+    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
+    {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(request),
-    });
-  } catch (fetchErr) {
-    console.error("[signObjectURL] fetch to sidecar FAILED (network/connection error):", (fetchErr as Error).message);
-    throw fetchErr;
-  }
-
-  console.log("[signObjectURL] sidecar response status:", response.status);
-
+    }
+  );
   if (!response.ok) {
-    const body = await response.text().catch(() => "(unreadable)");
-    console.error("[signObjectURL] sidecar error body:", body);
     throw new Error(
       `Failed to sign object URL, errorcode: ${response.status}, ` +
         `make sure you're running on Replit`
     );
   }
 
-  const json = await response.json();
-  console.log("[signObjectURL] success, signed_url prefix:", (json.signed_url as string)?.slice(0, 40));
-  return json.signed_url;
+  const { signed_url: signedURL } = await response.json();
+  return signedURL;
 }
 
