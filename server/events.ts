@@ -467,6 +467,69 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
+  // ── POST /api/public/events/:id/purchase/free ────────────────────────────
+  app.post("/api/public/events/:id/purchase/free", async (req, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+
+      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, attendeeDetails } = req.body;
+
+      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
+      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
+      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
+
+      if (ticketType.price !== 0) {
+        return res.status(400).json({ message: "This endpoint is only for free tickets" });
+      }
+
+      const parsed = insertOrderSchema.safeParse({
+        eventId: event.id,
+        ticketTypeId: ticketType.id,
+        customerName,
+        customerEmail,
+        customerPhone,
+        instagramHandle: instagramHandle || null,
+        ticketType: ticketType.name,
+        quantity: qty,
+        totalAmount: 0,
+        discountCode: null,
+        discountAmount: 0,
+        attendeeDetails: attendeeDetails || null,
+      });
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+      const organizer = await storage.getOrganizerById(event.organizerId);
+      const monthlyCheck = await checkMonthlyTicketLimit(organizer!, qty);
+      if (!monthlyCheck.allowed) {
+        return res.status(403).json({ message: monthlyCheck.message, code: monthlyCheck.code });
+      }
+
+      const order = await storage.createOrder(parsed.data, "confirmed");
+      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
+
+      const isPro = organizer?.tier === "pro";
+      sendConfirmationEmail({
+        to: customerEmail,
+        buyerName: customerName,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventLocation: event.location,
+        ticketTypeName: ticketType.name,
+        quantity: qty,
+        amount: 0,
+        reference: order.id,
+        brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
+        brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+        isPro,
+      }).catch(console.error);
+
+      return res.status(201).json(order);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── POST /api/public/events/:id/purchase/flutterwave ─────────────────────
   app.post("/api/public/events/:id/purchase/flutterwave", async (req, res) => {
     try {
