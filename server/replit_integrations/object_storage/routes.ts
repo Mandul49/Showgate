@@ -39,16 +39,28 @@ export function registerObjectStorageRoutes(app: Express): void {
     try {
       const { name, size, contentType } = req.body;
 
+      console.log("[upload] request-url called — body:", { name, size, contentType });
+
+      const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+      const publicPaths = process.env.PUBLIC_OBJECT_SEARCH_PATHS || "";
+      const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || "";
+      console.log("[upload] env PRIVATE_OBJECT_DIR:", privateDir ? privateDir.slice(0, 4) + "****" : "(not set)");
+      console.log("[upload] env PUBLIC_OBJECT_SEARCH_PATHS:", publicPaths ? publicPaths.slice(0, 4) + "****" : "(not set)");
+      console.log("[upload] env DEFAULT_OBJECT_STORAGE_BUCKET_ID:", bucketId ? bucketId.slice(0, 4) + "****" : "(not set)");
+
       if (!name) {
         return res.status(400).json({
           error: "Missing required field: name",
         });
       }
 
+      console.log("[upload] calling getObjectEntityUploadURL...");
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      console.log("[upload] getObjectEntityUploadURL succeeded, URL prefix:", uploadURL.slice(0, 40));
 
       // Extract object path from the presigned URL for later reference
       const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      console.log("[upload] objectPath:", objectPath);
 
       res.json({
         uploadURL,
@@ -57,7 +69,9 @@ export function registerObjectStorageRoutes(app: Express): void {
         metadata: { name, size, contentType },
       });
     } catch (error) {
-      console.error("Error generating upload URL:", error);
+      console.error("[upload] ERROR generating upload URL:", error);
+      console.error("[upload] error message:", (error as Error).message);
+      console.error("[upload] error stack:", (error as Error).stack);
       res.status(500).json({ error: "Failed to generate upload URL" });
     }
   });
