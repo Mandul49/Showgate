@@ -10,7 +10,7 @@ import { registerUpgradeRoutes, registerUpgradeWebhook, startSubscriptionCron } 
 import { registerBrandingRoutes } from "./branding";
 import { getPaystackSecretKey } from "./paystackConfig";
 import { registerAnalyticsRoutes } from "./analytics";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerUploadRoutes } from "./uploads";
 import { registerOgRoutes } from "./og";
 import { registerDiscountRoutes } from "./discounts";
 import { registerAdminRoutes } from "./admin";
@@ -49,8 +49,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── Admin ────────────────────────────────────────────────────────────────
   registerAdminRoutes(app);
 
-  // ─── Object Storage (logo uploads) ───────────────────────────────────────
-  registerObjectStorageRoutes(app);
+  // ─── Cover image uploads (Supabase Storage) ──────────────────────────────
+  registerUploadRoutes(app);
 
   // ─── Public settings ─────────────────────────────────────────────────────
   app.get("/api/settings/public", async (_req, res) => {
