@@ -1,7 +1,7 @@
-import { BrevoClient } from "@getbrevo/brevo";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM = "Showgate <support@showgate.ng>";
 
 export interface ConfirmationEmailOptions {
   to: string;
@@ -22,34 +22,19 @@ export interface ConfirmationEmailOptions {
   accountName?: string;
 }
 
-function getBrevoClient(): InstanceType<typeof BrevoClient> | null {
-  const key = process.env.BREVO_API_KEY;
-  if (!key) return null;
-  return new BrevoClient({ apiKey: key });
-}
-
-const FROM_SENDER = { name: "Showgate", email: "noreply@showgate.com" };
-
 async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
   label: string;
 }): Promise<void> {
-  const client = getBrevoClient();
-  if (!client) {
-    console.warn(`[email] ${opts.label} NOT sent to ${opts.to}: BREVO_API_KEY not configured.`);
+  if (!process.env.RESEND_API_KEY) {
+    console.warn(`[email] ${opts.label} NOT sent to ${opts.to}: RESEND_API_KEY not configured.`);
     return;
   }
-
   try {
-    const response = await client.transactionalEmails.sendTransacEmail({
-      to: [{ email: opts.to }],
-      subject: opts.subject,
-      htmlContent: opts.html,
-      sender: FROM_SENDER,
-    });
-    console.log(`[email] ${opts.label} sent to ${opts.to}:`, JSON.stringify(response));
+    await resend.emails.send({ from: FROM, to: opts.to, subject: opts.subject, html: opts.html });
+    console.log(`[email] ${opts.label} sent to ${opts.to}`);
   } catch (err: any) {
     console.error(`[email] ${opts.label} failed for ${opts.to}:`, err.message ?? JSON.stringify(err));
   }
@@ -131,20 +116,17 @@ export async function sendAdminInviteEmail(opts: { to: string; setPasswordUrl: s
 }
 
 export async function sendTestEmail(to: string): Promise<{ ok: boolean; detail: string }> {
-  const client = getBrevoClient();
-  if (!client) {
-    return { ok: false, detail: "BREVO_API_KEY not configured" };
+  if (!process.env.RESEND_API_KEY) {
+    return { ok: false, detail: "RESEND_API_KEY not configured" };
   }
-
   try {
-    const response = await client.transactionalEmails.sendTransacEmail({
-      to: [{ email: to }],
+    await resend.emails.send({
+      from: FROM,
+      to,
       subject: "Showgate — test email",
-      htmlContent: `<p style="font-family:sans-serif;">This is a test email from Showgate. If you received this, the email service is working correctly.</p>`,
-      sender: FROM_SENDER,
+      html: `<p style="font-family:sans-serif;">This is a test email from Showgate. If you received this, the email service is working correctly.</p>`,
     });
-    console.log(`[email] Test email sent to ${to}:`, JSON.stringify(response.body));
-    return { ok: true, detail: `Brevo message id: ${(response.body as any)?.messageId ?? "sent"}` };
+    return { ok: true, detail: "Resend: message queued" };
   } catch (err: any) {
     return { ok: false, detail: err.message ?? JSON.stringify(err) };
   }
@@ -157,7 +139,7 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<v
   }
   try {
     await resend.emails.send({
-      from: "Showgate <support@showgate.ng>",
+      from: FROM,
       to,
       subject: "Welcome to Showgate 🎉",
       html: `
@@ -177,7 +159,7 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<v
               <a href="https://showgate.ng" style="display:inline-block;background:#f59e0b;color:#000;font-weight:900;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;">Get Started →</a>
             </p>
             <p style="margin:24px 0 0;font-size:12px;color:#52525b;border-top:1px solid #27272a;padding-top:16px;">
-              Questions? Reply to this email or contact us at 
+              Questions? Reply to this email or contact us at
               <a href="mailto:support@showgate.ng" style="color:#f59e0b;text-decoration:none;">support@showgate.ng</a>
             </p>
           </div>
