@@ -217,7 +217,7 @@ export function registerAuthRoutes(app: Express) {
       }
 
       if (!user.emailVerified) {
-        return res.status(403).json({ message: "Please verify your email address.", emailNotVerified: true, email });
+        return res.status(403).json({ message: "Please verify your email before logging in.", emailNotVerified: true, email });
       }
 
       clearLoginAttempts(email);
