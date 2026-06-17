@@ -1,4 +1,7 @@
 import { BrevoClient } from "@getbrevo/brevo";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export interface ConfirmationEmailOptions {
   to: string;
@@ -144,6 +147,46 @@ export async function sendTestEmail(to: string): Promise<{ ok: boolean; detail: 
     return { ok: true, detail: `Brevo message id: ${(response.body as any)?.messageId ?? "sent"}` };
   } catch (err: any) {
     return { ok: false, detail: err.message ?? JSON.stringify(err) };
+  }
+}
+
+export async function sendWelcomeEmail(to: string, firstName: string): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[email] sendWelcomeEmail skipped: RESEND_API_KEY not configured");
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: "Showgate <support@showgate.ng>",
+      to,
+      subject: "Welcome to Showgate 🎉",
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
+            <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
+            <h1 style="margin:8px 0 0;font-size:22px;color:#000;font-weight:900;">Welcome, ${firstName}! 🎉</h1>
+          </div>
+          <div style="padding:24px 28px;">
+            <p style="margin:0 0 16px;color:#a1a1aa;font-size:15px;">
+              You're now on <strong style="color:#fff;">Showgate</strong> — Nigeria's event ticketing platform built for the people who make things happen.
+            </p>
+            <p style="margin:0 0 16px;color:#a1a1aa;font-size:15px;">
+              Create your first event, set your ticket prices, and get paid directly to your account via Paystack — all in under five minutes.
+            </p>
+            <p style="margin:24px 0;text-align:center;">
+              <a href="https://showgate.ng" style="display:inline-block;background:#f59e0b;color:#000;font-weight:900;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;">Get Started →</a>
+            </p>
+            <p style="margin:24px 0 0;font-size:12px;color:#52525b;border-top:1px solid #27272a;padding-top:16px;">
+              Questions? Reply to this email or contact us at 
+              <a href="mailto:support@showgate.ng" style="color:#f59e0b;text-decoration:none;">support@showgate.ng</a>
+            </p>
+          </div>
+        </div>`,
+    });
+    console.log(`[email] Welcome email sent to ${to}`);
+  } catch (err: any) {
+    console.error(`[email] Welcome email failed for ${to}:`, err.message ?? JSON.stringify(err));
+    throw err;
   }
 }
 
