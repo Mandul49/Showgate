@@ -145,6 +145,19 @@ export function registerAuthRoutes(app: Express) {
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await storage.createUser(email, passwordHash, "organizer", "free");
 
+      // Generate and store email verification token
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+      await storage.setEmailVerificationToken(user.id, verificationToken);
+
+      // Send verification email — fire-and-forget, never blocks signup
+      try {
+        const verifyUrl = `${process.env.APP_BASE_URL}/verify-email?token=${verificationToken}`;
+        await sendVerificationEmail({ to: email, verifyUrl });
+        console.log("[signup] verification email dispatched for:", email);
+      } catch (verifyErr: any) {
+        console.error("[signup] verification email ERROR for:", email, "|", verifyErr.message, "|", JSON.stringify(verifyErr));
+      }
+
       const token = jwt.sign(
         { userId: user.id, role: user.role, tier: user.tier },
         JWT_SECRET,
