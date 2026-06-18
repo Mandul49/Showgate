@@ -1,0 +1,8 @@
+import { sql } from "drizzle-orm";
+import { db } from "./db";
+
+export async function runMigrations(): Promise<void> {
+  await db.execute(
+    sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_image_position_y integer DEFAULT 50`
+  );
+}
