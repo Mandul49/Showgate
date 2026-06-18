@@ -2481,7 +2481,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#0a0a0a" }}>
       {/* Navbar */}
-      <div className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-50">
+      <div className="border-b border-zinc-800 bg-zinc-950 sticky z-50" style={{ top: "var(--maintenance-h, 0px)" }}>
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">

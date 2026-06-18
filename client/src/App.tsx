@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react";
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -63,14 +64,31 @@ function Router() {
 
 function MaintenanceBanner() {
   const [location] = useLocation();
+  const bannerRef = useRef<HTMLDivElement>(null);
   const { data } = useQuery<{ maintenanceMode: boolean; feePercent: number }>({
     queryKey: ["/api/settings/public"],
     staleTime: 60_000,
   });
-  if (location.startsWith("/admin")) return null;
-  if (!data?.maintenanceMode) return null;
+
+  const isVisible = !location.startsWith("/admin") && !!data?.maintenanceMode;
+
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!isVisible || !el) {
+      document.documentElement.style.setProperty("--maintenance-h", "0px");
+      return;
+    }
+    const update = () =>
+      document.documentElement.style.setProperty("--maintenance-h", `${el.offsetHeight}px`);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isVisible]);
+
+  if (!isVisible) return null;
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-black text-sm font-semibold text-center py-2.5 px-4 shadow-lg">
+    <div ref={bannerRef} className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-black text-sm font-semibold text-center py-2.5 px-4 shadow-lg">
       🚧 We're currently under maintenance. Some features may be temporarily unavailable. We'll be back soon.
     </div>
   );
@@ -82,7 +100,9 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <MaintenanceBanner />
-        <Router />
+        <div style={{ paddingTop: "var(--maintenance-h, 0px)" }}>
+          <Router />
+        </div>
       </TooltipProvider>
     </QueryClientProvider>
   );
