@@ -243,6 +243,11 @@ function PurchaseForm({
   // Attendee names (for group tickets)
   const [attendeeNames, setAttendeeNames] = useState<string[]>([]);
 
+  // Send ticket to different email
+  const [sendToOther, setSendToOther] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientEmailError, setRecipientEmailError] = useState("");
+
   const paymentMethod = event.paymentMethod;
   const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
   const groupSize = ticket.groupSize ?? 1;
@@ -365,6 +370,7 @@ function PurchaseForm({
           customerPhone: formData!.customerPhone,
           instagramHandle: formData!.instagramHandle || null,
           discountCode: discountResult?.code || undefined,
+          recipientEmail: sendToOther && recipientEmail.trim() ? recipientEmail.trim() : undefined,
           attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || formData!.customerName, email: i === 0 ? formData!.customerEmail : "" })) : undefined,
         });
         const order = await res.json();
@@ -393,6 +399,7 @@ function PurchaseForm({
         customerPhone: formData.customerPhone,
         instagramHandle: formData.instagramHandle || null,
         discountCode: discountResult?.code || undefined,
+        recipientEmail: sendToOther && recipientEmail.trim() ? recipientEmail.trim() : undefined,
         attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || formData.customerName, email: i === 0 ? formData.customerEmail : "" })) : undefined,
       });
       const order = await res.json();
@@ -409,6 +416,22 @@ function PurchaseForm({
   async function onFormSubmit(data: RegistrationForm) {
     setFormData(data);
 
+    // Validate recipient email if provided
+    if (sendToOther) {
+      const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!recipientEmail.trim()) {
+        setRecipientEmailError("Please enter a recipient email address");
+        return;
+      }
+      if (!emailRx.test(recipientEmail.trim())) {
+        setRecipientEmailError("Please enter a valid email address");
+        return;
+      }
+    }
+    setRecipientEmailError("");
+
+    const resolvedRecipient = sendToOther && recipientEmail.trim() ? recipientEmail.trim() : undefined;
+
     // Free ticket — bypass all payment providers
     if (total === 0) {
       setProcessing(true);
@@ -420,6 +443,7 @@ function PurchaseForm({
           customerEmail: data.customerEmail,
           customerPhone: data.customerPhone,
           instagramHandle: data.instagramHandle || null,
+          recipientEmail: resolvedRecipient,
           attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
         });
         const order = await res.json();
@@ -494,6 +518,7 @@ function PurchaseForm({
               customerPhone: data.customerPhone,
               instagramHandle: data.instagramHandle || null,
               discountCode: discountResult?.code || undefined,
+              recipientEmail: resolvedRecipient,
               attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
             });
             const order = await res.json();
@@ -585,6 +610,7 @@ function PurchaseForm({
               customerPhone: data.customerPhone,
               instagramHandle: data.instagramHandle || null,
               discountCode: discountResult?.code || undefined,
+              recipientEmail: resolvedRecipient,
               attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
             });
             const order = await res.json();
@@ -666,6 +692,51 @@ function PurchaseForm({
                 <FormControl><DarkInput icon={Instagram} field={field} placeholder="@yourhandle" /></FormControl>
               </FormItem>
             )} />
+
+            {/* Send ticket to a different email */}
+            <div className="space-y-3 pt-1">
+              <p className="text-zinc-400 text-xs uppercase tracking-widest">Send ticket to a different email address?</p>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="sendToOther"
+                    checked={!sendToOther}
+                    onChange={() => { setSendToOther(false); setRecipientEmail(""); setRecipientEmailError(""); }}
+                    className="accent-amber-400 w-4 h-4"
+                  />
+                  <span className="text-zinc-300 text-sm">No</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="sendToOther"
+                    checked={sendToOther}
+                    onChange={() => setSendToOther(true)}
+                    className="accent-amber-400 w-4 h-4"
+                  />
+                  <span className="text-zinc-300 text-sm">Yes</span>
+                </label>
+              </div>
+              {sendToOther && (
+                <div>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <input
+                      type="email"
+                      value={recipientEmail}
+                      onChange={(e) => { setRecipientEmail(e.target.value); setRecipientEmailError(""); }}
+                      placeholder="Recipient email address"
+                      className="w-full pl-10 bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 h-11 rounded-md text-sm outline-none focus:border-amber-400 transition-colors"
+                    />
+                  </div>
+                  {recipientEmailError && (
+                    <p className="text-red-400 text-xs mt-1">{recipientEmailError}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <FormField control={form.control} name="quantity" render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">
