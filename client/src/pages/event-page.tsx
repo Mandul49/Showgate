@@ -1178,6 +1178,25 @@ export default function EventPage() {
                 {event.description}
               </p>
             )}
+
+            {event.location && (
+              <div className="w-full max-w-2xl mx-auto mt-4">
+                <div className="flex items-center gap-1.5 text-zinc-500 text-xs uppercase tracking-widest mb-2">
+                  <MapPin className="w-3 h-3" /> Location Map
+                </div>
+                <div className="rounded-xl overflow-hidden border border-zinc-800" style={{ height: 220 }}>
+                  <iframe
+                    title="Event location map"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0, display: "block" }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&output=embed`}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
