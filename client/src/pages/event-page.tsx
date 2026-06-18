@@ -46,6 +46,7 @@ interface PublicEvent {
   paymentMethod: string;
   description: string | null;
   coverImageUrl: string | null;
+  coverImagePositionY: number | null;
   ticketTypes: PublicTicketType[];
   organizer: {
     businessName: string;
@@ -1129,7 +1130,7 @@ export default function EventPage() {
               src={event.coverImageUrl}
               alt={event.title}
               className="w-full object-cover max-h-[420px]"
-              style={{ objectPosition: "center" }}
+              style={{ objectPosition: `center ${event.coverImagePositionY ?? 50}%` }}
             />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950" />
           </div>

@@ -194,6 +194,7 @@ export const events = pgTable("events", {
   suspendedByAdmin: boolean("suspended_by_admin").notNull().default(false),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
+  coverImagePositionY: integer("cover_image_position_y").default(50),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -211,6 +212,7 @@ export type Event = {
   suspendedByAdmin: boolean;
   description: string | null;
   coverImageUrl: string | null;
+  coverImagePositionY: number | null;
   createdAt: Date;
 };
 
@@ -226,6 +228,7 @@ export interface CreateEventData {
   isActive: boolean;
   description?: string | null;
   coverImageUrl?: string | null;
+  coverImagePositionY?: number | null;
 }
 
 export interface UpdateEventData {
@@ -239,6 +242,7 @@ export interface UpdateEventData {
   isActive?: boolean;
   description?: string | null;
   coverImageUrl?: string | null;
+  coverImagePositionY?: number | null;
 }
 
 export const createEventSchema = z.object({
@@ -251,6 +255,7 @@ export const createEventSchema = z.object({
   isActive: z.boolean().default(true),
   description: z.string().optional().nullable(),
   coverImageUrl: z.string().optional().nullable(),
+  coverImagePositionY: z.number().min(0).max(100).optional().nullable(),
 });
 
 export const updateEventSchema = createEventSchema.partial();

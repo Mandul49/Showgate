@@ -42,6 +42,7 @@ interface EventData {
   isActive: boolean;
   description: string | null;
   coverImageUrl: string | null;
+  coverImagePositionY: number | null;
   ticketTypes: TicketTypeData[];
   createdAt: string;
 }
@@ -165,6 +166,83 @@ function CapacityBar({ used, total }: { used: number; total: number }) {
   );
 }
 
+// ─── Cover Image Crop ─────────────────────────────────────────────────────────
+
+function CoverImageCrop({
+  src, positionY, onChange, onRemove,
+}: {
+  src: string;
+  positionY: number;
+  onChange: (y: number) => void;
+  onRemove: () => void;
+}) {
+  const isDragging = useRef(false);
+  const dragStart = useRef<{ clientY: number; startY: number } | null>(null);
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDragging.current = true;
+    dragStart.current = { clientY: e.clientY, startY: positionY };
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!isDragging.current || !dragStart.current) return;
+    const deltaY = e.clientY - dragStart.current.clientY;
+    const newY = Math.max(0, Math.min(100, Math.round(dragStart.current.startY - deltaY * 0.3)));
+    onChange(newY);
+  }
+
+  function handlePointerUp() {
+    isDragging.current = false;
+    dragStart.current = null;
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div
+        className="relative rounded-xl overflow-hidden border border-zinc-700 cursor-grab active:cursor-grabbing select-none touch-none"
+        style={{ aspectRatio: "16/7" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+      >
+        <img
+          src={src}
+          alt="Cover"
+          className="w-full h-full"
+          style={{ objectFit: "cover", objectPosition: `center ${positionY}%`, userSelect: "none", pointerEvents: "none" }}
+          draggable={false}
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-900/80 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors z-10"
+        >
+          <X className="w-4 h-4" />
+        </button>
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-0.5 pointer-events-none">
+          <ChevronUp className="w-3 h-3 text-white/60" />
+          <span className="text-white/70 text-xs">Drag to reposition</span>
+          <ChevronDown className="w-3 h-3 text-white/60" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between px-0.5">
+        <span className="text-zinc-600 text-xs">Position {positionY}%</span>
+        {positionY !== 50 && (
+          <button
+            type="button"
+            onClick={() => onChange(50)}
+            className="text-zinc-500 hover:text-amber-400 text-xs transition-colors"
+          >
+            Reset to center
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── New Event Form ───────────────────────────────────────────────────────────
 
 function NewEventPanel({
@@ -180,6 +258,7 @@ function NewEventPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [coverPosY, setCoverPosY] = useState(50);
 
   const form = useForm<NewEventForm>({
     resolver: zodResolver(newEventSchema),
@@ -214,6 +293,7 @@ function NewEventPanel({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Upload failed");
       form.setValue("coverImageUrl", json.url);
+      setCoverPosY(50);
       const reader = new FileReader();
       reader.onload = (ev) => setImagePreview(ev.target?.result as string);
       reader.readAsDataURL(file);
@@ -227,12 +307,13 @@ function NewEventPanel({
   function removeImage() {
     form.setValue("coverImageUrl", null);
     setImagePreview(null);
+    setCoverPosY(50);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   const createMutation = useMutation({
     mutationFn: async (values: NewEventForm) => {
-      const res = await apiRequest("POST", "/api/events", values);
+      const res = await apiRequest("POST", "/api/events", { ...values, coverImagePositionY: coverPosY });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to create event");
       return data as EventData;
@@ -346,13 +427,12 @@ function NewEventPanel({
               Cover Image <span className="normal-case text-zinc-600">(optional)</span>
             </label>
             {imagePreview ? (
-              <div className="relative rounded-xl overflow-hidden border border-zinc-700">
-                <img src={imagePreview} alt="Cover preview" className="w-full h-40 object-cover" />
-                <button type="button" onClick={removeImage}
-                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-900/80 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              <CoverImageCrop
+                src={imagePreview}
+                positionY={coverPosY}
+                onChange={setCoverPosY}
+                onRemove={removeImage}
+              />
             ) : (
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage}
                 className="w-full border-2 border-dashed border-zinc-700 hover:border-amber-400/50 rounded-xl p-6 flex flex-col items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -614,6 +694,7 @@ function EditEventPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [coverPosY, setCoverPosY] = useState(event.coverImagePositionY ?? 50);
 
   const form = useForm<EditEventForm>({
     resolver: zodResolver(editEventSchema),
@@ -648,6 +729,7 @@ function EditEventPanel({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Upload failed");
       form.setValue("coverImageUrl", json.url);
+      setCoverPosY(50);
       const reader = new FileReader();
       reader.onload = (ev) => setImagePreview(ev.target?.result as string);
       reader.readAsDataURL(file);
@@ -661,12 +743,13 @@ function EditEventPanel({
   function removeImage() {
     form.setValue("coverImageUrl", null);
     setImagePreview(null);
+    setCoverPosY(50);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   const saveMutation = useMutation({
     mutationFn: async (values: EditEventForm) => {
-      const res = await apiRequest("PATCH", `/api/events/${event.id}`, values);
+      const res = await apiRequest("PATCH", `/api/events/${event.id}`, { ...values, coverImagePositionY: coverPosY });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to save");
       return data;
@@ -738,13 +821,12 @@ function EditEventPanel({
             Cover Image <span className="normal-case text-zinc-600">(optional)</span>
           </label>
           {hasImage && displayImageSrc ? (
-            <div className="relative rounded-xl overflow-hidden border border-zinc-700">
-              <img src={displayImageSrc} alt="Cover" className="w-full h-32 object-cover" />
-              <button type="button" onClick={removeImage}
-                className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-900/80 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <CoverImageCrop
+              src={displayImageSrc}
+              positionY={coverPosY}
+              onChange={setCoverPosY}
+              onRemove={removeImage}
+            />
           ) : (
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage}
               className="w-full border-2 border-dashed border-zinc-700 hover:border-amber-400/50 rounded-xl p-4 flex flex-col items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">

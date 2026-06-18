@@ -638,6 +638,7 @@ export class DbStorage implements IStorage {
       suspendedByAdmin: row.suspendedByAdmin,
       description: row.description ?? null,
       coverImageUrl: row.coverImageUrl ?? null,
+      coverImagePositionY: row.coverImagePositionY ?? 50,
       createdAt: row.createdAt,
     };
   }

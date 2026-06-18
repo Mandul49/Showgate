@@ -245,6 +245,7 @@ export function registerEventsRoutes(app: Express) {
         paymentMethod: event.paymentMethod,
         description: event.description ?? null,
         coverImageUrl: event.coverImageUrl ?? null,
+        coverImagePositionY: event.coverImagePositionY ?? 50,
         ticketTypes: ticketTypes.map((tt) => {
           const groupSize = tt.groupSize ?? 1;
           const remainingSeats = Math.max(0, tt.quantityAvailable - tt.quantitySold);
