@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { z } from "zod";
 import { requireAuth, effectiveTier, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import {
@@ -330,8 +331,10 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails } = req.body;
+      const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail } = req.body;
       if (!reference) return res.status(400).json({ message: "Missing payment reference" });
+      const emailSchema = z.string().email();
+      const toEmail = (recipientEmail && emailSchema.safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
@@ -384,7 +387,7 @@ export function registerEventsRoutes(app: Express) {
 
       const isPro = organizer?.tier === "pro";
       sendConfirmationEmail({
-        to: customerEmail,
+        to: toEmail,
         buyerName: customerName,
         eventTitle: event.title,
         eventDate: event.date,
@@ -411,7 +414,8 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails } = req.body;
+      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail } = req.body;
+      const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
@@ -443,7 +447,7 @@ export function registerEventsRoutes(app: Express) {
       const organizer = await storage.getOrganizerById(event.organizerId);
       const isPro = organizer?.tier === "pro";
       sendConfirmationEmail({
-        to: customerEmail,
+        to: toEmail,
         buyerName: customerName,
         eventTitle: event.title,
         eventDate: event.date,
@@ -473,7 +477,8 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, attendeeDetails } = req.body;
+      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, attendeeDetails, recipientEmail } = req.body;
+      const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
@@ -510,7 +515,7 @@ export function registerEventsRoutes(app: Express) {
 
       const isPro = organizer?.tier === "pro";
       sendConfirmationEmail({
-        to: customerEmail,
+        to: toEmail,
         buyerName: customerName,
         eventTitle: event.title,
         eventDate: event.date,
@@ -544,8 +549,9 @@ export function registerEventsRoutes(app: Express) {
         return res.status(503).json({ message: "Flutterwave not configured for this event" });
       }
 
-      const { transactionId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails } = req.body;
+      const { transactionId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail } = req.body;
       if (!transactionId) return res.status(400).json({ message: "Missing transactionId" });
+      const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
       if ("error" in resolved) return res.status(400).json({ message: resolved.error });
@@ -597,7 +603,7 @@ export function registerEventsRoutes(app: Express) {
 
       const isPro = organizer.tier === "pro";
       sendConfirmationEmail({
-        to: customerEmail,
+        to: toEmail,
         buyerName: customerName,
         eventTitle: event.title,
         eventDate: event.date,
