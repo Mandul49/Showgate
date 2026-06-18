@@ -2118,16 +2118,16 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
       let logoUrl: string | null = branding?.customLogoUrl ?? null;
 
       if (logoFile) {
-        const urlRes = await fetch("/api/branding/logo-upload-url", {
-          method: "POST", headers: { Authorization: `Bearer ${token}` },
+        const formData = new FormData();
+        formData.append("logo", logoFile);
+        const uploadRes = await fetch("/api/branding/logo-upload", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
         });
-        if (!urlRes.ok) throw new Error((await urlRes.json()).message || "Failed to get upload URL");
-        const { uploadURL, objectPath } = await urlRes.json();
-        const uploadRes = await fetch(uploadURL, {
-          method: "PUT", body: logoFile, headers: { "Content-Type": logoFile.type || "image/png" },
-        });
-        if (!uploadRes.ok) throw new Error("Logo upload failed");
-        logoUrl = objectPath;
+        if (!uploadRes.ok) throw new Error((await uploadRes.json()).message || "Logo upload failed");
+        const { logoUrl: uploadedUrl } = await uploadRes.json();
+        logoUrl = uploadedUrl;
         setLogoFile(null);
       } else if (logoPreviewUrl === null) {
         logoUrl = null;
