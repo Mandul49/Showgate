@@ -77,7 +77,7 @@ export function registerEventsRoutes(app: Express) {
         return res.status(400).json({ message: parsed.error.errors[0].message });
       }
 
-      const { title, date, location, maxTickets, paymentMethod, isActive, description, coverImageUrl } = parsed.data;
+      const { title, date, location, maxTickets, paymentMethod, isActive, description, coverImageUrl, coverImagePositionY } = parsed.data;
 
       const tierCheck = await checkEventTierLimits(organizer, {
         paymentMethod,
@@ -93,6 +93,7 @@ export function registerEventsRoutes(app: Express) {
         status: isActive ? "active" : "draft",
         description: description ?? null,
         coverImageUrl: coverImageUrl ?? null,
+        coverImagePositionY: coverImagePositionY ?? 50,
       });
 
       return res.status(201).json({ ...event, ticketTypes: [] });
