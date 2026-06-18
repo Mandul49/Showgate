@@ -946,13 +946,16 @@ function TicketCard({ ticket, event, onSuccess }: {
   const [open, setOpen] = useState(false);
   const soldOut = ticket.remaining <= 0;
   const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
+  const accent = event.branding?.brandTheme?.accent ?? primary;
+  const surfaceColor = event.branding?.brandTheme?.surface ?? "#18181b";
+  const textColor = event.branding?.brandTheme?.text ?? "#ffffff";
 
   return (
-    <div className="rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden">
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}22` }}>
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">
-          <div className="p-2.5 rounded-lg bg-amber-400/10">
-            <Ticket className="w-5 h-5 text-amber-400" />
+          <div className="p-2.5 rounded-lg" style={{ backgroundColor: `${primary}18` }}>
+            <Ticket className="w-5 h-5" style={{ color: primary }} />
           </div>
           {soldOut
             ? <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-zinc-800 text-zinc-500 border border-zinc-700">Sold Out</span>
@@ -1104,14 +1107,17 @@ export default function EventPage() {
 
   const bt = event.branding?.brandTheme;
   const primary = bt?.primary ?? "#F59E0B";
+  const accent = bt?.accent ?? primary;
   const bgColor = bt?.background ?? "#09090b";
   const surfaceColor = bt?.surface ?? "#18181b";
   const textColor = bt?.text ?? "#ffffff";
+  const brandName = event.branding?.name ?? "Showgate";
+  const brandLogoUrl = (event.branding?.isPro && event.branding?.logoUrl) ? event.branding.logoUrl : null;
 
   const isTestMode = event.paystackEnv === "test";
 
   return (
-    <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor }}>
+    <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor, '--brand-primary': primary, '--brand-accent': accent, '--brand-surface': surfaceColor, '--brand-text': textColor } as any}>
       {isTestMode && (
         <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide">
           TEST MODE — No real payments will be processed
@@ -1138,41 +1144,49 @@ export default function EventPage() {
 
         <div className={`relative max-w-3xl mx-auto px-4 pb-14 ${event.coverImageUrl ? "pt-8" : "pt-12"}`}>
           <div className="flex flex-col items-center text-center mb-8">
-            {/* Organizer branding — logo if pro+logoUrl, otherwise icon */}
-            {!event.coverImageUrl && (
-              event.branding?.isPro && event.branding.logoUrl ? (
-                <img
-                  src={event.branding.logoUrl}
-                  alt={event.branding.name}
-                  className="h-14 max-w-[180px] object-contain mb-6"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-2xl border border-amber-400/20 bg-amber-400/10 flex items-center justify-center mb-6">
-                  <Ticket className="w-8 h-8 text-amber-400" />
-                </div>
-              )
+            {/* Brand logo — always shown for pro orgs */}
+            {brandLogoUrl ? (
+              <img
+                src={brandLogoUrl}
+                alt={brandName}
+                className={`object-contain mb-4 ${event.coverImageUrl ? "h-10 max-w-[140px]" : "h-14 max-w-[180px]"}`}
+              />
+            ) : !event.coverImageUrl ? (
+              <div className="w-16 h-16 rounded-2xl border flex items-center justify-center mb-6"
+                style={{ borderColor: `${primary}33`, backgroundColor: `${primary}15` }}>
+                <Ticket className="w-8 h-8" style={{ color: primary }} />
+              </div>
+            ) : null}
+            {/* Brand name label */}
+            {brandName !== "Showgate" && (
+              <p className="text-xs uppercase tracking-widest font-semibold mb-3 opacity-75" style={{ color: accent }}>
+                {brandName}
+              </p>
             )}
-            <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-4">
+            <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight leading-none mb-4" style={{ color: textColor }}>
               {event.title}
             </h1>
             <div className="flex flex-wrap justify-center gap-3 mb-4">
-              <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
-                <Calendar className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
+                style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}28`, color: textColor }}>
+                <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                 <span>{formattedDate}</span>
               </div>
-              <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
-                <MapPin className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
+                style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}28`, color: textColor }}>
+                <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                 <span>{event.location}</span>
               </div>
               {event.startTime && (
-                <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300">
-                  <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
+                  style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}28`, color: textColor }}>
+                  <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                   <span>{fmtTime12h(event.startTime)}</span>
                 </div>
               )}
             </div>
 
-            <Countdown date={event.date} startTime={event.startTime} accent={primary} />
+            <Countdown date={event.date} startTime={event.startTime} accent={accent} />
 
             {event.description && (
               <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-xl">
@@ -1203,7 +1217,7 @@ export default function EventPage() {
       </div>
 
       {/* Availability bar */}
-      <div className="border-y border-zinc-800 bg-zinc-950">
+      <div style={{ borderTop: `1px solid ${primary}25`, borderBottom: `1px solid ${primary}25`, backgroundColor: surfaceColor }}>
         <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${totalRemaining > 0 ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
@@ -1224,8 +1238,8 @@ export default function EventPage() {
       {/* Ticket types */}
       <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-12">
         <div className="text-center mb-8">
-          <h2 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-wide">Get Your Tickets</h2>
-          <p className="text-zinc-500 mt-2 text-sm">Select a ticket type to get started</p>
+          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide" style={{ color: textColor }}>Get Your Tickets</h2>
+          <p className="mt-2 text-sm opacity-50" style={{ color: textColor }}>Select a ticket type to get started</p>
         </div>
 
         {event.ticketTypes.length === 0 ? (
@@ -1247,13 +1261,18 @@ export default function EventPage() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-800 bg-zinc-950">
+      <footer style={{ borderTop: `1px solid ${primary}25`, backgroundColor: surfaceColor }}>
         <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col items-center gap-3">
           <button onClick={copyLink}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-colors text-xs font-semibold">
+            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-xs font-semibold"
+            style={{ border: `1px solid ${primary}40`, color: textColor + "80" }}>
             {copied ? <><Check className="w-3.5 h-3.5 text-green-400" /> Link copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy event link</>}
           </button>
-          {event.branding?.isPro ? null : (
+          {event.branding?.isPro ? (
+            brandName !== "Showgate" ? (
+              <p className="text-xs opacity-30" style={{ color: textColor }}>Powered by {brandName}</p>
+            ) : null
+          ) : (
             <p className="text-zinc-700 text-xs">Powered by Showgate</p>
           )}
         </div>
