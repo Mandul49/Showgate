@@ -2363,6 +2363,11 @@ export default function Dashboard() {
     enabled: isAuthenticated(),
   });
 
+  const { data: publicSettings } = useQuery<{ maintenanceMode: boolean; feePercent: number }>({
+    queryKey: ["/api/settings/public"],
+  });
+  const proFeeLabel = publicSettings != null ? `${publicSettings.feePercent}%` : "0%";
+
   const tier = data?.tier ?? "free";
 
   const { data: paymentHistory } = useQuery<HistoryItem[]>({
@@ -2687,7 +2692,7 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold text-sm">Upgrade to Pro</p>
-              <p className="text-zinc-500 text-xs mt-0.5">0% platform fee · Unlimited events & tickets · All payment methods</p>
+              <p className="text-zinc-500 text-xs mt-0.5">{proFeeLabel} platform fee · Unlimited events & tickets · All payment methods</p>
             </div>
             <a href="/pricing"
               className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-500 hover:bg-violet-400 text-white text-xs font-bold transition-colors">
@@ -2809,7 +2814,7 @@ export default function Dashboard() {
                         Renews on {new Date(upgradeStatus.proExpiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                       </p>
                     ) : (
-                      <p className="text-zinc-500 text-xs mt-0.5">0% platform fee · Unlimited events & tickets</p>
+                      <p className="text-zinc-500 text-xs mt-0.5">{proFeeLabel} platform fee · Unlimited events & tickets</p>
                     )}
                   </>
                 )}
