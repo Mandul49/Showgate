@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { getToken } from "@/lib/auth";
 import {
   ShieldCheck, ArrowLeft, Copy, Check, Crown, Users, Ticket,
   DollarSign, Calendar, Ban, CheckCircle, Trash2, ChevronDown,
@@ -147,7 +148,7 @@ export default function AdminOrganizerDetail() {
     queryKey: ["/api/admin/organizers", userId],
     queryFn: async () => {
       const res = await fetch(`/api/admin/organizers/${userId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error("Not found");
       return res.json();
