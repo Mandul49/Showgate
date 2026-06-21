@@ -676,7 +676,7 @@ function PurchaseForm({
   );
 
   return (
-    <div className="pt-5 mt-5 border-t border-zinc-700">
+    <div className="pt-5 mt-5" style={{ borderTop: `1px solid ${primary}35` }}>
       {phase === "form" && (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onFormSubmit)} className="space-y-4">
@@ -893,7 +893,7 @@ function PurchaseForm({
               )}
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 space-y-1.5 mb-6">
+            <div className="rounded-lg px-4 py-3 space-y-1.5 mb-6" style={{ backgroundColor: `${primary}15`, border: `1px solid ${primary}35` }}>
               {discountResult && (
                 <>
                   <div className="flex items-center justify-between text-sm">
@@ -972,7 +972,7 @@ function PurchaseForm({
         <div>
           <BackBtn />
           <Summary />
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 mb-5 space-y-3">
+          <div className="rounded-xl p-5 mb-5 space-y-3" style={{ backgroundColor: `${primary}15`, border: `1px solid ${primary}35` }}>
             <div className="flex items-center gap-2 mb-4">
               <Building2 className="w-4 h-4" style={{ color: primary }} />
               <span className="text-white font-bold text-sm">Bank Transfer Details</span>
@@ -1022,7 +1022,7 @@ function TicketCard({ ticket, event, onSuccess }: {
   const textColor = event.branding?.brandTheme?.text ?? "#ffffff";
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}22` }}>
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: `${primary}18`, border: `1px solid ${primary}44` }}>
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="p-2.5 rounded-lg" style={{ backgroundColor: `${primary}18` }}>
@@ -1073,7 +1073,7 @@ function TicketCard({ ticket, event, onSuccess }: {
           : <button onClick={() => setOpen((v) => !v)}
               className="w-full py-3.5 rounded-lg font-bold uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2"
               style={open
-                ? { backgroundColor: "#27272a", color: "#fff", border: "1px solid #52525b" }
+                ? { backgroundColor: `${primary}20`, color: primary, border: `1px solid ${primary}50` }
                 : { border: `2px solid ${primary}`, color: primary }
               }>
               {open
@@ -1307,7 +1307,7 @@ export default function EventPage() {
       </div>
 
       {/* Ticket types */}
-      <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-12">
+      <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-12" style={{ backgroundColor: `${primary}0a` }}>
         <div className="text-center mb-8">
           <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide" style={{ color: textColor }}>Get Your Tickets</h2>
           <p className="mt-2 text-sm opacity-50" style={{ color: textColor }}>Select a ticket type to get started</p>
