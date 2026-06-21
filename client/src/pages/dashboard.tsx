@@ -14,7 +14,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download,
+  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 
@@ -2052,6 +2052,55 @@ function extractThemeFromImage(imgEl: HTMLImageElement): BrandTheme {
   return { primary, accent, background, surface, text };
 }
 
+function extractPalette(imgEl: HTMLImageElement): string[] {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(imgEl, 0, 0, size, size);
+  const { data } = ctx.getImageData(0, 0, size, size);
+  const toHex = (r: number, g: number, b: number) =>
+    "#" + [r, g, b].map((v) => Math.min(255, Math.max(0, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  const getLum = (r: number, g: number, b: number) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const getSat = (r: number, g: number, b: number) => {
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    return max === 0 ? 0 : (max - min) / max;
+  };
+  const pixels: [number, number, number][] = [];
+  for (let i = 0; i < data.length; i += 4)
+    if (data[i + 3] > 128) pixels.push([data[i], data[i + 1], data[i + 2]]);
+  if (pixels.length === 0) return [];
+  const byLum = [...pixels].sort((a, b) => getLum(...a) - getLum(...b));
+  const n = byLum.length;
+  const vdark  = byLum[Math.floor(n * 0.04)];
+  const dark   = byLum[Math.floor(n * 0.12)];
+  const mid    = byLum[Math.floor(n * 0.40)];
+  const light  = byLum[Math.floor(n * 0.75)];
+  const vlight = byLum[Math.floor(n * 0.95)];
+  const bySat = [...pixels].sort((a, b) => getSat(...b) - getSat(...a))
+    .filter(([r, g, b]) => getSat(r, g, b) > 0.15);
+  const vib1 = bySat[0] ?? byLum[Math.floor(n * 0.5)];
+  const vib2 = bySat.find(([r, g, b]) =>
+    Math.sqrt((r - vib1[0]) ** 2 + (g - vib1[1]) ** 2 + (b - vib1[2]) ** 2) > 55
+  ) ?? bySat[Math.floor(bySat.length * 0.15)] ?? vib1;
+  return [vdark, dark, mid, light, vlight, vib1, vib2].map(([r, g, b]) => toHex(r, g, b));
+}
+
+function buildSuggestedTheme(palette: string[], index: number): BrandTheme {
+  if (palette.length < 7)
+    return { primary: "#F59E0B", accent: "#D97706", background: "#0d0d0d", surface: "#1c1c1e", text: "#ffffff" };
+  const [vdark, dark, mid, light, vlight, vib1, vib2] = palette;
+  const strategies: BrandTheme[] = [
+    { background: vdark,  surface: dark,  text: vlight, primary: vib1,  accent: vib2  },
+    { background: vdark,  surface: dark,  text: vlight, primary: vib2,  accent: vib1  },
+    { background: vdark,  surface: mid,   text: vlight, primary: vib1,  accent: vib2  },
+    { background: dark,   surface: mid,   text: vlight, primary: vib1,  accent: vib2  },
+    { background: vdark,  surface: dark,  text: light,  primary: vib1,  accent: vib2  },
+    { background: vdark,  surface: dark,  text: vlight, primary: vib2,  accent: mid   },
+  ];
+  return strategies[index % strategies.length];
+}
+
 const brandingFormSchema = z.object({
   customBrandName: z.string().max(80).optional(),
 });
@@ -2074,6 +2123,8 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const [extracting, setExtracting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [theme, setTheme] = useState<BrandTheme | null>(null);
+  const [extractedPalette, setExtractedPalette] = useState<string[]>([]);
+  const [suggestIndex, setSuggestIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
   const token = getToken();
@@ -2112,9 +2163,17 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
     if (!previewImgRef.current || !logoFile) { setExtracting(false); return; }
     try {
       setTheme(extractThemeFromImage(previewImgRef.current));
+      setExtractedPalette(extractPalette(previewImgRef.current));
+      setSuggestIndex(0);
       setColorEditorOpen(false);
     } catch { /* svg cross-origin fallback */ }
     setExtracting(false);
+  };
+
+  const handleSuggest = () => {
+    const next = suggestIndex + 1;
+    setSuggestIndex(next);
+    setTheme(buildSuggestedTheme(extractedPalette, next));
   };
 
   const handleSave = async () => {
@@ -2265,10 +2324,19 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
                     <Paintbrush className="w-3 h-3" /> Color Theme
                     <span className="normal-case text-zinc-600 text-xs font-normal ml-1">from logo</span>
                   </label>
-                  <button type="button" onClick={() => setColorEditorOpen((v) => !v)}
-                    className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors flex items-center gap-1">
-                    Edit {colorEditorOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {extractedPalette.length >= 7 && (
+                      <button type="button" onClick={handleSuggest}
+                        title="Suggest a different color combination"
+                        className="p-1 rounded text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 transition-colors">
+                        <Wand2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button type="button" onClick={() => setColorEditorOpen((v) => !v)}
+                      className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors flex items-center gap-1">
+                      Edit {colorEditorOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Swatches row */}
