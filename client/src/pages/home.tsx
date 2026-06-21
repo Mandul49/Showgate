@@ -8,6 +8,7 @@ import {
   ChevronRight, CreditCard, Clock, ImageIcon,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
+import { SiInstagram } from "react-icons/si";
 
 
 function useFadeIn() {
@@ -559,6 +560,9 @@ export default function Home() {
           </span>
           <p className="text-zinc-500 text-xs">The easiest way to run your event.</p>
           <a href="mailto:support@showgate.ng" className="text-zinc-500 text-xs hover:text-amber-400 transition-colors">support@showgate.ng</a>
+          <a href="https://www.instagram.com/showgate.ng/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-zinc-500 hover:text-amber-400 transition-colors mt-1">
+            <SiInstagram className="w-4 h-4" />
+          </a>
           <p className="text-zinc-600 text-xs mt-1">© {new Date().getFullYear()} Showgate. All rights reserved.</p>
         </div>
       </footer>
