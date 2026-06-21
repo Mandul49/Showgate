@@ -676,7 +676,7 @@ function PurchaseForm({
   );
 
   return (
-    <div className="pt-5 mt-5" style={{ borderTop: `1px solid ${primary}35` }}>
+    <div className="pt-5 mt-5" style={{ borderTop: `1px solid ${primary}35`, backgroundColor: `${primary}0d` }}>
       {phase === "form" && (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onFormSubmit)} className="space-y-4">
