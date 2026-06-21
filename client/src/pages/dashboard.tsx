@@ -865,6 +865,9 @@ interface AttendeeOrder {
   customerEmail: string;
   customerPhone: string;
   instagramHandle: string | null;
+  gender: string | null;
+  ageRange: string | null;
+  heardFrom: string | null;
   ticketType: string;
   quantity: number;
   totalAmount: number;
@@ -954,6 +957,9 @@ function AttendeesSection({ event }: { event: EventData }) {
                         </span>
                       </div>
                       <p className="text-zinc-500 text-xs">{a.customerEmail} · {a.customerPhone}</p>
+                      {(a.gender || a.ageRange || a.heardFrom) && (
+                        <p className="text-zinc-600 text-xs">{[a.gender, a.ageRange, a.heardFrom && `via ${a.heardFrom}`].filter(Boolean).join(" · ")}</p>
+                      )}
                       <div className="flex items-center gap-3">
                         <span className="text-amber-400 font-bold text-sm">
                           ₦{new Intl.NumberFormat("en-NG").format(a.totalAmount)}

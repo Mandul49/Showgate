@@ -191,6 +191,9 @@ const registrationSchema = z.object({
   customerPhone: z.string().min(7, "Please enter a valid phone number"),
   instagramHandle: z.string().optional(),
   quantity: z.number().min(1).max(20),
+  gender: z.string().optional(),
+  ageRange: z.string().optional(),
+  heardFrom: z.string().optional(),
 });
 type RegistrationForm = z.infer<typeof registrationSchema>;
 
@@ -256,7 +259,7 @@ function PurchaseForm({
 
   const form = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
-    defaultValues: { customerName: "", customerEmail: "", customerPhone: "", instagramHandle: "", quantity: 1 },
+    defaultValues: { customerName: "", customerEmail: "", customerPhone: "", instagramHandle: "", quantity: 1, gender: "", ageRange: "", heardFrom: "" },
   });
   const quantity = form.watch("quantity");
   const baseTotal = ticket.price * quantity;
@@ -370,6 +373,9 @@ function PurchaseForm({
           customerEmail: formData!.customerEmail,
           customerPhone: formData!.customerPhone,
           instagramHandle: formData!.instagramHandle || null,
+          gender: formData!.gender || null,
+          ageRange: formData!.ageRange || null,
+          heardFrom: formData!.heardFrom || null,
           discountCode: discountResult?.code || undefined,
           recipientEmail: sendToOther && recipientEmail.trim() ? recipientEmail.trim() : undefined,
           attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || formData!.customerName, email: i === 0 ? formData!.customerEmail : "" })) : undefined,
@@ -399,6 +405,9 @@ function PurchaseForm({
         customerEmail: formData.customerEmail,
         customerPhone: formData.customerPhone,
         instagramHandle: formData.instagramHandle || null,
+        gender: formData.gender || null,
+        ageRange: formData.ageRange || null,
+        heardFrom: formData.heardFrom || null,
         discountCode: discountResult?.code || undefined,
         recipientEmail: sendToOther && recipientEmail.trim() ? recipientEmail.trim() : undefined,
         attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || formData.customerName, email: i === 0 ? formData.customerEmail : "" })) : undefined,
@@ -444,6 +453,9 @@ function PurchaseForm({
           customerEmail: data.customerEmail,
           customerPhone: data.customerPhone,
           instagramHandle: data.instagramHandle || null,
+          gender: data.gender || null,
+          ageRange: data.ageRange || null,
+          heardFrom: data.heardFrom || null,
           recipientEmail: resolvedRecipient,
           attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
         });
@@ -518,6 +530,9 @@ function PurchaseForm({
               customerEmail: data.customerEmail,
               customerPhone: data.customerPhone,
               instagramHandle: data.instagramHandle || null,
+              gender: data.gender || null,
+              ageRange: data.ageRange || null,
+              heardFrom: data.heardFrom || null,
               discountCode: discountResult?.code || undefined,
               recipientEmail: resolvedRecipient,
               attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
@@ -610,6 +625,9 @@ function PurchaseForm({
               customerEmail: data.customerEmail,
               customerPhone: data.customerPhone,
               instagramHandle: data.instagramHandle || null,
+              gender: data.gender || null,
+              ageRange: data.ageRange || null,
+              heardFrom: data.heardFrom || null,
               discountCode: discountResult?.code || undefined,
               recipientEmail: resolvedRecipient,
               attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
@@ -691,6 +709,59 @@ function PurchaseForm({
                   Instagram <span className="normal-case text-zinc-600">(optional)</span>
                 </FormLabel>
                 <FormControl><DarkInput icon={Instagram} field={field} placeholder="@yourhandle" /></FormControl>
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="gender" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">
+                  Gender <span className="normal-case text-zinc-600">(Optional)</span>
+                </FormLabel>
+                <FormControl>
+                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer">
+                    <option value="">Select...</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </FormControl>
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="ageRange" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">
+                  Age Range <span className="normal-case text-zinc-600">(Optional)</span>
+                </FormLabel>
+                <FormControl>
+                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer">
+                    <option value="">Select...</option>
+                    <option value="Under 18">Under 18</option>
+                    <option value="18–24">18–24</option>
+                    <option value="25–34">25–34</option>
+                    <option value="35–44">35–44</option>
+                    <option value="45+">45+</option>
+                  </select>
+                </FormControl>
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="heardFrom" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">
+                  How did you hear about this event? <span className="normal-case text-zinc-600">(Optional)</span>
+                </FormLabel>
+                <FormControl>
+                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer">
+                    <option value="">Select...</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="Friend/Family">Friend/Family</option>
+                    <option value="Flyer/Poster">Flyer/Poster</option>
+                    <option value="Online Search">Online Search</option>
+                    <option value="Word of Mouth">Word of Mouth</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </FormControl>
               </FormItem>
             )} />
 

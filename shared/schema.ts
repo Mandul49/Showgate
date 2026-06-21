@@ -12,6 +12,9 @@ export const orders = pgTable("orders", {
   customerEmail: text("customer_email").notNull(),
   customerPhone: text("customer_phone").notNull(),
   instagramHandle: text("instagram_handle"),
+  gender: text("gender"),
+  ageRange: text("age_range"),
+  heardFrom: text("heard_from"),
   ticketType: text("ticket_type").notNull(),
   quantity: integer("quantity").notNull(),
   totalAmount: integer("total_amount").notNull(),
@@ -32,6 +35,9 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   attendeeDetails: z.array(z.object({ name: z.string(), email: z.string().optional() })).optional().nullable(),
   discountCode: z.string().optional().nullable(),
   discountAmount: z.number().optional().default(0),
+  gender: z.string().optional().nullable(),
+  ageRange: z.string().optional().nullable(),
+  heardFrom: z.string().optional().nullable(),
 });
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;

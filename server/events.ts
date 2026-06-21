@@ -333,7 +333,7 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail } = req.body;
+      const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
       if (!reference) return res.status(400).json({ message: "Missing payment reference" });
       const emailSchema = z.string().email();
       const toEmail = (recipientEmail && emailSchema.safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
@@ -374,6 +374,9 @@ export function registerEventsRoutes(app: Express) {
         discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
         discountAmount: discount.discountAmount,
         attendeeDetails: attendeeDetails || null,
+        gender: gender || null,
+        ageRange: ageRange || null,
+        heardFrom: heardFrom || null,
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
@@ -416,7 +419,7 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail } = req.body;
+      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
       const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
@@ -439,6 +442,9 @@ export function registerEventsRoutes(app: Express) {
         discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
         discountAmount: discount.discountAmount,
         attendeeDetails: attendeeDetails || null,
+        gender: gender || null,
+        ageRange: ageRange || null,
+        heardFrom: heardFrom || null,
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
@@ -479,7 +485,7 @@ export function registerEventsRoutes(app: Express) {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
 
-      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, attendeeDetails, recipientEmail } = req.body;
+      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
       const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
 
       const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
@@ -503,6 +509,9 @@ export function registerEventsRoutes(app: Express) {
         discountCode: null,
         discountAmount: 0,
         attendeeDetails: attendeeDetails || null,
+        gender: gender || null,
+        ageRange: ageRange || null,
+        heardFrom: heardFrom || null,
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
@@ -551,7 +560,7 @@ export function registerEventsRoutes(app: Express) {
         return res.status(503).json({ message: "Flutterwave not configured for this event" });
       }
 
-      const { transactionId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail } = req.body;
+      const { transactionId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
       if (!transactionId) return res.status(400).json({ message: "Missing transactionId" });
       const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
 
@@ -596,6 +605,9 @@ export function registerEventsRoutes(app: Express) {
         discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
         discountAmount: discount.discountAmount,
         attendeeDetails: attendeeDetails || null,
+        gender: gender || null,
+        ageRange: ageRange || null,
+        heardFrom: heardFrom || null,
       });
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
