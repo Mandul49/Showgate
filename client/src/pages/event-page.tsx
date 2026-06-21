@@ -254,6 +254,7 @@ function PurchaseForm({
 
   const paymentMethod = event.paymentMethod;
   const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
+  const surfaceColor = event.branding?.brandTheme?.surface ?? "#18181b";
   const groupSize = ticket.groupSize ?? 1;
   const isGroupTicket = groupSize > 1;
 
@@ -676,7 +677,7 @@ function PurchaseForm({
   );
 
   return (
-    <div className="pt-5 mt-5 border-t border-zinc-700">
+    <div className="pt-5 mt-5 border-t" style={{ borderColor: `${primary}40` }}>
       {phase === "form" && (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onFormSubmit)} className="space-y-4">
@@ -1022,7 +1023,7 @@ function TicketCard({ ticket, event, onSuccess }: {
   const textColor = event.branding?.brandTheme?.text ?? "#ffffff";
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}22` }}>
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: `${primary}15`, border: `1px solid ${primary}40` }}>
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="p-2.5 rounded-lg" style={{ backgroundColor: `${primary}18` }}>
@@ -1073,7 +1074,7 @@ function TicketCard({ ticket, event, onSuccess }: {
           : <button onClick={() => setOpen((v) => !v)}
               className="w-full py-3.5 rounded-lg font-bold uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2"
               style={open
-                ? { backgroundColor: "#27272a", color: "#fff", border: "1px solid #52525b" }
+                ? { backgroundColor: `${primary}20`, color: "#fff", border: `1px solid ${primary}60` }
                 : { border: `2px solid ${primary}`, color: primary }
               }>
               {open
@@ -1307,7 +1308,7 @@ export default function EventPage() {
       </div>
 
       {/* Ticket types */}
-      <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-12">
+      <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-12" style={{ backgroundColor: surfaceColor }}>
         <div className="text-center mb-8">
           <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide" style={{ color: textColor }}>Get Your Tickets</h2>
           <p className="mt-2 text-sm opacity-50" style={{ color: textColor }}>Select a ticket type to get started</p>
