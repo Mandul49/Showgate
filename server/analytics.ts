@@ -221,6 +221,24 @@ export function registerAnalyticsRoutes(app: Express) {
           status: o.status,
         }));
 
+      // Survey breakdown (Pro only)
+      function buildBreakdown(field: "gender" | "ageRange" | "heardFrom") {
+        const counts = new Map<string, number>();
+        for (const o of confirmed) {
+          const val = (o as any)[field];
+          if (val) counts.set(val, (counts.get(val) ?? 0) + 1);
+        }
+        const total = Array.from(counts.values()).reduce((s, v) => s + v, 0);
+        return Array.from(counts.entries())
+          .map(([label, count]) => ({ label, count, pct: total > 0 ? Math.round((count / total) * 100) : 0 }))
+          .sort((a, b) => b.count - a.count);
+      }
+      const genderBreakdown = buildBreakdown("gender");
+      const ageRangeBreakdown = buildBreakdown("ageRange");
+      const heardFromBreakdown = buildBreakdown("heardFrom");
+      const surveyRespondents = confirmed.filter((o) => (o as any).gender || (o as any).ageRange || (o as any).heardFrom).length;
+      const surveyResponseRate = confirmed.length > 0 ? Math.round((surveyRespondents / confirmed.length) * 100) : 0;
+
       const allEvents = await storage.getEventsByOrganizerId(organizer.id);
       const allEventsSummary = await Promise.all(
         allEvents.map(async (ev) => {
@@ -243,6 +261,10 @@ export function registerAnalyticsRoutes(app: Express) {
         uniqueBuyers,
         repeatBuyers,
         recentBuyers,
+        genderBreakdown,
+        ageRangeBreakdown,
+        heardFromBreakdown,
+        surveyResponseRate,
         allEventsSummary,
       });
     } catch (err: any) {

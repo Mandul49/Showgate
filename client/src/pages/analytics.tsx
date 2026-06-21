@@ -77,6 +77,11 @@ interface AnalyticsData {
     totalSold: number;
     totalRevenue: number;
   }[];
+  // Pro only — survey
+  genderBreakdown?: { label: string; count: number; pct: number }[];
+  ageRangeBreakdown?: { label: string; count: number; pct: number }[];
+  heardFromBreakdown?: { label: string; count: number; pct: number }[];
+  surveyResponseRate?: number;
 }
 
 declare global {
@@ -124,6 +129,33 @@ function MetricCard({ icon: Icon, label, value, sub, color = "text-amber-400" }:
       </div>
       <p className="text-2xl font-black text-white">{value}</p>
       {sub && <p className="text-zinc-600 text-xs mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+// ─── Survey breakdown card ────────────────────────────────────────────────────
+
+function BreakdownCard({ title, data, barColor }: {
+  title: string;
+  data: { label: string; count: number; pct: number }[];
+  barColor: string;
+}) {
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+      <h3 className="text-zinc-400 text-xs uppercase tracking-widest font-semibold mb-4">{title}</h3>
+      <div className="space-y-3">
+        {data.map(({ label, count, pct }) => (
+          <div key={label}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-zinc-300 text-xs">{label}</span>
+              <span className="text-zinc-500 text-xs">{count} · {pct}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -642,6 +674,29 @@ export default function Analytics() {
                 </div>
               </div>
             </div>
+
+            {/* Audience Insights */}
+            {(data.genderBreakdown?.length || data.ageRangeBreakdown?.length || data.heardFromBreakdown?.length) ? (
+              <div>
+                <h2 className="text-white font-bold mb-4 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-amber-400" /> Audience Insights
+                  {data.surveyResponseRate !== undefined && (
+                    <span className="ml-auto text-zinc-600 text-xs font-normal">{data.surveyResponseRate}% survey response rate</span>
+                  )}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {data.genderBreakdown && data.genderBreakdown.length > 0 && (
+                    <BreakdownCard title="Gender" data={data.genderBreakdown} barColor="bg-pink-400" />
+                  )}
+                  {data.ageRangeBreakdown && data.ageRangeBreakdown.length > 0 && (
+                    <BreakdownCard title="Age Range" data={data.ageRangeBreakdown} barColor="bg-blue-400" />
+                  )}
+                  {data.heardFromBreakdown && data.heardFromBreakdown.length > 0 && (
+                    <BreakdownCard title="How They Heard" data={data.heardFromBreakdown} barColor="bg-violet-400" />
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             {/* Full buyer table */}
             {data.recentBuyers && data.recentBuyers.length > 0 && (
