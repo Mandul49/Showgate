@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { requireAuth, type AuthRequest } from "./auth";
+import { requireAuth, isAdminUser, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 
 export function registerAnalyticsRoutes(app: Express) {
@@ -11,10 +11,15 @@ export function registerAnalyticsRoutes(app: Express) {
       const event = await storage.getEventById(eventId);
       if (!event) return res.status(404).json({ message: "Event not found" });
 
+      const isAdmin = isAdminUser(req.userRole);
       const organizer = await storage.getOrganizerByUserId(req.userId!);
-      if (!organizer || organizer.id !== event.organizerId) {
+      if (!isAdmin && (!organizer || organizer.id !== event.organizerId)) {
         return res.status(403).json({ message: "Access denied" });
       }
+
+      // Admins always get Pro-tier analytics; resolve the organizer's event list by the event's owner
+      const analyticsOrganizerId = organizer?.id ?? event.organizerId;
+      const analyticsTier: "free" | "pro" = isAdmin ? "pro" : (organizer!.tier as "free" | "pro");
 
       const ticketTypeList = await storage.getTicketTypesByEventId(eventId);
       const groupSizeMap = new Map(ticketTypeList.map((tt) => [tt.id, tt.groupSize]));
@@ -101,10 +106,15 @@ export function registerAnalyticsRoutes(app: Express) {
       const event = await storage.getEventById(eventId);
       if (!event) return res.status(404).json({ message: "Event not found" });
 
+      const isAdmin = isAdminUser(req.userRole);
       const organizer = await storage.getOrganizerByUserId(req.userId!);
-      if (!organizer || organizer.id !== event.organizerId) {
+      if (!isAdmin && (!organizer || organizer.id !== event.organizerId)) {
         return res.status(403).json({ message: "Access denied" });
       }
+
+      // Admins always get Pro-tier analytics; resolve the organizer's event list by the event's owner
+      const analyticsOrganizerId = organizer?.id ?? event.organizerId;
+      const analyticsTier: "free" | "pro" = isAdmin ? "pro" : (organizer!.tier as "free" | "pro");
 
       const [ticketTypeList, allOrders, discountCodeList] = await Promise.all([
         storage.getTicketTypesByEventId(eventId),
@@ -158,7 +168,7 @@ export function registerAnalyticsRoutes(app: Express) {
       });
 
       const base = {
-        tier: organizer.tier,
+        tier: analyticsTier,
         event: {
           id: event.id,
           title: event.title,
@@ -176,7 +186,7 @@ export function registerAnalyticsRoutes(app: Express) {
         discountStats,
       };
 
-      if (organizer.tier !== "pro") {
+      if (analyticsTier !== "pro") {
         return res.json(base);
       }
 
@@ -239,7 +249,7 @@ export function registerAnalyticsRoutes(app: Express) {
       const surveyRespondents = confirmed.filter((o) => (o as any).gender || (o as any).ageRange || (o as any).heardFrom).length;
       const surveyResponseRate = confirmed.length > 0 ? Math.round((surveyRespondents / confirmed.length) * 100) : 0;
 
-      const allEvents = await storage.getEventsByOrganizerId(organizer.id);
+      const allEvents = await storage.getEventsByOrganizerId(analyticsOrganizerId);
       const allEventsSummary = await Promise.all(
         allEvents.map(async (ev) => {
           const evOrders = await storage.getOrdersByEventId(ev.id);
