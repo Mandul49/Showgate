@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import { isAuthenticated } from "@/lib/auth";
 import {
   Zap, BarChart2, Palette, ArrowRight, Check, X, Menu,
-  ChevronRight, CreditCard, Clock, ImageIcon,
+  ChevronRight, CreditCard, Clock, ImageIcon, Store, Ticket,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 import { SiInstagram } from "react-icons/si";
@@ -494,6 +494,60 @@ export default function Home() {
             </FadeSection>
 
           </div>
+        </div>
+      </section>
+
+      {/* ── Fees ──────────────────────────────────────────────────────────── */}
+      <section className="py-16 px-5">
+        <div className="max-w-4xl mx-auto">
+          <FadeSection className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-black mb-3">Simple, Honest Fees</h2>
+            <p className="text-zinc-500 text-sm max-w-sm mx-auto">No hidden charges. No surprises at checkout.</p>
+          </FadeSection>
+
+          <FadeSection>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+              {/* Organizers */}
+              <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
+                    <Store className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <span className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">For Event Organizers</span>
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-white">2.5% platform fee</p>
+                  <p className="text-xs text-amber-400/80 font-semibold mt-0.5">per successful ticket sale</p>
+                </div>
+                <p className="text-zinc-500 text-sm leading-relaxed">
+                  Deducted from ticket revenue before settlement. You only pay when you sell.
+                </p>
+              </div>
+
+              {/* Buyers */}
+              <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-400/10 border border-emerald-400/20 flex-shrink-0">
+                    <Ticket className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <span className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">For Ticket Buyers</span>
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-white">No surprises</p>
+                  <p className="text-xs text-emerald-400/80 font-semibold mt-0.5">price shown before you pay</p>
+                </div>
+                <p className="text-zinc-500 text-sm leading-relaxed">
+                  A small payment processing fee is added at checkout. Always shown before you pay.
+                </p>
+              </div>
+
+            </div>
+
+            <p className="text-center text-zinc-600 text-xs mt-5">
+              Free events have zero fees for everyone.
+            </p>
+          </FadeSection>
         </div>
       </section>
 
