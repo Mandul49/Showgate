@@ -1114,7 +1114,7 @@ function DiscountCodesPanel({ event }: { event: EventData }) {
       </button>
 
       {open && (
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 space-y-2 pl-4 pb-4">
           {isLoading ? (
             <div className="flex items-center gap-2 text-zinc-600 text-xs py-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading codes...
