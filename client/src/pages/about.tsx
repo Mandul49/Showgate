@@ -1,8 +1,82 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { Check, ArrowRight } from "lucide-react";
+import { Check, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 import aboutHero from "@/assets/About-us_1781630795603.jpeg";
 import { SiInstagram } from "react-icons/si";
+
+const FAQS = [
+  {
+    q: "How does Showgate make money?",
+    a: "We charge a 2.5% platform fee on each successful paid ticket sale. If your event is free, we charge nothing — for you or your attendees.",
+  },
+  {
+    q: "When do I receive my earnings?",
+    a: "Paystack settles payments directly to your registered bank account the next business day after a successful transaction.",
+  },
+  {
+    q: "What payment methods can my attendees use?",
+    a: "Attendees can pay via card, bank transfer, and USSD — powered by Paystack.",
+  },
+  {
+    q: "Can I offer free tickets?",
+    a: "Yes. Free events and free ticket types have zero fees for both organizers and attendees.",
+  },
+  {
+    q: "What happens if a ticket buyer wants a refund?",
+    a: "Refund policies are set by the event organizer. Showgate does not automatically issue refunds.",
+  },
+  {
+    q: "Is there a limit to how many tickets I can sell?",
+    a: "No. You control your ticket capacity. Sell 10 or 10,000 — Showgate handles it.",
+  },
+  {
+    q: "Do I need a bank account to receive payments?",
+    a: "Yes. You'll need to add a valid Nigerian bank account in your dashboard settings to receive settlements.",
+  },
+];
+
+function FAQ() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  return (
+    <section className="py-16 px-5 border-t border-zinc-800">
+      <div className="max-w-3xl mx-auto">
+        <h2 className="text-2xl sm:text-3xl font-black text-center mb-10">
+          Frequently Asked <span className="text-amber-400">Questions</span>
+        </h2>
+        <div className="divide-y divide-zinc-800">
+          {FAQS.map((item, i) => {
+            const isOpen = openIndex === i;
+            return (
+              <div key={i}>
+                <button
+                  type="button"
+                  onClick={() => setOpenIndex(isOpen ? null : i)}
+                  className="w-full flex items-center justify-between gap-4 py-5 text-left transition-colors hover:text-amber-400 group"
+                >
+                  <span className="text-sm font-semibold text-white group-hover:text-amber-400 transition-colors">
+                    {item.q}
+                  </span>
+                  {isOpen
+                    ? <ChevronUp className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    : <ChevronDown className="w-4 h-4 text-zinc-500 flex-shrink-0 group-hover:text-amber-400 transition-colors" />}
+                </button>
+                <div
+                  className="overflow-hidden transition-all duration-300 ease-in-out"
+                  style={{ maxHeight: isOpen ? "200px" : "0px", opacity: isOpen ? 1 : 0 }}
+                >
+                  <p className="pb-5 text-zinc-400 text-sm leading-relaxed">
+                    {item.a}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function About() {
   return (
@@ -165,6 +239,9 @@ export default function About() {
           </Link>
         </div>
       </section>
+
+      {/* ── FAQ ────────────────────────────────────────────────────────────── */}
+      <FAQ />
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <footer className="border-t border-amber-500/20 py-10 px-5">
