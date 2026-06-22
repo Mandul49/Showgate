@@ -243,6 +243,7 @@ export interface IStorage {
   createEvent(data: CreateEventData): Promise<Event>;
   getEventsByOrganizerId(organizerId: string): Promise<Event[]>;
   getEventById(id: string): Promise<Event | undefined>;
+  getEventBySlug(slug: string): Promise<Event | undefined>;
   updateEvent(id: string, updates: UpdateEventData): Promise<Event>;
   deleteEvent(id: string): Promise<void>;
   // Ticket Types
@@ -609,6 +610,12 @@ export class DbStorage implements IStorage {
     return row ? this._mapEvent(row) : undefined;
   }
 
+  async getEventBySlug(slug: string): Promise<Event | undefined> {
+    const [row] = await db.select().from(events)
+      .where(eq(sql`${events.slug}`, slug));
+    return row ? this._mapEvent(row) : undefined;
+  }
+
   async updateEvent(id: string, updates: UpdateEventData): Promise<Event> {
     const [row] = await db.update(events)
       .set(updates)
@@ -639,6 +646,7 @@ export class DbStorage implements IStorage {
       description: row.description ?? null,
       coverImageUrl: row.coverImageUrl ?? null,
       coverImagePositionY: row.coverImagePositionY ?? 50,
+      slug: (row as any).slug ?? null,
       createdAt: row.createdAt,
     };
   }
@@ -1661,3 +1669,27 @@ export class DbStorage implements IStorage {
 }
 
 export const storage = new DbStorage();
+
+export async function generateUniqueSlug(title: string): Promise<string> {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 60)
+    .replace(/^-+|-+$/g, "") || "event";
+
+  const [existing] = await db.select({ id: events.id }).from(events)
+    .where(eq(sql`${events.slug}`, base));
+  if (!existing) return base;
+
+  for (let i = 2; i <= 99; i++) {
+    const candidate = `${base.slice(0, 57)}-${i}`;
+    const [exists] = await db.select({ id: events.id }).from(events)
+      .where(eq(sql`${events.slug}`, candidate));
+    if (!exists) return candidate;
+  }
+
+  return `${base.slice(0, 50)}-${randomUUID().slice(0, 8)}`;
+}

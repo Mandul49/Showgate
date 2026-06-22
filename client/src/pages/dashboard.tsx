@@ -43,6 +43,7 @@ interface EventData {
   description: string | null;
   coverImageUrl: string | null;
   coverImagePositionY: number | null;
+  slug: string | null;
   ticketTypes: TicketTypeData[];
   createdAt: string;
 }
@@ -993,10 +994,10 @@ function AttendeesSection({ event }: { event: EventData }) {
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
-function CopyLinkButton({ eventId }: { eventId: string }) {
+function CopyLinkButton({ eventId, slug }: { eventId: string; slug?: string | null }) {
   const [copied, setCopied] = useState(false);
   function copy() {
-    const url = `${window.location.origin}/e/${eventId}`;
+    const url = `${window.location.origin}/e/${slug ?? eventId}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -1307,7 +1308,7 @@ function EventCard({
   }
 
   function copyPublicLink() {
-    const url = `${window.location.origin}/e/${event.id}`;
+    const url = `${window.location.origin}/e/${event.slug ?? event.id}`;
     navigator.clipboard.writeText(url).then(() => {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
@@ -1346,7 +1347,7 @@ function EventCard({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <CopyLinkButton eventId={event.id} />
+            <CopyLinkButton eventId={event.id} slug={event.slug} />
             <a
               href={`/analytics/${event.id}`}
               title="View analytics"

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { requireAuth, effectiveTier, type AuthRequest } from "./auth";
-import { storage } from "./storage";
+import { storage, generateUniqueSlug } from "./storage";
 import {
   createEventSchema, updateEventSchema,
   createTicketTypeSchema, updateTicketTypeSchema,
@@ -87,6 +87,7 @@ export function registerEventsRoutes(app: Express) {
         return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });
       }
 
+      const slug = await generateUniqueSlug(title);
       const event = await storage.createEvent({
         organizerId: organizer.id,
         title, date, location, maxTickets, paymentMethod, isActive,
@@ -94,6 +95,7 @@ export function registerEventsRoutes(app: Express) {
         description: description ?? null,
         coverImageUrl: coverImageUrl ?? null,
         coverImagePositionY: coverImagePositionY ?? 50,
+        slug,
       });
 
       return res.status(201).json({ ...event, ticketTypes: [] });
@@ -229,7 +231,11 @@ export function registerEventsRoutes(app: Express) {
   // ── GET /api/public/events/:id ───────────────────────────────────────────
   app.get("/api/public/events/:id", async (req, res) => {
     try {
-      const event = await storage.getEventById(req.params.id);
+      const param = req.params.id;
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(param);
+      const event = isUUID
+        ? await storage.getEventById(param)
+        : (await storage.getEventBySlug(param)) ?? (await storage.getEventById(param));
       if (!event) return res.status(404).json({ message: "Event not found" });
       if (!event.isActive || event.suspendedByAdmin) return res.status(404).json({ message: "Event is not available" });
 
@@ -238,6 +244,7 @@ export function registerEventsRoutes(app: Express) {
 
       return res.json({
         id: event.id,
+        slug: event.slug ?? null,
         title: event.title,
         date: event.date,
         startTime: event.startTime ?? null,

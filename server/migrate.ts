@@ -9,6 +9,8 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS gender text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS age_range text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS heard_from text`);
+    await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS slug text`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS events_slug_unique ON events (slug) WHERE slug IS NOT NULL`);
     console.log("[migrations] cover_image_position_y column ready");
   } catch (err: any) {
     console.error("[migrations] startup migration error (non-fatal):", err?.message ?? err);

@@ -201,6 +201,7 @@ export const events = pgTable("events", {
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
   coverImagePositionY: integer("cover_image_position_y").default(50),
+  slug: text("slug"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -219,6 +220,7 @@ export type Event = {
   description: string | null;
   coverImageUrl: string | null;
   coverImagePositionY: number | null;
+  slug: string | null;
   createdAt: Date;
 };
 
@@ -235,6 +237,7 @@ export interface CreateEventData {
   description?: string | null;
   coverImageUrl?: string | null;
   coverImagePositionY?: number | null;
+  slug?: string | null;
 }
 
 export interface UpdateEventData {
@@ -249,6 +252,7 @@ export interface UpdateEventData {
   description?: string | null;
   coverImageUrl?: string | null;
   coverImagePositionY?: number | null;
+  slug?: string | null;
 }
 
 export const createEventSchema = z.object({
