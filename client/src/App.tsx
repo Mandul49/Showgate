@@ -30,35 +30,44 @@ import About from "@/pages/about";
 import VerifyEmail from "@/pages/verify-email";
 import NotFound from "@/pages/not-found";
 
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [location]);
+  return null;
+}
+
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/about" component={About} />
-      <Route path="/e/:id" component={EventPage} />
-      <Route path="/purchase-success" component={PurchaseSuccess} />
-      <Route path="/success" component={Success} />
-      <Route path="/login" component={Login} />
-      <Route path="/forgot-password" component={ForgotPassword} />
-      <Route path="/reset-password" component={ResetPassword} />
-      <Route path="/verify-email" component={VerifyEmail} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/onboarding" component={Onboarding} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/pricing" component={Pricing} />
-      <Route path="/upgrade-success" component={UpgradeSuccess} />
-      <Route path="/analytics/:eventId" component={Analytics} />
-      <Route path="/subscription" component={Subscription} />
-      <Route path="/admin" component={AdminPanel} />
-      <Route path="/admin/organizers" component={AdminOrganizers} />
-      <Route path="/admin/organizers/:id" component={AdminOrganizerDetail} />
-      <Route path="/admin/subscriptions" component={AdminSubscriptions} />
-      <Route path="/admin/events" component={AdminEvents} />
-      <Route path="/admin/analytics" component={AdminAnalytics} />
-      <Route path="/admin/settings" component={AdminSettings} />
-      <Route path="/admin/team" component={AdminTeam} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <ScrollToTop />
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/about" component={About} />
+        <Route path="/e/:id" component={EventPage} />
+        <Route path="/purchase-success" component={PurchaseSuccess} />
+        <Route path="/success" component={Success} />
+        <Route path="/login" component={Login} />
+        <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
+        <Route path="/verify-email" component={VerifyEmail} />
+        <Route path="/profile" component={Profile} />
+        <Route path="/onboarding" component={Onboarding} />
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/pricing" component={Pricing} />
+        <Route path="/upgrade-success" component={UpgradeSuccess} />
+        <Route path="/analytics/:eventId" component={Analytics} />
+        <Route path="/subscription" component={Subscription} />
+        <Route path="/admin" component={AdminPanel} />
+        <Route path="/admin/organizers" component={AdminOrganizers} />
+        <Route path="/admin/organizers/:id" component={AdminOrganizerDetail} />
+        <Route path="/admin/subscriptions" component={AdminSubscriptions} />
+        <Route path="/admin/events" component={AdminEvents} />
+        <Route path="/admin/analytics" component={AdminAnalytics} />
+        <Route path="/admin/settings" component={AdminSettings} />
+        <Route path="/admin/team" component={AdminTeam} />
+        <Route component={NotFound} />
+      </Switch>
+    </>
   );
 }
 
