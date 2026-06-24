@@ -3,7 +3,6 @@ import { Link } from "wouter";
 import { ImageIcon, CalendarDays, MapPin, Ticket } from "lucide-react";
 import { Event, TicketType } from "@shared/schema";
 import sgLogo from "../assets/showgate-logo.png";
-import eventsHero from "@assets/events_1782333074829.jpeg";
 
 type PublicEvent = Event & { ticketTypes: TicketType[] };
 
