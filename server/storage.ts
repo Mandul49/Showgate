@@ -1,4 +1,4 @@
-import { eq, sql, and, inArray } from "drizzle-orm";
+import { eq, sql, and, inArray, desc } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
@@ -275,6 +275,7 @@ export interface IStorage {
   getDiscountCodeById(id: string): Promise<DiscountCode | undefined>;
   incrementDiscountCodeUsed(id: string): Promise<DiscountCode>;
   deleteDiscountCode(id: string): Promise<void>;
+  getPublicEvents(): Promise<Array<Event & { ticketTypes: TicketType[] }>>;
   getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }>;
   // Admin
   getAllUsers(): Promise<AdminUserRow[]>;
@@ -875,6 +876,21 @@ export class DbStorage implements IStorage {
 
   async deleteDiscountCode(id: string): Promise<void> {
     await db.delete(discountCodes).where(eq(discountCodes.id, id));
+  }
+
+  async getPublicEvents(): Promise<Array<Event & { ticketTypes: TicketType[] }>> {
+    const activeEvents = await db
+      .select()
+      .from(events)
+      .where(and(eq(events.status, "active"), eq(events.suspendedByAdmin, false)))
+      .orderBy(desc(events.createdAt));
+    const results = await Promise.all(
+      activeEvents.map(async (ev) => {
+        const tts = await db.select().from(ticketTypes).where(eq(ticketTypes.eventId, ev.id));
+        return { ...ev, ticketTypes: tts };
+      })
+    );
+    return results;
   }
 
   async getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }> {

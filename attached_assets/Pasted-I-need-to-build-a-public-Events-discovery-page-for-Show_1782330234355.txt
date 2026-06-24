@@ -1,0 +1,74 @@
+I need to build a public "Events" discovery page for Showgate (showgate.ng). This page shows all published events as cards in a 4-column grid, pulled from the Supabase database. Here is exactly what I want:
+
+---
+
+## 1. NEW PAGE: `client/src/pages/EventsPage.tsx`
+
+Create a new page component. It should:
+
+- Fetch all events from the Supabase `events` table where `status = 'published'` (or whatever the published/active status column is called — check the schema). Order by `created_at DESC`.
+- Display a responsive 4-column grid of event cards (`grid-cols-4` on desktop, `grid-cols-2` on tablet, `grid-cols-1` on mobile).
+- Show a loading skeleton state while fetching (4 placeholder cards with a shimmer effect).
+- Show an empty state if no events exist yet: centered text saying "No events yet. Check back soon." with a subtle gold icon.
+
+---
+
+## 2. EVENT CARD DESIGN
+
+Each card should look like this:
+
+**Layout:** A compact card (~280px wide). Dark background (`#0a0a0a` or `#111111`). Rounded corners (`rounded-xl`). Subtle gold border (`border border-yellow-600/30`). Box shadow: `0 4px 24px rgba(0,0,0,0.5)`.
+
+**Image area (top ~55% of card):**
+- Display the event's cover image filling the full card width.
+- The image fades INTO the dark card background using a CSS gradient overlay at the bottom: `linear-gradient(to bottom, transparent 40%, #0a0a0a 100%)` — so the image bleeds seamlessly into the card content below. No hard edge.
+- If no image exists, show a dark placeholder with a gold camera/image icon centered.
+- Image should be `object-cover` and fixed height (~160px).
+
+**Card body (below image):**
+- Event name: bold white text, 1 line max (truncate with ellipsis if too long), `text-sm font-semibold`.
+- Date: small gold text (`text-yellow-500`), formatted like "Sat, 12 Jul 2025 · 6:00 PM", using the event's date/time field.
+- Location/venue: small muted text (`text-gray-400 text-xs`), truncate to 1 line.
+- Ticket price: if free, show "Free" badge (green). If paid, show lowest ticket price like "From ₦2,500" in gold text.
+- A "Get Tickets" button at the bottom: full width, gold background (`bg-yellow-500`), black text, small, rounded, with hover effect.
+
+**Hover state:** Subtle card lift: `hover:-translate-y-1 hover:shadow-yellow-600/20 transition-all duration-300`.
+
+---
+
+## 3. DATA FETCHING
+
+Fetch events using the existing Supabase client already set up in the project. The query should be something like:
+
+```ts
+const { data: events } = await supabase
+  .from('events')
+  .select('id, title, cover_image, event_date, venue, tickets(*)')
+  .eq('status', 'published')
+  .order('created_at', { ascending: false });
+```
+
+Adjust the column names to match what's actually in the Supabase schema — look at any existing event-related query in the codebase to confirm exact field names (title vs name, event_date vs date, cover_image vs image_url, venue vs location, etc.).
+
+For the ticket price, derive the lowest price from the `tickets` array. If all tickets are price 0 or no tickets exist, show "Free".
+
+---
+
+## 4. ROUTE
+
+Add this page to the router. The route should be `/events` — accessible without login (public route). Add it to `App.tsx` or wherever routes are defined.
+
+---
+
+## 5. NAVBAR LINK
+
+Add an "Events" link to the public navigation bar (the one non-logged-in users see) that points to `/events`. Place it alongside any existing nav links like "Home", "About", "Pricing".
+
+---
+
+## 6. STYLING NOTES
+
+- This page uses the existing Showgate dark + gold brand (`#0a0a0a` background, `#EAB308` / `yellow-500` gold accents).
+- Do NOT introduce new CSS files — use Tailwind classes throughout.
+- The overall page should have a dark background matching the rest of the site, with a heading section at the top: large white heading "Discover Events" and a subtle subheading "Find the best events happening near you."
+- Find ALL files that need to be changed and fix them all in this single pass before committing — do not stop after the first file.

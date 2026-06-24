@@ -125,6 +125,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Public Stats ──────────────────────────────────────────────────────────
 
+  // ─── Public events discovery ──────────────────────────────────────────────
+
+  app.get("/api/events/public", async (_req, res) => {
+    try {
+      const evts = await storage.getPublicEvents();
+      return res.json(evts);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/stats", async (_req, res) => {
     try {
       const stats = await storage.getPublicStats();

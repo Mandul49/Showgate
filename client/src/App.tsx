@@ -27,6 +27,7 @@ import AdminAnalytics from "@/pages/admin-analytics";
 import AdminSettings from "@/pages/admin-settings";
 import AdminTeam from "@/pages/admin-team";
 import About from "@/pages/about";
+import EventsPage from "@/pages/events";
 import VerifyEmail from "@/pages/verify-email";
 import NotFound from "@/pages/not-found";
 
@@ -46,6 +47,7 @@ function Router() {
       <ScrollToTop />
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/events" component={EventsPage} />
         <Route path="/about" component={About} />
         <Route path="/e/:id" component={EventPage} />
         <Route path="/purchase-success" component={PurchaseSuccess} />

@@ -91,6 +91,11 @@ export default function About() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link href="/events">
+              <button className="px-4 py-2 text-zinc-400 hover:text-white text-sm font-semibold transition-colors">
+                Events
+              </button>
+            </Link>
             <Link href="/about">
               <button className="px-4 py-2 text-amber-400 text-sm font-semibold transition-colors">
                 About

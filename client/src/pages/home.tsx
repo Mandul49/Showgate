@@ -83,6 +83,11 @@ export default function Home() {
           </span>
           {/* Desktop links */}
           <div className="hidden sm:flex items-center gap-3">
+            <Link href="/events">
+              <button className="px-4 py-2 text-zinc-400 hover:text-white text-sm font-semibold transition-colors">
+                Events
+              </button>
+            </Link>
             <Link href="/about">
               <button className="px-4 py-2 text-zinc-400 hover:text-white text-sm font-semibold transition-colors">
                 About
@@ -116,6 +121,11 @@ export default function Home() {
         </div>
         {menuOpen && (
           <div className="sm:hidden border-t border-zinc-800 px-5 py-4 flex flex-col gap-3 bg-[#0d0d0d]">
+            <Link href="/events">
+              <button className="w-full px-4 py-2.5 rounded-xl border border-zinc-800 text-zinc-400 font-semibold text-sm hover:border-zinc-600 hover:text-white transition-colors text-left">
+                Events
+              </button>
+            </Link>
             <Link href="/about">
               <button className="w-full px-4 py-2.5 rounded-xl border border-zinc-800 text-zinc-400 font-semibold text-sm hover:border-zinc-600 hover:text-white transition-colors text-left">
                 About
