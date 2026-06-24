@@ -25,7 +25,7 @@ function EventCard({ event }: { event: PublicEvent }) {
 
   return (
     <Link href={href}>
-      <div className="group cursor-pointer rounded-xl border border-yellow-600/30 bg-[#111111] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.5)] hover:-translate-y-1 hover:shadow-yellow-600/20 transition-all duration-300">
+      <div className="group cursor-pointer rounded-xl border border-yellow-600/30 bg-[#0f0f0f] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.5)] hover:-translate-y-1 hover:shadow-yellow-600/20 transition-all duration-300">
         {/* Image area */}
         <div className="relative h-40 bg-zinc-900 overflow-hidden">
           {event.coverImageUrl ? (
@@ -36,7 +36,7 @@ function EventCard({ event }: { event: PublicEvent }) {
                 className="w-full h-full object-cover"
                 style={{ objectPosition: `center ${event.coverImagePositionY ?? 50}%` }}
               />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 40%, #111111 100%)" }} />
+              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 40%, #0f0f0f 100%)" }} />
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -47,32 +47,32 @@ function EventCard({ event }: { event: PublicEvent }) {
 
         {/* Card body */}
         <div className="px-4 pb-4 -mt-2">
-          <h3 className="text-sm font-semibold text-white truncate mb-1.5 group-hover:text-yellow-400 transition-colors">
+          <h3 className="text-sm font-bold text-white truncate mb-1.5">
             {event.title}
           </h3>
 
           <div className="flex items-center gap-1.5 mb-1">
-            <CalendarDays className="w-3 h-3 text-yellow-500 flex-shrink-0" />
-            <span className="text-yellow-500 text-xs truncate">{formatEventDate(event.date, event.startTime)}</span>
+            <CalendarDays className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+            <span className="text-yellow-400 text-xs truncate">{formatEventDate(event.date, event.startTime)}</span>
           </div>
 
           <div className="flex items-center gap-1.5 mb-3">
-            <MapPin className="w-3 h-3 text-zinc-500 flex-shrink-0" />
-            <span className="text-zinc-400 text-xs truncate">{event.location}</span>
+            <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <span className="text-gray-400 text-xs truncate">{event.location}</span>
           </div>
 
           <div className="flex items-center justify-between gap-2">
             {isFree ? (
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/20">
+              <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full">
                 Free
               </span>
             ) : (
-              <span className="text-xs font-semibold text-yellow-400">
+              <span className="text-yellow-400 text-xs font-semibold">
                 From ₦{lowestPrice!.toLocaleString()}
               </span>
             )}
 
-            <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-yellow-500 text-black group-hover:bg-yellow-400 transition-colors flex-shrink-0">
+            <span className="bg-yellow-500 text-black text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-yellow-400 transition-colors flex-shrink-0">
               Get Tickets
             </span>
           </div>
