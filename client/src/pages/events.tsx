@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { ImageIcon, CalendarDays, MapPin, Ticket } from "lucide-react";
 import { Event, TicketType } from "@shared/schema";
 import sgLogo from "../assets/showgate-logo.png";
+import eventsHero from "@assets/events_1782333074829.jpeg";
 
 type PublicEvent = Event & { ticketTypes: TicketType[] };
 
@@ -136,16 +137,19 @@ export default function EventsPage() {
       </nav>
 
       {/* Hero */}
-      <section className="py-16 px-5 text-center border-b border-zinc-800/50">
-        <div className="max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <Ticket className="w-5 h-5 text-yellow-500" />
-            <span className="text-yellow-500 text-sm font-semibold tracking-wide uppercase">Live Events</span>
-          </div>
+      <section className="relative overflow-hidden min-h-[320px] sm:min-h-[380px] flex items-center pt-20 pb-12 px-5 border-b border-zinc-800/50">
+        <img
+          src={eventsHero}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-20"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/50 via-[#0a0a0a]/30 to-[#0a0a0a]/60" />
+        <div className="relative z-10 max-w-3xl mx-auto w-full text-center">
           <h1 className="text-4xl sm:text-5xl font-black mb-4">
-            Discover <span className="text-yellow-400">Events</span>
+            Discover <span className="text-amber-400">Events</span>
           </h1>
-          <p className="text-zinc-400 text-lg">Find the best events happening near you.</p>
+          <p className="text-white font-medium text-lg">Find the best events happening near you.</p>
         </div>
       </section>
 
