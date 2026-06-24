@@ -14,7 +14,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2,
+  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2, RotateCcw,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 
@@ -2126,6 +2126,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const [theme, setTheme] = useState<BrandTheme | null>(null);
   const [extractedPalette, setExtractedPalette] = useState<string[]>([]);
   const [suggestIndex, setSuggestIndex] = useState(0);
+  const [defaultTheme, setDefaultTheme] = useState<BrandTheme | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
   const token = getToken();
@@ -2143,7 +2144,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   useEffect(() => {
     if (branding) {
       form.reset({ customBrandName: branding.customBrandName ?? "" });
-      if (branding.brandTheme && !theme) setTheme(branding.brandTheme);
+      if (branding.brandTheme && !theme) { setTheme(branding.brandTheme); setDefaultTheme(branding.brandTheme); }
       if (branding.customLogoUrl && !logoPreviewUrl) setLogoPreviewUrl(branding.customLogoUrl);
     }
   }, [branding]);
@@ -2163,7 +2164,9 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const handleImageLoad = () => {
     if (!previewImgRef.current || !logoFile) { setExtracting(false); return; }
     try {
-      setTheme(extractThemeFromImage(previewImgRef.current));
+      const initial = extractThemeFromImage(previewImgRef.current);
+      setTheme(initial);
+      setDefaultTheme(initial);
       setExtractedPalette(extractPalette(previewImgRef.current));
       setSuggestIndex(0);
       setColorEditorOpen(false);
@@ -2326,6 +2329,14 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
                     <span className="normal-case text-zinc-600 text-xs font-normal ml-1">from logo</span>
                   </label>
                   <div className="flex items-center gap-2">
+                    {defaultTheme && theme !== defaultTheme && (
+                      <button type="button"
+                        onClick={() => { setTheme(defaultTheme); setSuggestIndex(0); }}
+                        title="Reset to default colors"
+                        className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/50 transition-colors">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     {extractedPalette.length >= 7 && (
                       <button type="button" onClick={handleSuggest}
                         title="Suggest a different color combination"
