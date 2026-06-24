@@ -3,7 +3,6 @@ import { Link } from "wouter";
 import { ImageIcon, CalendarDays, MapPin, Ticket } from "lucide-react";
 import { Event, TicketType } from "@shared/schema";
 import sgLogo from "../assets/showgate-logo.png";
-import eventsHero from "@assets/events_1782333074829.jpeg";
 
 type PublicEvent = Event & { ticketTypes: TicketType[] };
 
@@ -138,13 +137,11 @@ export default function EventsPage() {
 
       {/* Hero */}
       <section className="relative overflow-hidden min-h-[320px] sm:min-h-[380px] flex items-center pt-20 pb-12 px-5 border-b border-zinc-800/50">
-        <img
-          src={eventsHero}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-20"
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1200 50%, #0a0a0a 100%)' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/50 via-[#0a0a0a]/30 to-[#0a0a0a]/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/50 via-transparent to-[#0a0a0a]/60" />
         <div className="relative z-10 max-w-3xl mx-auto w-full text-center">
           <h1 className="text-4xl sm:text-5xl font-black mb-4">
             Discover <span className="text-amber-400">Events</span>
