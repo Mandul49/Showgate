@@ -47,7 +47,7 @@ function EventCard({ event }: { event: PublicEvent }) {
         </div>
 
         {/* Card body */}
-        <div className="px-4 pb-4 -mt-2">
+        <div className="px-4 pt-3 pb-4">
           <h3 className="text-sm font-bold text-white truncate mb-1.5">
             {event.title}
           </h3>
