@@ -104,6 +104,17 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
+  // ── GET /api/events/public — no auth, must be before /:id ───────────────
+  app.get("/api/events/public", async (_req, res) => {
+    try {
+      console.log("✅ GET /api/events/public hit");
+      const evts = await storage.getPublicEvents();
+      return res.json(evts);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── GET /api/events/:id ───────────────────────────────────────────────────
   app.get("/api/events/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
