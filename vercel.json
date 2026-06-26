@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install --prefer-offline --no-audit --no-fund --legacy-peer-deps",
+  "installCommand": "NODE_OPTIONS=--max-old-space-size=4096 npm install --prefer-offline --no-audit --no-fund --legacy-peer-deps --ignore-scripts",
   "buildCommand": "cd client && npx vite build",
   "outputDirectory": "client/dist"
 }
