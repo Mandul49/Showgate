@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install --ignore-scripts",
+  "installCommand": "npm install --prefer-offline --no-audit --no-fund --legacy-peer-deps",
   "buildCommand": "cd client && npx vite build",
   "outputDirectory": "client/dist"
 }
