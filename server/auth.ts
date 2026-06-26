@@ -165,10 +165,11 @@ export function registerAuthRoutes(app: Express) {
       );
 
       // Send welcome email — fire-and-forget, never blocks signup
+      console.log("[signup] attempting welcome email for:", email);
       try {
-        const rawName = email.split("@")[0].replace(/[._\-+]/g, " ").split(" ")[0].trim();
-        const displayName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : "there";
-        await sendWelcomeEmail(email, displayName);
+        const firstName = email.split("@")[0].replace(/[._\-+]/g, " ").split(" ")[0];
+        console.log("[signup] email value passed to sendWelcomeEmail:", email, "| firstName:", firstName);
+        await sendWelcomeEmail(email, firstName.charAt(0).toUpperCase() + firstName.slice(1));
         console.log("[signup] welcome email dispatched successfully for:", email);
       } catch (emailErr: any) {
         console.error("[signup] welcome email ERROR for:", email, "|", emailErr.message, "|", JSON.stringify(emailErr));

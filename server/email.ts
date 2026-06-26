@@ -1,5 +1,7 @@
-const BREVO_API = "https://api.brevo.com/v3/smtp/email";
-const FROM = { name: "Showgate", email: "support@showgate.ng" };
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM = "Showgate <support@showgate.ng>";
 
 export interface ConfirmationEmailOptions {
   to: string;
@@ -26,28 +28,12 @@ async function sendEmail(opts: {
   html: string;
   label: string;
 }): Promise<void> {
-  if (!process.env.BREVO_API_KEY) {
-    console.warn(`[email] ${opts.label} NOT sent to ${opts.to}: BREVO_API_KEY not configured.`);
+  if (!process.env.RESEND_API_KEY) {
+    console.warn(`[email] ${opts.label} NOT sent to ${opts.to}: RESEND_API_KEY not configured.`);
     return;
   }
   try {
-    const res = await fetch(BREVO_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": process.env.BREVO_API_KEY,
-      },
-      body: JSON.stringify({
-        sender: FROM,
-        to: [{ email: opts.to }],
-        subject: opts.subject,
-        htmlContent: opts.html,
-      }),
-    });
-    if (!res.ok) {
-      const detail = await res.text();
-      throw new Error(`Brevo ${res.status}: ${detail}`);
-    }
+    await resend.emails.send({ from: FROM, to: opts.to, subject: opts.subject, html: opts.html });
     console.log(`[email] ${opts.label} sent to ${opts.to}`);
   } catch (err: any) {
     console.error(`[email] ${opts.label} failed for ${opts.to}:`, err.message ?? JSON.stringify(err));
@@ -130,77 +116,55 @@ export async function sendAdminInviteEmail(opts: { to: string; setPasswordUrl: s
 }
 
 export async function sendTestEmail(to: string): Promise<{ ok: boolean; detail: string }> {
-  if (!process.env.BREVO_API_KEY) {
-    return { ok: false, detail: "BREVO_API_KEY not configured" };
+  if (!process.env.RESEND_API_KEY) {
+    return { ok: false, detail: "RESEND_API_KEY not configured" };
   }
   try {
-    const res = await fetch(BREVO_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": process.env.BREVO_API_KEY,
-      },
-      body: JSON.stringify({
-        sender: FROM,
-        to: [{ email: to }],
-        subject: "Showgate — test email",
-        htmlContent: `<p style="font-family:sans-serif;">This is a test email from Showgate. If you received this, the email service is working correctly.</p>`,
-      }),
+    await resend.emails.send({
+      from: FROM,
+      to,
+      subject: "Showgate — test email",
+      html: `<p style="font-family:sans-serif;">This is a test email from Showgate. If you received this, the email service is working correctly.</p>`,
     });
-    if (!res.ok) {
-      const detail = await res.text();
-      return { ok: false, detail: `Brevo ${res.status}: ${detail}` };
-    }
-    return { ok: true, detail: "Brevo: message queued" };
+    return { ok: true, detail: "Resend: message queued" };
   } catch (err: any) {
     return { ok: false, detail: err.message ?? JSON.stringify(err) };
   }
 }
 
 export async function sendWelcomeEmail(to: string, firstName: string): Promise<void> {
-  if (!process.env.BREVO_API_KEY) {
-    console.warn("[email] sendWelcomeEmail skipped: BREVO_API_KEY not configured");
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[email] sendWelcomeEmail skipped: RESEND_API_KEY not configured");
     return;
   }
   try {
-    const res = await fetch(BREVO_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": process.env.BREVO_API_KEY,
-      },
-      body: JSON.stringify({
-        sender: FROM,
-        to: [{ email: to }],
-        subject: "Welcome to Showgate 🎉",
-        htmlContent: `
-          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
-            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
-              <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
-              <h1 style="margin:8px 0 0;font-size:22px;color:#000;font-weight:900;">Welcome, ${firstName}! 🎉</h1>
-            </div>
-            <div style="padding:24px 28px;">
-              <p style="margin:0 0 16px;color:#a1a1aa;font-size:15px;">
-                You're now on <strong style="color:#fff;">Showgate</strong> — Nigeria's event ticketing platform built for the people who make things happen.
-              </p>
-              <p style="margin:0 0 16px;color:#a1a1aa;font-size:15px;">
-                Create your first event, set your ticket prices, and get paid directly to your account via Paystack — all in under five minutes.
-              </p>
-              <p style="margin:24px 0;text-align:center;">
-                <a href="https://showgate.ng" style="display:inline-block;background:#f59e0b;color:#000;font-weight:900;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;">Get Started →</a>
-              </p>
-              <p style="margin:24px 0 0;font-size:12px;color:#52525b;border-top:1px solid #27272a;padding-top:16px;">
-                Questions? Reply to this email or contact us at
-                <a href="mailto:support@showgate.ng" style="color:#f59e0b;text-decoration:none;">support@showgate.ng</a>
-              </p>
-            </div>
-          </div>`,
-      }),
+    await resend.emails.send({
+      from: FROM,
+      to,
+      subject: "Welcome to Showgate 🎉",
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
+            <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
+            <h1 style="margin:8px 0 0;font-size:22px;color:#000;font-weight:900;">Welcome, ${firstName}! 🎉</h1>
+          </div>
+          <div style="padding:24px 28px;">
+            <p style="margin:0 0 16px;color:#a1a1aa;font-size:15px;">
+              You're now on <strong style="color:#fff;">Showgate</strong> — Nigeria's event ticketing platform built for the people who make things happen.
+            </p>
+            <p style="margin:0 0 16px;color:#a1a1aa;font-size:15px;">
+              Create your first event, set your ticket prices, and get paid directly to your account via Paystack — all in under five minutes.
+            </p>
+            <p style="margin:24px 0;text-align:center;">
+              <a href="https://showgate.ng" style="display:inline-block;background:#f59e0b;color:#000;font-weight:900;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;">Get Started →</a>
+            </p>
+            <p style="margin:24px 0 0;font-size:12px;color:#52525b;border-top:1px solid #27272a;padding-top:16px;">
+              Questions? Reply to this email or contact us at
+              <a href="mailto:support@showgate.ng" style="color:#f59e0b;text-decoration:none;">support@showgate.ng</a>
+            </p>
+          </div>
+        </div>`,
     });
-    if (!res.ok) {
-      const detail = await res.text();
-      throw new Error(`Brevo ${res.status}: ${detail}`);
-    }
     console.log(`[email] Welcome email sent to ${to}`);
   } catch (err: any) {
     console.error(`[email] Welcome email failed for ${to}:`, err.message ?? JSON.stringify(err));
