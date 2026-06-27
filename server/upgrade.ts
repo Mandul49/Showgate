@@ -4,6 +4,7 @@ import type { Express, Request, Response } from "express";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { getPaystackSecretKey } from "./paystackConfig";
+import { sendProWelcomeEmail } from "./email";
 
 export const PLANS = {
   monthly: { amountKobo: 1_000_000, label: "Monthly", durationDays: 31 },
@@ -61,8 +62,13 @@ export async function fulfillUpgrade(userId: string, plan: PlanKey): Promise<voi
     }
   }
 
+  const firstName = user.email.split("@")[0];
+  sendProWelcomeEmail({ to: user.email, firstName, plan, proExpiresAt }).catch((err) =>
+    console.error("[upgrade] Pro welcome email failed:", err.message)
+  );
+
   console.log(
-    `[upgrade] ${user.email} → Pro (${plan}), expires ${proExpiresAt.toLocaleDateString()}`
+    `[upgrade] ${user.email} → Pro (${plan}), expires ${proExpiresAt?.toLocaleDateString() ?? "never"}`
   );
 }
 

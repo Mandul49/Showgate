@@ -172,6 +172,61 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<v
   }
 }
 
+export async function sendProWelcomeEmail(opts: {
+  to: string;
+  firstName: string;
+  plan: "monthly" | "yearly";
+  proExpiresAt: Date | null;
+}): Promise<void> {
+  const planLabel = opts.plan === "yearly" ? "Pro Yearly" : "Pro Monthly";
+  const expiryLabel = opts.proExpiresAt
+    ? opts.proExpiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : "Lifetime (never expires)";
+
+  await sendEmail({
+    to: opts.to,
+    subject: "You're now a Showgate Pro member ⚡",
+    label: "Pro welcome email",
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
+          <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
+          <h1 style="margin:8px 0 0;font-size:22px;color:#000;font-weight:900;">Welcome to Pro, ${opts.firstName}! ⚡</h1>
+        </div>
+        <div style="padding:24px 28px;">
+          <p style="margin:0 0 20px;color:#a1a1aa;font-size:15px;">
+            Your subscription is now active. Here's a summary of your plan:
+          </p>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#71717a;font-size:13px;">Plan</td>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#f59e0b;font-weight:700;text-align:right;">${planLabel}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#71717a;font-size:13px;">Platform fee</td>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#22c55e;font-weight:700;text-align:right;">0%</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#71717a;font-size:13px;">Active events</td>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#fff;font-weight:600;text-align:right;">Unlimited</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;color:#71717a;font-size:13px;">Subscription ${opts.proExpiresAt ? "expires" : "status"}</td>
+              <td style="padding:10px 0;color:#fff;font-weight:600;text-align:right;">${expiryLabel}</td>
+            </tr>
+          </table>
+          <p style="margin:24px 0;text-align:center;">
+            <a href="https://showgate.ng/dashboard" style="display:inline-block;background:#f59e0b;color:#000;font-weight:900;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;">Go to Dashboard →</a>
+          </p>
+          <p style="margin:24px 0 0;font-size:12px;color:#52525b;border-top:1px solid #27272a;padding-top:16px;">
+            Questions? Reply to this email or contact us at
+            <a href="mailto:support@showgate.ng" style="color:#f59e0b;text-decoration:none;">support@showgate.ng</a>
+          </p>
+        </div>
+      </div>`,
+  });
+}
+
 export async function sendConfirmationEmail(opts: ConfirmationEmailOptions): Promise<void> {
   const brandName = opts.brandName || "Showgate";
   const isPro = opts.isPro ?? false;
