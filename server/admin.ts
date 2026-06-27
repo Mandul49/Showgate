@@ -55,7 +55,10 @@ export function registerAdminRoutes(app: Express) {
 
   app.get("/api/admin/organizers/:id", requireAdmin, SUPPORT_ACCESS, async (req: AuthRequest, res) => {
     try {
-      const data = await storage.getAdminOrganizerDetail(req.params.id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id);
+      const data = isUuid
+        ? await storage.getAdminOrganizerDetail(req.params.id)
+        : await storage.getAdminOrganizerDetailBySlug(req.params.id);
       if (!data) return res.status(404).json({ message: "Organizer not found" });
       return res.json(data);
     } catch (err: any) { return res.status(500).json({ message: err.message }); }

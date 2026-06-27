@@ -256,7 +256,7 @@ export default function AdminOrganizers() {
                           <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-700 text-white min-w-[160px]">
                             <DropdownMenuItem
                               className="text-sm cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800 gap-2"
-                              onClick={() => navigate(`/admin/organizers/${o.userId}`)}>
+                              onClick={() => navigate(`/admin/organizers/${o.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`)}>
                               <Eye className="w-3.5 h-3.5 text-zinc-400" /> View details
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-zinc-800" />

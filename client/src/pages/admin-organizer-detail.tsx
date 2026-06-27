@@ -132,7 +132,7 @@ function StatCard({ icon: Icon, label, value, accent = "amber" }: {
 }
 
 export default function AdminOrganizerDetail() {
-  const { id: userId } = useParams<{ id: string }>();
+  const { id: slug } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -145,15 +145,15 @@ export default function AdminOrganizerDetail() {
   });
 
   const { data: org, isLoading } = useQuery<OrgDetail>({
-    queryKey: ["/api/admin/organizers", userId],
+    queryKey: ["/api/admin/organizers", slug],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/organizers/${userId}`, {
+      const res = await fetch(`/api/admin/organizers/${slug}`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error("Not found");
       return res.json();
     },
-    enabled: !!userId && me?.role === "admin",
+    enabled: !!slug && me?.role === "admin",
   });
 
   useEffect(() => {
@@ -164,7 +164,7 @@ export default function AdminOrganizerDetail() {
     mutationFn: ({ tier, lifetime, months }: { tier: string; lifetime?: boolean; months?: number }) =>
       apiRequest("PATCH", `/api/admin/users/${org?.userId}/tier`, { tier, lifetime, months }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/admin/organizers", userId] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/organizers", slug] });
       qc.invalidateQueries({ queryKey: ["/api/admin/organizers"] });
       toast({ title: "Tier updated" });
     },
@@ -175,7 +175,7 @@ export default function AdminOrganizerDetail() {
     mutationFn: (suspended: boolean) =>
       apiRequest("PATCH", `/api/admin/users/${org?.userId}/suspend`, { suspended }),
     onSuccess: (_, suspended) => {
-      qc.invalidateQueries({ queryKey: ["/api/admin/organizers", userId] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/organizers", slug] });
       qc.invalidateQueries({ queryKey: ["/api/admin/organizers"] });
       toast({ title: suspended ? "Account suspended" : "Account reinstated" });
       setConfirmSuspend(false);

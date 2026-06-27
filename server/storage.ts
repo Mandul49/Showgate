@@ -291,6 +291,7 @@ export interface IStorage {
   getAdminChartData(): Promise<AdminChartData>;
   getAdminOrganizers(): Promise<AdminOrganizerRow[]>;
   getAdminOrganizerDetail(userId: string): Promise<AdminOrganizerDetail | null>;
+  getAdminOrganizerDetailBySlug(slug: string): Promise<AdminOrganizerDetail | null>;
   suspendUser(userId: string, suspended: boolean): Promise<User>;
   getAdminSubscriptions(): Promise<{ stats: AdminSubscriptionStats; subscriptions: AdminSubscriptionRow[] }>;
   extendSubscription(userId: string, months: number): Promise<User>;
@@ -1125,6 +1126,15 @@ export class DbStorage implements IStorage {
         fulfilledAt: s.fulfilledAt,
       })),
     };
+  }
+
+  async getAdminOrganizerDetailBySlug(slug: string): Promise<AdminOrganizerDetail | null> {
+    const [row] = await db
+      .select({ userId: organizers.userId })
+      .from(organizers)
+      .where(sql`lower(regexp_replace(${organizers.businessName}, '[^a-zA-Z0-9]+', '-', 'g')) = ${slug}`);
+    if (!row) return null;
+    return this.getAdminOrganizerDetail(row.userId);
   }
 
   async suspendUser(userId: string, suspended: boolean): Promise<User> {
