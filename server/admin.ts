@@ -69,15 +69,20 @@ export function registerAdminRoutes(app: Express) {
   // Mutations on organizers/events — super_admin + admin only (not support)
   app.patch("/api/admin/users/:id/tier", requireAdmin, requireAdminRole(["super_admin", "admin"]), async (req: AuthRequest, res) => {
     try {
-      const schema = z.object({ tier: z.enum(["free", "pro"]), lifetime: z.boolean().optional() });
+      const schema = z.object({ tier: z.enum(["free", "pro"]), lifetime: z.boolean().optional(), months: z.number().int().positive().optional() });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-      const { tier, lifetime } = parsed.data;
-      const proExpiresAt = tier === "pro" && !lifetime ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) : null;
+      const { tier, lifetime, months } = parsed.data;
+      let proExpiresAt: Date | null = null;
+      if (tier === "pro") {
+        if (lifetime) proExpiresAt = null;
+        else if (months) proExpiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000);
+        else proExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      }
       const user = await storage.updateUserTier(req.params.id, tier, tier === "free" ? null : proExpiresAt);
       const organizer = await storage.getOrganizerByUserId(req.params.id);
       if (organizer) await storage.updateOrganizerTier(organizer.id, tier);
-      audit(req, tier === "pro" ? "grant_pro" : "revoke_pro", "user", req.params.id, { tier, lifetime: lifetime ?? false });
+      audit(req, tier === "pro" ? "grant_pro" : "revoke_pro", "user", req.params.id, { tier, lifetime: lifetime ?? false, months: months ?? null });
       return res.json(user);
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });

@@ -161,8 +161,8 @@ export default function AdminOrganizerDetail() {
   }, [meLoading, me, navigate]);
 
   const tierMutation = useMutation({
-    mutationFn: ({ tier, lifetime }: { tier: string; lifetime?: boolean }) =>
-      apiRequest("PATCH", `/api/admin/users/${org?.userId}/tier`, { tier, lifetime }),
+    mutationFn: ({ tier, lifetime, months }: { tier: string; lifetime?: boolean; months?: number }) =>
+      apiRequest("PATCH", `/api/admin/users/${org?.userId}/tier`, { tier, lifetime, months }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/organizers", userId] });
       qc.invalidateQueries({ queryKey: ["/api/admin/organizers"] });
@@ -237,6 +237,10 @@ export default function AdminOrganizerDetail() {
                     <DropdownMenuItem className="gap-2 cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800"
                       onClick={() => tierMutation.mutate({ tier: "pro", lifetime: false })}>
                       <Crown className="w-3.5 h-3.5 text-amber-400" /> Grant Pro (1 yr)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="gap-2 cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800"
+                      onClick={() => tierMutation.mutate({ tier: "pro", months: 1 })}>
+                      <Crown className="w-3.5 h-3.5 text-amber-400" /> Grant Pro (1 month)
                     </DropdownMenuItem>
                   </>
                 ) : (
