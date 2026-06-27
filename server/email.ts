@@ -203,10 +203,6 @@ export async function sendProWelcomeEmail(opts: {
               <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#f59e0b;font-weight:700;text-align:right;">${planLabel}</td>
             </tr>
             <tr>
-              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#71717a;font-size:13px;">Platform fee</td>
-              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#22c55e;font-weight:700;text-align:right;">0%</td>
-            </tr>
-            <tr>
               <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#71717a;font-size:13px;">Active events</td>
               <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#fff;font-weight:600;text-align:right;">Unlimited</td>
             </tr>
