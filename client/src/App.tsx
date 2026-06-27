@@ -28,6 +28,7 @@ import AdminSettings from "@/pages/admin-settings";
 import AdminTeam from "@/pages/admin-team";
 import About from "@/pages/about";
 import EventsPage from "@/pages/events";
+import Privacy from "@/pages/privacy";
 import VerifyEmail from "@/pages/verify-email";
 import NotFound from "@/pages/not-found";
 
@@ -49,6 +50,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/events" component={EventsPage} />
         <Route path="/about" component={About} />
+        <Route path="/privacy" component={Privacy} />
         <Route path="/e/:id" component={EventPage} />
         <Route path="/purchase-success" component={PurchaseSuccess} />
         <Route path="/success" component={Success} />

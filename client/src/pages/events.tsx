@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ImageIcon, CalendarDays, MapPin, Ticket } from "lucide-react";
+import { SiInstagram } from "react-icons/si";
 import { Event, TicketType } from "@shared/schema";
 import sgLogo from "../assets/showgate-logo.png";
 
@@ -164,6 +165,28 @@ export default function EventsPage() {
           </div>
         )}
       </section>
+
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
+      <footer className="border-t border-amber-500/20 py-10 px-5">
+        <div className="max-w-6xl mx-auto flex flex-col items-center text-center gap-2">
+          <span className="text-lg font-black">
+            Show<span className="text-amber-400">gate</span>
+            <img src={sgLogo} alt="" className="inline-block h-[20px] w-auto ml-2 align-middle" />
+          </span>
+          <p className="text-zinc-500 text-xs">The easiest way to run your event.</p>
+          <a href="mailto:support@showgate.ng" className="text-zinc-500 text-xs hover:text-amber-400 transition-colors">support@showgate.ng</a>
+          <a href="https://www.instagram.com/showgate.ng/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-zinc-500 hover:text-amber-400 transition-colors mt-1">
+            <SiInstagram className="w-4 h-4" />
+          </a>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-zinc-600 text-xs">© {new Date().getFullYear()} Showgate. All rights reserved.</p>
+            <span className="text-zinc-700 text-xs">·</span>
+            <Link href="/privacy">
+              <span className="text-zinc-600 text-xs hover:text-amber-400 transition-colors cursor-pointer">Privacy Policy</span>
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -627,7 +627,13 @@ export default function Home() {
           <a href="https://www.instagram.com/showgate.ng/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-zinc-500 hover:text-amber-400 transition-colors mt-1">
             <SiInstagram className="w-4 h-4" />
           </a>
-          <p className="text-zinc-600 text-xs mt-1">© {new Date().getFullYear()} Showgate. All rights reserved.</p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-zinc-600 text-xs">© {new Date().getFullYear()} Showgate. All rights reserved.</p>
+            <span className="text-zinc-700 text-xs">·</span>
+            <Link href="/privacy">
+              <span className="text-zinc-600 text-xs hover:text-amber-400 transition-colors cursor-pointer">Privacy Policy</span>
+            </Link>
+          </div>
         </div>
       </footer>
 
