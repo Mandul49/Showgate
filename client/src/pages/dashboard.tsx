@@ -2438,10 +2438,13 @@ export default function Dashboard() {
     enabled: isAuthenticated(),
   });
 
-  const { data: publicSettings } = useQuery<{ maintenanceMode: boolean; feePercent: number }>({
+  const { data: publicSettings } = useQuery<{ maintenanceMode: boolean; feePercent: number; proTicketFeePercent: number; proMonthlyNaira: number }>({
     queryKey: ["/api/settings/public"],
   });
-  const proFeeLabel = publicSettings != null ? `${publicSettings.feePercent}%` : "0%";
+  const proFeeLabel = publicSettings != null ? `${publicSettings.proTicketFeePercent}%` : "0%";
+  const proMonthlyLabel = publicSettings?.proMonthlyNaira
+    ? `₦${(publicSettings.proMonthlyNaira / 1000).toFixed(0)}k/mo`
+    : "₦12k/mo";
 
   const tier = data?.tier ?? "free";
 
@@ -2771,7 +2774,7 @@ export default function Dashboard() {
             </div>
             <a href="/pricing"
               className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-500 hover:bg-violet-400 text-white text-xs font-bold transition-colors">
-              <Zap className="w-3.5 h-3.5" /> From ₦12k/mo
+              <Zap className="w-3.5 h-3.5" /> From {proMonthlyLabel}
             </a>
           </div>
         )}
