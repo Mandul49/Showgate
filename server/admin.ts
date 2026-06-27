@@ -6,7 +6,7 @@ import { sql } from "drizzle-orm";
 import { db } from "./db";
 import { storage } from "./storage";
 import { requireAdmin, requireAdminRole, type AuthRequest } from "./auth";
-import { sendAdminInviteEmail } from "./email";
+import { sendAdminInviteEmail, sendProWelcomeEmail } from "./email";
 
 // ── Permission gates (chained after requireAdmin) ─────────────────────────────
 const SUPER_ONLY    = requireAdminRole(["super_admin"]);
@@ -86,6 +86,15 @@ export function registerAdminRoutes(app: Express) {
       const organizer = await storage.getOrganizerByUserId(req.params.id);
       if (organizer) await storage.updateOrganizerTier(organizer.id, tier);
       audit(req, tier === "pro" ? "grant_pro" : "revoke_pro", "user", req.params.id, { tier, lifetime: lifetime ?? false, months: months ?? null });
+
+      if (tier === "pro") {
+        const plan = months === 1 ? "monthly" : "yearly";
+        const firstName = user.email.split("@")[0];
+        sendProWelcomeEmail({ to: user.email, firstName, plan, proExpiresAt }).catch((err) =>
+          console.error("[admin] Pro welcome email failed:", err.message)
+        );
+      }
+
       return res.json(user);
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
