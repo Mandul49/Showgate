@@ -21,13 +21,23 @@ function getLowestPrice(ticketTypes: TicketType[]) {
 }
 
 function EventCard({ event }: { event: PublicEvent }) {
+  const { isLight } = useTheme();
   const lowestPrice = getLowestPrice(event.ticketTypes);
   const isFree = lowestPrice === null || lowestPrice === 0;
   const href = event.slug ? `/e/${event.slug}` : `/e/${event.id}`;
+  const cardBg = isLight ? "#ffffff" : "#0f0f0f";
 
   return (
     <Link href={href}>
-      <div className="group cursor-pointer rounded-xl border border-yellow-600/30 bg-[#0f0f0f] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.5)] hover:-translate-y-1 hover:shadow-yellow-600/20 transition-all duration-300">
+      <div
+        className="group cursor-pointer rounded-xl border border-yellow-600/30 overflow-hidden hover:-translate-y-1 transition-all duration-300"
+        style={{
+          backgroundColor: cardBg,
+          boxShadow: isLight
+            ? "0 2px 8px 0 rgb(0 0 0 / 0.08), 0 1px 3px -1px rgb(0 0 0 / 0.06)"
+            : "0 4px 24px rgba(0,0,0,0.5)",
+        }}
+      >
         {/* Image area */}
         <div className="relative h-40 bg-zinc-900 overflow-hidden">
           {event.coverImageUrl ? (
@@ -38,7 +48,7 @@ function EventCard({ event }: { event: PublicEvent }) {
                 className="w-full h-full object-cover"
                 style={{ objectPosition: `center ${event.coverImagePositionY ?? 50}%` }}
               />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 40%, #0f0f0f 100%)" }} />
+              <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 40%, ${cardBg} 100%)` }} />
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -49,7 +59,7 @@ function EventCard({ event }: { event: PublicEvent }) {
 
         {/* Card body */}
         <div className="px-4 pt-3 pb-4">
-          <h3 className="text-sm font-bold text-white truncate mb-1.5">
+          <h3 className="text-sm font-bold truncate mb-1.5" style={{ color: "var(--text-main)" }}>
             {event.title}
           </h3>
 
@@ -85,8 +95,12 @@ function EventCard({ event }: { event: PublicEvent }) {
 }
 
 function SkeletonCard() {
+  const { isLight } = useTheme();
   return (
-    <div className="rounded-xl border border-zinc-800 bg-[#111111] overflow-hidden animate-pulse">
+    <div
+      className="rounded-xl border border-zinc-800 overflow-hidden animate-pulse"
+      style={{ backgroundColor: isLight ? "#ffffff" : "#111111" }}
+    >
       <div className="h-40 bg-zinc-800" />
       <div className="px-4 pb-4 pt-3 space-y-2.5">
         <div className="h-3.5 bg-zinc-800 rounded w-3/4" />
