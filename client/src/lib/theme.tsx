@@ -19,7 +19,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     try {
       const saved = localStorage.getItem("sg-theme");
       if (saved === "light" || saved === "dark") return saved;
-      if (window.matchMedia("(prefers-color-scheme: light)").matches) return "light";
     } catch {}
     return "dark";
   });

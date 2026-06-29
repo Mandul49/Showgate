@@ -163,16 +163,16 @@ export default function Home() {
         {!isLight && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_40%,rgba(245,158,11,0.09)_0%,transparent_65%)]" />}
         {!isLight && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_80%,rgba(161,161,170,0.04)_0%,transparent_50%)]" />}
         {isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))" }} />}
-        {!isLight && (
-          <div
-            className="absolute inset-0 opacity-[0.025]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)",
-              backgroundSize: "48px 48px",
-            }}
-          />
-        )}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: isLight
+              ? "linear-gradient(rgba(0,0,0,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.07) 1px,transparent 1px)"
+              : "linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)",
+            backgroundSize: "48px 48px",
+            opacity: isLight ? 1 : 0.025,
+          }}
+        />
         {/* Amber glow behind the woman */}
         <div className="absolute right-0 top-0 w-[55%] h-full bg-[radial-gradient(ellipse_at_80%_60%,rgba(245,158,11,0.13)_0%,transparent_60%)] pointer-events-none" />
 
