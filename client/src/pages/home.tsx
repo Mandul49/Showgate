@@ -595,7 +595,14 @@ export default function Home() {
       </section>
 
       {/* ── Bottom CTA ────────────────────────────────────────────────────── */}
-      <section className="cta-section py-24 px-5 border-t border-zinc-800 bg-gradient-to-b from-zinc-900/30 to-[#0d0d0d]">
+      <section
+        className="cta-section py-24 px-5 border-t border-zinc-800"
+        style={{
+          background: isLight
+            ? "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))"
+            : "linear-gradient(to bottom, rgba(24,24,27,0.3), #0d0d0d)",
+        }}
+      >
         <div className="max-w-2xl mx-auto text-center">
           <FadeSection>
             <h2 className="text-3xl sm:text-4xl font-black mb-4">Ready to run your next event?</h2>

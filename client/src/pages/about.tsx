@@ -4,6 +4,7 @@ import { Check, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 import aboutHero from "@/assets/About-us_1781630795603.jpeg";
 import { SiInstagram } from "react-icons/si";
+import { useTheme } from "@/lib/theme";
 
 const FAQS = [
   {
@@ -79,6 +80,7 @@ function FAQ() {
 }
 
 export default function About() {
+  const { isLight } = useTheme();
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--bg-page)", color: "var(--text-main)" }}>
       {/* ── Navbar ─────────────────────────────────────────────────────────── */}
@@ -231,7 +233,14 @@ export default function About() {
       </section>
 
       {/* ── CTA ────────────────────────────────────────────────────────────── */}
-      <section className="py-20 px-5 border-t border-zinc-800 bg-gradient-to-b from-zinc-900/30 to-[#0d0d0d]">
+      <section
+        className="py-20 px-5 border-t border-zinc-800"
+        style={{
+          background: isLight
+            ? "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))"
+            : "linear-gradient(to bottom, rgba(24,24,27,0.3), #0d0d0d)",
+        }}
+      >
         <div className="max-w-xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-black mb-4">Ready to run your next event?</h2>
           <p className="text-zinc-400 mb-8 text-sm leading-relaxed">
