@@ -118,7 +118,7 @@ export default function SubscriptionPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-page)" }}>
         <div className="w-6 h-6 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -127,7 +127,7 @@ export default function SubscriptionPage() {
   if (!data || data.tier !== "pro") return null;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "var(--bg-page)" }}>
       {/* Navbar */}
       <div className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-50">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">

@@ -4,6 +4,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Sun, Moon } from "lucide-react";
+import { useTheme } from "@/lib/theme";
 import Home from "@/pages/home";
 import Success from "@/pages/success";
 import Login from "@/pages/login";
@@ -111,12 +113,33 @@ function MaintenanceBanner() {
   );
 }
 
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      className="fixed bottom-6 right-6 z-[9998] w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-colors"
+      style={{
+        backgroundColor: theme === "dark" ? "#27272a" : "#ffffff",
+        border: theme === "dark" ? "1px solid #3f3f46" : "1px solid #e5e7eb",
+      }}
+      aria-label="Toggle theme"
+    >
+      {theme === "dark"
+        ? <Sun className="w-4 h-4 text-amber-400" />
+        : <Moon className="w-4 h-4 text-zinc-500" />
+      }
+    </button>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <MaintenanceBanner />
+        <ThemeToggle />
         <div style={{ paddingTop: "var(--maintenance-h, 0px)" }}>
           <Router />
         </div>

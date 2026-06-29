@@ -95,7 +95,7 @@ export default function Onboarding() {
   // ── Confirmation screen ─────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-page)" }}>
         <div className="border-b border-zinc-800 bg-zinc-950 px-4 py-3">
           <div className="max-w-lg mx-auto flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20">
@@ -153,7 +153,7 @@ export default function Onboarding() {
 
   // ── Onboarding form ──────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-page)" }}>
       {/* Header */}
       <div className="border-b border-zinc-800 bg-zinc-950 px-4 py-3">
         <div className="max-w-lg mx-auto flex items-center gap-2.5">

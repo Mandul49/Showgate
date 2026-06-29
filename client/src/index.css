@@ -23,6 +23,25 @@
   --destructive-foreground: hsl(0, 0%, 98%);
   --ring: hsl(43, 96%, 56%);
   --radius: 0.5rem;
+  --bg-page: #0a0a0a;
+  --text-main: #f5f5f5;
+}
+
+html.light {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(0, 0%, 7%);
+  --muted: hsl(0, 0%, 96%);
+  --muted-foreground: hsl(0, 0%, 45%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(0, 0%, 7%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(0, 0%, 7%);
+  --border: hsl(0, 0%, 89%);
+  --input: hsl(0, 0%, 96%);
+  --secondary: hsl(0, 0%, 96%);
+  --secondary-foreground: hsl(0, 0%, 10%);
+  --bg-page: #ffffff;
+  --text-main: #111827;
 }
 
 @layer base {
@@ -36,20 +55,86 @@
   }
 }
 
-input, textarea {
-  background-color: #1a1a1a !important;
-  color: #f5f5f5 !important;
-  border-color: #333 !important;
+/* ── Light mode body ── */
+html.light body {
+  background-color: #ffffff !important;
+  color: #111827 !important;
 }
 
-input::placeholder, textarea::placeholder {
-  color: #666 !important;
+/* ── Light mode: page background classes ── */
+html.light .bg-\[\#0d0d0d\] { background-color: #ffffff !important; }
+html.light .bg-\[\#0d0d0d\]\/90 { background-color: rgba(255,255,255,0.93) !important; }
+html.light .bg-black { background-color: #ffffff !important; }
+html.light .bg-black\/85 { background-color: rgba(0,0,0,0.85) !important; }
+
+/* ── Light mode: surface / card colors ── */
+html.light .bg-zinc-950 { background-color: #f8fafc !important; }
+html.light .bg-zinc-900 { background-color: #ffffff !important; }
+html.light .bg-zinc-900\/60 { background-color: rgba(255,255,255,0.9) !important; }
+html.light .bg-zinc-900\/50 { background-color: rgba(255,255,255,0.8) !important; }
+html.light .bg-zinc-900\/40 { background-color: rgba(255,255,255,0.7) !important; }
+html.light .bg-zinc-900\/30 { background-color: rgba(255,255,255,0.6) !important; }
+html.light .bg-zinc-900\/20 { background-color: rgba(255,255,255,0.4) !important; }
+html.light .bg-zinc-800 { background-color: #f0faf0 !important; }
+html.light .bg-zinc-800\/80 { background-color: rgba(240,250,240,0.85) !important; }
+html.light .bg-zinc-700 { background-color: #e8f5e8 !important; }
+
+/* ── Light mode: cards get a drop shadow ── */
+html.light .bg-zinc-900.rounded-2xl,
+html.light .bg-zinc-900.rounded-xl,
+html.light .bg-zinc-900.rounded-lg,
+html.light .rounded-2xl.bg-zinc-900,
+html.light .rounded-xl.bg-zinc-900,
+html.light .rounded-lg.bg-zinc-900,
+html.light .rounded-2xl.border.bg-zinc-900,
+html.light .rounded-xl.border.bg-zinc-900 {
+  box-shadow: 0 1px 4px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
 }
 
-input:focus, textarea:focus {
+/* ── Light mode: text colors ── */
+html.light .text-white { color: #111827 !important; }
+html.light .text-zinc-100 { color: #1f2937 !important; }
+html.light .text-zinc-200 { color: #374151 !important; }
+html.light .text-zinc-300 { color: #4b5563 !important; }
+html.light .text-zinc-400 { color: #6b7280 !important; }
+html.light .text-zinc-500 { color: #9ca3af !important; }
+html.light .text-zinc-600 { color: #a8b3b8 !important; }
+html.light .text-zinc-700 { color: #6b7280 !important; }
+html.light .text-zinc-800 { color: #374151 !important; }
+
+/* ── Light mode: border colors ── */
+html.light .border-zinc-800 { border-color: #e5e7eb !important; }
+html.light .border-zinc-800\/60 { border-color: rgba(229,231,235,0.8) !important; }
+html.light .border-zinc-700 { border-color: #d1d5db !important; }
+html.light .border-zinc-600 { border-color: #d1d5db !important; }
+
+/* ── Light mode: hover overrides ── */
+html.light .hover\:bg-zinc-800:hover { background-color: #f0faf0 !important; }
+html.light .hover\:bg-zinc-700:hover { background-color: #e8f5e8 !important; }
+html.light .hover\:text-white:hover { color: #111827 !important; }
+html.light .hover\:border-zinc-700:hover { border-color: #d1d5db !important; }
+html.light .focus\:bg-zinc-800:focus { background-color: #f0faf0 !important; }
+
+/* ── Light mode: inputs ── */
+html.light input,
+html.light textarea,
+html.light select {
+  background-color: #f9fafb !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #9ca3af !important;
+}
+html.light input:focus,
+html.light textarea:focus {
   border-color: #EAB308 !important;
   box-shadow: 0 0 0 1px #EAB30840 !important;
 }
+
+/* ── Light mode: dividers ── */
+html.light .divide-zinc-800 > * + * { border-color: #e5e7eb !important; }
 
 @keyframes lightboxFadeIn {
   from { opacity: 0; }

@@ -333,7 +333,7 @@ export default function Admin() {
 
   if (isLoading && !loaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0d0d0d" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-page)" }}>
         <div className="flex items-center gap-3 text-zinc-500">
           <div className="w-5 h-5 border-2 border-zinc-700 border-t-amber-400 rounded-full animate-spin" />
           Loading your setup...
@@ -343,7 +343,7 @@ export default function Admin() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#0a0a0a", color: "#f5f5f5" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "var(--bg-page)", color: "var(--text-main)" }}>
       <div className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">

@@ -446,7 +446,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-page)" }}>
       <LicenseAgreementModal
         open={licenseOpen}
         onDecline={handleLicenseDecline}

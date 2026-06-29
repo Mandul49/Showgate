@@ -64,7 +64,7 @@ function inputClass(hasError?: boolean) {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-page)" }}>
       <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
     </div>
   );
@@ -72,7 +72,7 @@ function LoadingScreen() {
 
 function NotFoundScreen() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ backgroundColor: "var(--bg-page)" }}>
       <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
         <X className="w-8 h-8 text-zinc-600" />
       </div>
@@ -138,7 +138,7 @@ export default function EventPublic() {
   const isPending = checkoutMutation.isPending || redirecting;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#0a0a0a", color: "#f5f5f5" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "var(--bg-page)", color: "var(--text-main)" }}>
       {/* Hero */}
       <div className="relative overflow-hidden border-b border-zinc-900">
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 60% 0%, rgba(245,158,11,0.07) 0%, transparent 65%)" }} />

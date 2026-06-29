@@ -61,7 +61,7 @@ export default function PurchaseSuccess() {
 
   if (!reference) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ backgroundColor: "var(--bg-page)" }}>
         <X className="w-12 h-12 text-zinc-700" />
         <p className="text-zinc-500 text-sm">No payment reference found.</p>
       </div>
@@ -70,7 +70,7 @@ export default function PurchaseSuccess() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-5" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-5" style={{ backgroundColor: "var(--bg-page)" }}>
         <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
         <p className="text-zinc-500 text-sm">Confirming your payment…</p>
       </div>
@@ -79,7 +79,7 @@ export default function PurchaseSuccess() {
 
   if (isError || !purchase) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ backgroundColor: "var(--bg-page)" }}>
         <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
           <X className="w-8 h-8 text-zinc-600" />
         </div>
@@ -94,7 +94,7 @@ export default function PurchaseSuccess() {
   const formattedDate = fmtDate(purchase.eventDate);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#0a0a0a", color: "#f5f5f5" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "var(--bg-page)", color: "var(--text-main)" }}>
       <div className="flex-1 flex items-center justify-center px-4 py-12 min-h-screen">
         <div className="w-full max-w-md">
 
@@ -134,9 +134,9 @@ export default function PurchaseSuccess() {
 
             {/* Divider perforation */}
             <div className="relative flex items-center bg-zinc-950 border-y border-dashed border-zinc-700/60">
-              <div className="w-4 h-4 rounded-full -ml-2 border border-zinc-700" style={{ backgroundColor: "#0a0a0a" }} />
+              <div className="w-4 h-4 rounded-full -ml-2 border border-zinc-700" style={{ backgroundColor: "var(--bg-page)" }} />
               <div className="flex-1" />
-              <div className="w-4 h-4 rounded-full -mr-2 border border-zinc-700" style={{ backgroundColor: "#0a0a0a" }} />
+              <div className="w-4 h-4 rounded-full -mr-2 border border-zinc-700" style={{ backgroundColor: "var(--bg-page)" }} />
             </div>
 
             {/* Ticket body */}

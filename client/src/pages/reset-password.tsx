@@ -77,7 +77,7 @@ export default function ResetPassword() {
   if (!token) return null;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-page)" }}>
       <div className="border-b border-zinc-800 bg-zinc-950 px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">

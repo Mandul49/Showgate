@@ -63,7 +63,7 @@ export default function UpgradeSuccess() {
 
   if (!authed) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ backgroundColor: "var(--bg-page)" }}>
         <Ticket className="w-10 h-10 text-zinc-700" />
         <p className="text-zinc-500 text-sm">Please log in to view your subscription.</p>
         <button onClick={() => navigate("/login")}
@@ -82,7 +82,7 @@ export default function UpgradeSuccess() {
 
   if (isPending) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-5" style={{ backgroundColor: "#0a0a0a" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-5" style={{ backgroundColor: "var(--bg-page)" }}>
         <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
         <p className="text-zinc-500 text-sm">Confirming your payment…</p>
         {reference && (
@@ -93,7 +93,7 @@ export default function UpgradeSuccess() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16" style={{ backgroundColor: "var(--bg-page)" }}>
       <div className="w-full max-w-sm text-center">
         {/* Icon */}
         <div className="flex justify-center mb-6">
