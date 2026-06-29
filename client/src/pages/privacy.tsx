@@ -179,9 +179,9 @@ const sections = [
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white">
+    <div className="min-h-screen" style={{ backgroundColor: "var(--bg-page)", color: "var(--text-main)" }}>
       {/* ── Minimal Navbar (logo only, no nav links) ───────────────────────── */}
-      <nav className="sticky z-50 border-b border-zinc-800/60 bg-[#0d0d0d]/90 backdrop-blur-md" style={{ top: "var(--maintenance-h, 0px)" }}>
+      <nav className="sticky z-50 border-b border-zinc-800/60 backdrop-blur-md" style={{ top: "var(--maintenance-h, 0px)", backgroundColor: "var(--nav-bg)" }}>
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center">
           <Link href="/">
             <span className="text-xl font-black tracking-tight cursor-pointer">

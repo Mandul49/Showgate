@@ -24,6 +24,7 @@
   --ring: hsl(43, 96%, 56%);
   --radius: 0.5rem;
   --bg-page: #0a0a0a;
+  --nav-bg: rgba(13, 13, 13, 0.92);
   --text-main: #f5f5f5;
 }
 
@@ -41,6 +42,7 @@ html.light {
   --secondary: hsl(0, 0%, 96%);
   --secondary-foreground: hsl(0, 0%, 10%);
   --bg-page: #ffffff;
+  --nav-bg: rgba(255, 255, 255, 0.93);
   --text-main: #111827;
 }
 

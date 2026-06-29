@@ -107,7 +107,7 @@ export default function Pricing() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="min-h-screen" style={{ backgroundColor: "var(--bg-page)", color: "var(--text-main)" }}>
       {/* ── Nav ────────────────────────────────────────────────────────────── */}
       <header className="border-b border-zinc-900 px-4 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
