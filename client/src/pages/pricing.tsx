@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useTheme } from "@/lib/theme";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, X, Zap, Loader2, Ticket, ArrowLeft } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
@@ -27,6 +28,7 @@ function fmtNGN(n: number) {
 }
 
 export default function Pricing() {
+  const { isLight } = useTheme();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [billing, setBilling] = useState<BillingCycle>("monthly");
@@ -130,7 +132,10 @@ export default function Pricing() {
 
       <div className="max-w-5xl mx-auto px-4 py-14">
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
-        <div className="text-center mb-12">
+        <div
+          className="text-center mb-12 rounded-2xl py-10 px-4"
+          style={{ background: isLight ? "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))" : "transparent" }}
+        >
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-400 text-xs font-bold uppercase tracking-widest mb-5">
             <Zap className="w-3.5 h-3.5" /> Simple Pricing
           </div>

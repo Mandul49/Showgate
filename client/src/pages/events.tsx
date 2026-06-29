@@ -155,6 +155,7 @@ export default function EventsPage() {
       {/* Hero */}
       <section className="relative overflow-hidden min-h-[320px] sm:min-h-[380px] flex items-center pt-20 pb-12 px-5 border-b border-zinc-800/50">
         {!isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #0a0a0a 0%, #1a1200 50%, #0a0a0a 100%)" }} />}
+        {isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))" }} />}
         <div className="relative z-10 max-w-3xl mx-auto w-full text-center">
           <h1 className="text-4xl sm:text-5xl font-black mb-4">
             Discover <span className="text-amber-400">Events</span>

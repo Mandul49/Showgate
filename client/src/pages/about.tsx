@@ -121,8 +121,8 @@ export default function About() {
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover object-center opacity-20"
         />
-        {/* Uniform dark overlay to keep text legible without biasing one side */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0d0d0d]/50 via-[#0d0d0d]/30 to-[#0d0d0d]/60" />
+        {/* Overlay — dark in dark mode, amber in light mode */}
+        <div className="absolute inset-0" style={{ background: isLight ? "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))" : "linear-gradient(to bottom, rgba(13,13,13,0.5), rgba(13,13,13,0.3), rgba(13,13,13,0.6))" }} />
         {/* Text content */}
         <div className="relative z-10 max-w-3xl mx-auto w-full text-center">
           <h1 className="text-4xl sm:text-5xl font-black mb-4">

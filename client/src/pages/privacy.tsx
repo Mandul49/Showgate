@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { SiInstagram } from "react-icons/si";
+import { useTheme } from "@/lib/theme";
 import sgLogo from "../assets/showgate-logo.png";
 
 const sections = [
@@ -178,6 +179,7 @@ const sections = [
 ];
 
 export default function Privacy() {
+  const { isLight } = useTheme();
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--bg-page)", color: "var(--text-main)" }}>
       {/* ── Minimal Navbar (logo only, no nav links) ───────────────────────── */}
@@ -194,7 +196,7 @@ export default function Privacy() {
 
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden min-h-[220px] sm:min-h-[260px] flex items-center pt-16 pb-10 px-5 border-b border-zinc-800/50">
-        <div className="absolute inset-0 bg-gradient-to-b from-amber-950/20 via-[#0d0d0d]/30 to-[#0d0d0d]" />
+        <div className="absolute inset-0" style={{ background: isLight ? "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))" : "linear-gradient(to bottom, rgba(120,53,15,0.2), rgba(13,13,13,0.3), #0d0d0d)" }} />
         <div className="relative z-10 max-w-3xl mx-auto w-full text-center">
           <p className="text-amber-400 text-xs font-black uppercase tracking-widest mb-3">Legal</p>
           <h1 className="text-4xl sm:text-5xl font-black mb-3">

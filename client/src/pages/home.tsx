@@ -162,6 +162,7 @@ export default function Home() {
         {!isLight && <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-[#0d0d0d] to-zinc-900" />}
         {!isLight && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_40%,rgba(245,158,11,0.09)_0%,transparent_65%)]" />}
         {!isLight && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_80%,rgba(161,161,170,0.04)_0%,transparent_50%)]" />}
+        {isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))" }} />}
         {!isLight && (
           <div
             className="absolute inset-0 opacity-[0.025]"
@@ -266,7 +267,7 @@ export default function Home() {
       </section>
 
       {/* ── How It Works ──────────────────────────────────────────────────── */}
-      <section ref={howItWorksRef} className="py-24 px-5">
+      <section ref={howItWorksRef} className="py-24 px-5" style={{ background: isLight ? "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))" : "transparent" }}>
         <div className="max-w-6xl mx-auto">
           <FadeSection className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-black mb-4"><span className="text-amber-400">How</span> it works</h2>
