@@ -4,6 +4,7 @@ import { ImageIcon, CalendarDays, MapPin, Ticket } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import { Event, TicketType } from "@shared/schema";
 import sgLogo from "../assets/showgate-logo.png";
+import { useTheme } from "@/lib/theme";
 
 type PublicEvent = Event & { ticketTypes: TicketType[] };
 
@@ -101,6 +102,7 @@ function SkeletonCard() {
 }
 
 export default function EventsPage() {
+  const { isLight } = useTheme();
   const { data: eventsData, isLoading } = useQuery<PublicEvent[]>({
     queryKey: ["/api/events/public"],
   });
@@ -138,12 +140,12 @@ export default function EventsPage() {
 
       {/* Hero */}
       <section className="relative overflow-hidden min-h-[320px] sm:min-h-[380px] flex items-center pt-20 pb-12 px-5 border-b border-zinc-800/50">
-        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #0a0a0a 0%, #1a1200 50%, #0a0a0a 100%)" }} />
+        {!isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #0a0a0a 0%, #1a1200 50%, #0a0a0a 100%)" }} />}
         <div className="relative z-10 max-w-3xl mx-auto w-full text-center">
           <h1 className="text-4xl sm:text-5xl font-black mb-4">
             Discover <span className="text-amber-400">Events</span>
           </h1>
-          <p className="text-white font-medium text-lg">Find the best events happening near you.</p>
+          <p className="font-medium text-lg" style={{ color: "var(--text-main)" }}>Find the best events happening near you.</p>
         </div>
       </section>
 

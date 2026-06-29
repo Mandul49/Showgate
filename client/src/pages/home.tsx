@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import heroWoman from "@/assets/IMG_9654_1781631698906.png";
 import { Link } from "wouter";
 import { isAuthenticated } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 import {
   Zap, BarChart2, Palette, ArrowRight, Check, X, Menu,
   ChevronRight, CreditCard, Clock, ImageIcon, Store, Ticket,
@@ -41,6 +42,7 @@ function FadeSection({ children, className = "" }: { children: React.ReactNode; 
 }
 
 export default function Home() {
+  const { isLight } = useTheme();
   const authed = isAuthenticated();
   const [menuOpen, setMenuOpen] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -157,17 +159,19 @@ export default function Home() {
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className="hero-section relative min-h-[calc(100vh-64px)] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-[#0d0d0d] to-zinc-900" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_40%,rgba(245,158,11,0.09)_0%,transparent_65%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_80%,rgba(161,161,170,0.04)_0%,transparent_50%)]" />
-        <div
-          className="absolute inset-0 opacity-[0.025]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-        />
+        {!isLight && <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-[#0d0d0d] to-zinc-900" />}
+        {!isLight && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_40%,rgba(245,158,11,0.09)_0%,transparent_65%)]" />}
+        {!isLight && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_80%,rgba(161,161,170,0.04)_0%,transparent_50%)]" />}
+        {!isLight && (
+          <div
+            className="absolute inset-0 opacity-[0.025]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)",
+              backgroundSize: "48px 48px",
+            }}
+          />
+        )}
         {/* Amber glow behind the woman */}
         <div className="absolute right-0 top-0 w-[55%] h-full bg-[radial-gradient(ellipse_at_80%_60%,rgba(245,158,11,0.13)_0%,transparent_60%)] pointer-events-none" />
 
