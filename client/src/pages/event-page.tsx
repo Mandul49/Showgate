@@ -1190,14 +1190,15 @@ export default function EventPage() {
     const b = parseInt(bg.slice(5, 7), 16);
     const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
     const scheme = lum < 0.4 ? "only dark" : "only light";
-    let meta = document.querySelector('meta[name="color-scheme"]') as HTMLMetaElement | null;
-    if (!meta) {
-      meta = document.createElement("meta");
-      meta.name = "color-scheme";
-      document.head.appendChild(meta);
-    }
+    const existing = document.querySelector('meta[name="color-scheme"]') as HTMLMetaElement | null;
+    const created = !existing;
+    const meta: HTMLMetaElement = existing ?? document.createElement("meta");
+    if (created) { meta.name = "color-scheme"; document.head.appendChild(meta); }
+    const prev = meta.content;
     meta.content = scheme;
-    return () => { if (meta) meta.content = "normal"; };
+    return () => {
+      if (created) { meta.remove(); } else { meta.content = prev; }
+    };
   }, [event?.branding?.brandTheme?.themeMode, event?.branding?.brandTheme?.background]);
 
   useEffect(() => {
@@ -1279,10 +1280,9 @@ export default function EventPage() {
   const bgColor = bt?.background ?? "#09090b";
   const surfaceColor = bt?.surface ?? "#18181b";
   const textColor = bt?.text ?? "#ffffff";
-  const textSecondaryColor = bt?.textSecondary ?? "#a1a1aa";
+  const textSecondaryColor = bt?.textSecondary ?? textColor;
   const textMutedColor = bt?.textMuted ?? "#71717a";
-  const borderColor = bt?.border ?? "#27272a";
-  const themeMode = bt?.themeMode ?? "auto";
+  const borderStyle = bt?.border ? `1px solid ${bt.border}` : `1px solid ${primary}28`;
   const countdownStyleVal = bt?.countdownStyle ?? "box";
   const brandName = event.branding?.name ?? "Showgate";
   const brandLogoUrl = (event.branding?.isPro && event.branding?.logoUrl) ? event.branding.logoUrl : null;
@@ -1341,18 +1341,18 @@ export default function EventPage() {
             </h1>
             <div className="flex flex-wrap justify-center gap-3 mb-4">
               <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
-                style={{ backgroundColor: surfaceColor, border: `1px solid ${borderColor}`, color: textSecondaryColor }}>
+                style={{ backgroundColor: surfaceColor, border: borderStyle, color: textSecondaryColor }}>
                 <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                 <span>{formattedDate}</span>
               </div>
               <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
-                style={{ backgroundColor: surfaceColor, border: `1px solid ${borderColor}`, color: textSecondaryColor }}>
+                style={{ backgroundColor: surfaceColor, border: borderStyle, color: textSecondaryColor }}>
                 <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                 <span>{event.location}</span>
               </div>
               {event.startTime && (
                 <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
-                  style={{ backgroundColor: surfaceColor, border: `1px solid ${borderColor}`, color: textSecondaryColor }}>
+                  style={{ backgroundColor: surfaceColor, border: borderStyle, color: textSecondaryColor }}>
                   <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                   <span>{fmtTime12h(event.startTime)}</span>
                 </div>
