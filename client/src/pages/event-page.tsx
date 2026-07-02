@@ -1182,6 +1182,25 @@ export default function EventPage() {
   });
 
   useEffect(() => {
+    const bt = event?.branding?.brandTheme;
+    if (!bt || (bt.themeMode ?? "auto") !== "custom") return;
+    const bg = bt.background ?? "#09090b";
+    const r = parseInt(bg.slice(1, 3), 16);
+    const g = parseInt(bg.slice(3, 5), 16);
+    const b = parseInt(bg.slice(5, 7), 16);
+    const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    const scheme = lum < 0.4 ? "only dark" : "only light";
+    let meta = document.querySelector('meta[name="color-scheme"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "color-scheme";
+      document.head.appendChild(meta);
+    }
+    meta.content = scheme;
+    return () => { if (meta) meta.content = "normal"; };
+  }, [event?.branding?.brandTheme?.themeMode, event?.branding?.brandTheme?.background]);
+
+  useEffect(() => {
     if (!event) return;
 
     document.title = `${event.title} — Tickets`;
@@ -1269,24 +1288,6 @@ export default function EventPage() {
   const brandLogoUrl = (event.branding?.isPro && event.branding?.logoUrl) ? event.branding.logoUrl : null;
 
   const isTestMode = event.paystackEnv === "test";
-
-  useEffect(() => {
-    if (themeMode === "custom") {
-      const r = parseInt(bgColor.slice(1, 3), 16);
-      const g = parseInt(bgColor.slice(3, 5), 16);
-      const b = parseInt(bgColor.slice(5, 7), 16);
-      const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-      const scheme = lum < 0.4 ? "only dark" : "only light";
-      let meta = document.querySelector('meta[name="color-scheme"]') as HTMLMetaElement | null;
-      if (!meta) {
-        meta = document.createElement("meta");
-        meta.name = "color-scheme";
-        document.head.appendChild(meta);
-      }
-      meta.content = scheme;
-      return () => { if (meta) meta.content = "normal"; };
-    }
-  }, [themeMode, bgColor]);
 
   return (
     <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor, '--brand-primary': primary, '--brand-accent': accent, '--brand-surface': surfaceColor, '--brand-text': textColor } as any}>
