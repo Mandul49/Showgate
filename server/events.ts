@@ -82,6 +82,7 @@ export function registerEventsRoutes(app: Express) {
       const tierCheck = await checkEventTierLimits(organizer, {
         paymentMethod,
         activating: isActive,
+        userRole: req.userRole,
       });
       if (!tierCheck.allowed) {
         return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });
@@ -153,6 +154,7 @@ export function registerEventsRoutes(app: Express) {
         paymentMethod: updates.paymentMethod,
         activating: updates.isActive === true && !event.isActive,
         excludeEventId: event.id,
+        userRole: req.userRole,
       });
       if (!tierCheck.allowed) {
         return res.status(403).json({ message: tierCheck.message, code: tierCheck.code });

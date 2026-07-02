@@ -153,6 +153,7 @@ export function registerOnboardingRoutes(app: Express) {
 
       console.log(`[onboarding] Creating organizer row — userId=${req.userId} mode=${paystackMode} code=${createdCode}`);
 
+      const user = await storage.getUserById(req.userId!);
       const organizer = await storage.createOrganizer({
         userId: req.userId!,
         businessName,
@@ -162,7 +163,7 @@ export function registerOnboardingRoutes(app: Express) {
         subaccountCode: isTest ? null : createdCode,
         testSubaccountCode: isTest ? createdCode : null,
         bvn: bvn || null,
-        tier: "free",
+        tier: user?.tier ?? "free",
       });
 
       console.log(`[onboarding] SUCCESS — organizerId=${organizer.id} userId=${organizer.userId} mode=${paystackMode} subaccountCode=${organizer.subaccountCode} testSubaccountCode=${organizer.testSubaccountCode}`);
