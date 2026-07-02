@@ -116,6 +116,13 @@ export interface BrandTheme {
   background: string;
   surface: string;
   text: string;
+  textSecondary?: string;
+  textMuted?: string;
+  onPrimary?: string;
+  border?: string;
+  themeMode?: "custom" | "auto";
+  countdownStyle?: "box" | "minimal" | "rings";
+  buttonStyle?: "solid" | "outline";
 }
 
 // ─── Organizers ───────────────────────────────────────────────────────────────

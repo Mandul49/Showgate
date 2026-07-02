@@ -65,6 +65,13 @@ interface PublicEvent {
       background: string;
       surface: string;
       text: string;
+      textSecondary?: string;
+      textMuted?: string;
+      onPrimary?: string;
+      border?: string;
+      themeMode?: "custom" | "auto";
+      countdownStyle?: "box" | "minimal" | "rings";
+      buttonStyle?: "solid" | "outline";
     } | null;
   };
   paystackPublicKey: string;
@@ -108,7 +115,17 @@ function getEventDateTime(date: string, startTime: string | null): Date {
   return new Date(`${date}T00:00:00`);
 }
 
-function Countdown({ date, startTime, accent }: { date: string; startTime: string | null; accent: string }) {
+function Countdown({
+  date, startTime, accent,
+  countdownStyle = "box",
+  textMuted = "#71717a",
+}: {
+  date: string;
+  startTime: string | null;
+  accent: string;
+  countdownStyle?: "box" | "minimal" | "rings";
+  textMuted?: string;
+}) {
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 1000);
@@ -120,7 +137,6 @@ function Countdown({ date, startTime, accent }: { date: string; startTime: strin
   const diffMs = target.getTime() - now.getTime();
 
   if (diffMs <= 0) {
-    // check if it ended (treat event as ~4h long)
     const endedMs = now.getTime() - target.getTime();
     const status = endedMs < 4 * 60 * 60 * 1000 ? "live" : "ended";
     return (
@@ -138,16 +154,73 @@ function Countdown({ date, startTime, accent }: { date: string; startTime: strin
   const hh = Math.floor((totalSeconds % 86400) / 3600);
   const mm = Math.floor((totalSeconds % 3600) / 60);
   const ss = totalSeconds % 60;
-
   const urgent = diffMs < 24 * 60 * 60 * 1000;
 
+  // ── Minimal style ──────────────────────────────────────────────────────────
+  if (countdownStyle === "minimal") {
+    const parts = dd > 0
+      ? `${dd}d ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`
+      : `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+    return (
+      <div className="flex justify-center mt-4 mb-1">
+        <span className="text-xl sm:text-2xl font-black tabular-nums tracking-tight"
+          style={{ color: urgent ? accent : textMuted }}>
+          {parts}
+        </span>
+      </div>
+    );
+  }
+
+  // ── Rings style ────────────────────────────────────────────────────────────
+  if (countdownStyle === "rings") {
+    const RADIUS = 24;
+    const CIRC = 2 * Math.PI * RADIUS;
+    const ringDefs = [
+      { label: "Days",  value: dd, max: 365 },
+      { label: "Hours", value: hh, max: 24  },
+      { label: "Mins",  value: mm, max: 60  },
+      { label: "Secs",  value: ss, max: 60  },
+    ];
+    return (
+      <div className="flex justify-center gap-3 sm:gap-6 mt-4 mb-1">
+        {ringDefs.map(({ label, value, max }) => {
+          const frac = Math.max(0, Math.min(1, value / max));
+          const offset = CIRC * (1 - frac);
+          return (
+            <div key={label} className="flex flex-col items-center gap-1">
+              <svg width="60" height="60" viewBox="0 0 60 60">
+                <circle cx="30" cy="30" r={RADIUS} fill="none" strokeWidth="3.5"
+                  stroke={`${accent}25`} />
+                <circle cx="30" cy="30" r={RADIUS} fill="none" strokeWidth="3.5"
+                  stroke={urgent ? accent : accent}
+                  strokeDasharray={CIRC}
+                  strokeDashoffset={offset}
+                  strokeLinecap="round"
+                  transform="rotate(-90 30 30)"
+                  style={{ transition: "stroke-dashoffset 0.5s ease" }} />
+                <text x="30" y="35" textAnchor="middle" fontSize="13" fontWeight="900"
+                  fill={urgent ? accent : "#ffffff"} fontFamily="inherit">
+                  {String(value).padStart(2, "0")}
+                </text>
+              </svg>
+              <span className="text-[10px] uppercase tracking-widest"
+                style={{ color: urgent ? accent : textMuted }}>
+                {label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ── Box style (default) ────────────────────────────────────────────────────
   const blocks = [
-    { label: "Days", value: dd },
-    { label: "Hours", value: hh },
+    { label: "Days",    value: dd },
+    { label: "Hours",   value: hh },
     { label: "Minutes", value: mm },
     { label: "Seconds", value: ss },
   ];
-
   return (
     <div className="flex justify-center gap-2 sm:gap-4 mt-4 mb-1">
       {blocks.map(({ label, value }) => (
@@ -163,7 +236,7 @@ function Countdown({ date, startTime, accent }: { date: string; startTime: strin
             </span>
           </div>
           <span className="text-[10px] uppercase tracking-widest mt-1.5"
-            style={{ color: urgent ? accent : "#52525b" }}>
+            style={{ color: urgent ? accent : textMuted }}>
             {label}
           </span>
         </div>
@@ -1016,10 +1089,13 @@ function TicketCard({ ticket, event, onSuccess }: {
 }) {
   const [open, setOpen] = useState(false);
   const soldOut = ticket.remaining <= 0;
-  const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
-  const accent = event.branding?.brandTheme?.accent ?? primary;
-  const surfaceColor = event.branding?.brandTheme?.surface ?? "#18181b";
-  const textColor = event.branding?.brandTheme?.text ?? "#ffffff";
+  const bt2 = event.branding?.brandTheme;
+  const primary = bt2?.primary ?? "#F59E0B";
+  const accent = bt2?.accent ?? primary;
+  const surfaceColor = bt2?.surface ?? "#18181b";
+  const textColor = bt2?.text ?? "#ffffff";
+  const onPrimary = bt2?.onPrimary ?? "#000000";
+  const buttonStyle = bt2?.buttonStyle ?? "outline";
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ backgroundColor: `${primary}18`, border: `1px solid ${primary}44` }}>
@@ -1074,7 +1150,9 @@ function TicketCard({ ticket, event, onSuccess }: {
               className="w-full py-3.5 rounded-lg font-bold uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2"
               style={open
                 ? { backgroundColor: `${primary}20`, color: primary, border: `1px solid ${primary}50` }
-                : { border: `2px solid ${primary}`, color: primary }
+                : buttonStyle === "solid"
+                  ? { backgroundColor: primary, color: onPrimary, border: `2px solid ${primary}` }
+                  : { border: `2px solid ${primary}`, color: primary }
               }>
               {open
                 ? <><ArrowLeft className="w-4 h-4" /> Close</>
@@ -1182,10 +1260,28 @@ export default function EventPage() {
   const bgColor = bt?.background ?? "#09090b";
   const surfaceColor = bt?.surface ?? "#18181b";
   const textColor = bt?.text ?? "#ffffff";
+  const textSecondaryColor = bt?.textSecondary ?? "#a1a1aa";
+  const textMutedColor = bt?.textMuted ?? "#71717a";
+  const borderColor = bt?.border ?? "#27272a";
+  const themeMode = bt?.themeMode ?? "auto";
+  const countdownStyleVal = bt?.countdownStyle ?? "box";
   const brandName = event.branding?.name ?? "Showgate";
   const brandLogoUrl = (event.branding?.isPro && event.branding?.logoUrl) ? event.branding.logoUrl : null;
 
   const isTestMode = event.paystackEnv === "test";
+
+  useEffect(() => {
+    if (themeMode === "custom") {
+      let meta = document.querySelector('meta[name="color-scheme"]') as HTMLMetaElement | null;
+      if (!meta) {
+        meta = document.createElement("meta");
+        meta.name = "color-scheme";
+        document.head.appendChild(meta);
+      }
+      meta.content = "only dark";
+      return () => { if (meta) meta.content = "normal"; };
+    }
+  }, [themeMode]);
 
   return (
     <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor, '--brand-primary': primary, '--brand-accent': accent, '--brand-surface': surfaceColor, '--brand-text': textColor } as any}>
@@ -1239,35 +1335,37 @@ export default function EventPage() {
             </h1>
             <div className="flex flex-wrap justify-center gap-3 mb-4">
               <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
-                style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}28`, color: textColor }}>
+                style={{ backgroundColor: surfaceColor, border: `1px solid ${borderColor}`, color: textSecondaryColor }}>
                 <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                 <span>{formattedDate}</span>
               </div>
               <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
-                style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}28`, color: textColor }}>
+                style={{ backgroundColor: surfaceColor, border: `1px solid ${borderColor}`, color: textSecondaryColor }}>
                 <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                 <span>{event.location}</span>
               </div>
               {event.startTime && (
                 <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm"
-                  style={{ backgroundColor: surfaceColor, border: `1px solid ${primary}28`, color: textColor }}>
+                  style={{ backgroundColor: surfaceColor, border: `1px solid ${borderColor}`, color: textSecondaryColor }}>
                   <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accent }} />
                   <span>{fmtTime12h(event.startTime)}</span>
                 </div>
               )}
             </div>
 
-            <Countdown date={event.date} startTime={event.startTime} accent={accent} />
+            <Countdown date={event.date} startTime={event.startTime} accent={accent}
+              countdownStyle={countdownStyleVal} textMuted={textMutedColor} />
 
             {event.description && (
-              <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-xl">
+              <p className="text-sm sm:text-base leading-relaxed max-w-xl" style={{ color: textMutedColor }}>
                 {event.description}
               </p>
             )}
 
             {event.location && (
               <div className="w-full max-w-2xl mx-auto mt-4">
-                <div className="flex items-center gap-1.5 text-zinc-500 text-xs uppercase tracking-widest mb-2">
+                <div className="flex items-center gap-1.5 text-xs uppercase tracking-widest mb-2"
+                  style={{ color: textMutedColor }}>
                   <MapPin className="w-3 h-3" /> Location Map
                 </div>
                 <div className="rounded-xl overflow-hidden border border-zinc-800" style={{ height: 220 }}>

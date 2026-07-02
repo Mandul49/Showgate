@@ -2013,11 +2013,53 @@ interface BrandTheme {
   background: string;
   surface: string;
   text: string;
+  textSecondary?: string;
+  textMuted?: string;
+  onPrimary?: string;
+  border?: string;
+  themeMode?: "custom" | "auto";
+  countdownStyle?: "box" | "minimal" | "rings";
+  buttonStyle?: "solid" | "outline";
 }
 
-const COLOR_LABELS: Record<keyof BrandTheme, string> = {
-  primary: "Primary", accent: "Accent", background: "Background", surface: "Surface", text: "Text",
+const COLOR_KEYS = ["primary", "accent", "background", "surface", "text", "textSecondary", "textMuted", "onPrimary", "border"] as const;
+type ColorKey = typeof COLOR_KEYS[number];
+
+const COLOR_LABELS: Record<ColorKey, string> = {
+  primary: "Primary",
+  accent: "Accent",
+  background: "Background",
+  surface: "Surface",
+  text: "Text (main)",
+  textSecondary: "Text Secondary",
+  textMuted: "Text Muted",
+  onPrimary: "On Primary (buttons)",
+  border: "Border / Divider",
 };
+
+function isDarkColor(hex: string): boolean {
+  try {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.4;
+  } catch { return true; }
+}
+
+function fillThemeColors(t: BrandTheme): BrandTheme {
+  const dark = isDarkColor(t.background);
+  const priR = parseInt(t.primary.slice(1, 3), 16);
+  const priG = parseInt(t.primary.slice(3, 5), 16);
+  const priB = parseInt(t.primary.slice(5, 7), 16);
+  const priLum = (0.2126 * priR + 0.7152 * priG + 0.0722 * priB) / 255;
+  return {
+    ...t,
+    textSecondary: t.textSecondary ?? (dark ? "#a1a1aa" : "#52525b"),
+    textMuted:     t.textMuted     ?? (dark ? "#71717a" : "#9ca3af"),
+    onPrimary:     t.onPrimary     ?? (priLum > 0.45 ? "#111111" : "#ffffff"),
+    border:        t.border        ?? (dark ? "#27272a" : "#e4e4e7"),
+  };
+}
 
 function extractThemeFromImage(imgEl: HTMLImageElement): BrandTheme {
   const size = 64;
@@ -2036,7 +2078,7 @@ function extractThemeFromImage(imgEl: HTMLImageElement): BrandTheme {
   for (let i = 0; i < data.length; i += 4)
     if (data[i + 3] > 128) pixels.push([data[i], data[i + 1], data[i + 2]]);
   if (pixels.length === 0)
-    return { primary: "#F59E0B", accent: "#D97706", background: "#0d0d0d", surface: "#1c1c1e", text: "#ffffff" };
+    return fillThemeColors({ primary: "#F59E0B", accent: "#D97706", background: "#0d0d0d", surface: "#1c1c1e", text: "#ffffff" });
   const vibrant = [...pixels].sort((a, b) => getSat(...b) - getSat(...a)).filter(([r, g, b]) => getSat(r, g, b) > 0.2);
   const [pr, pg, pb] = vibrant[0] ?? pixels[Math.floor(pixels.length / 2)];
   const primary = toHex(pr, pg, pb);
@@ -2050,7 +2092,7 @@ function extractThemeFromImage(imgEl: HTMLImageElement): BrandTheme {
   const surface = toHex(avgR * 0.16, avgG * 0.16, avgB * 0.16);
   const lum = (0.2126 * pr + 0.7152 * pg + 0.0722 * pb) / 255;
   const text = lum > 0.45 ? "#111111" : "#ffffff";
-  return { primary, accent, background, surface, text };
+  return fillThemeColors({ primary, accent, background, surface, text });
 }
 
 function extractPalette(imgEl: HTMLImageElement): string[] {
@@ -2089,7 +2131,7 @@ function extractPalette(imgEl: HTMLImageElement): string[] {
 
 function buildSuggestedTheme(palette: string[], index: number): BrandTheme {
   if (palette.length < 7)
-    return { primary: "#F59E0B", accent: "#D97706", background: "#0d0d0d", surface: "#1c1c1e", text: "#ffffff" };
+    return fillThemeColors({ primary: "#F59E0B", accent: "#D97706", background: "#0d0d0d", surface: "#1c1c1e", text: "#ffffff" });
   const [vdark, dark, mid, light, vlight, vib1, vib2] = palette;
   const strategies: BrandTheme[] = [
     { background: vdark,  surface: dark,  text: vlight, primary: vib1,  accent: vib2  },
@@ -2099,7 +2141,7 @@ function buildSuggestedTheme(palette: string[], index: number): BrandTheme {
     { background: vdark,  surface: dark,  text: light,  primary: vib1,  accent: vib2  },
     { background: vdark,  surface: dark,  text: vlight, primary: vib2,  accent: mid   },
   ];
-  return strategies[index % strategies.length];
+  return fillThemeColors(strategies[index % strategies.length]);
 }
 
 const brandingFormSchema = z.object({
@@ -2143,7 +2185,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   useEffect(() => {
     if (branding) {
       form.reset({ customBrandName: branding.customBrandName ?? "" });
-      if (branding.brandTheme && !theme) setTheme(branding.brandTheme);
+      if (branding.brandTheme && !theme) setTheme(fillThemeColors(branding.brandTheme));
       if (branding.customLogoUrl && !logoPreviewUrl) setLogoPreviewUrl(branding.customLogoUrl);
     }
   }, [branding]);
@@ -2317,8 +2359,8 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
               )}
             </div>
 
-            {/* Color Theme */}
-            {theme && (
+            {/* Color Theme + Style Controls */}
+            {theme && (<>
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5">
@@ -2342,57 +2384,135 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
 
                 {/* Swatches row */}
                 <div className="flex gap-2 flex-wrap mb-3">
-                  {(Object.entries(theme) as [keyof BrandTheme, string][]).map(([key, val]) => (
-                    <div key={key} className="flex flex-col items-center gap-1">
-                      <div className="w-9 h-9 rounded-lg border border-zinc-700 shadow-inner"
-                        style={{ backgroundColor: val }} />
-                      <span className="text-zinc-600 text-[10px]">{COLOR_LABELS[key]}</span>
-                    </div>
-                  ))}
+                  {COLOR_KEYS.map((key) => {
+                    const val = theme[key];
+                    if (!val) return null;
+                    return (
+                      <div key={key} className="flex flex-col items-center gap-1">
+                        <div className="w-9 h-9 rounded-lg border border-zinc-700 shadow-inner"
+                          style={{ backgroundColor: val }} />
+                        <span className="text-zinc-600 text-[10px]">{COLOR_LABELS[key]}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Live mini-preview */}
-                <div className="rounded-xl overflow-hidden border border-zinc-800 mb-3" style={{ backgroundColor: theme.background }}>
+                <div className="rounded-xl overflow-hidden mb-3"
+                  style={{ backgroundColor: theme.background, border: `1px solid ${theme.border ?? "#27272a"}` }}>
                   <div className="px-4 py-3 flex items-center gap-3" style={{ backgroundColor: theme.surface }}>
                     <div className="w-7 h-7 rounded-lg" style={{ backgroundColor: theme.primary }} />
                     <div>
                       <div className="text-xs font-bold" style={{ color: theme.text }}>Your Event Name</div>
-                      <div className="text-[10px] opacity-50" style={{ color: theme.text }}>Venue · Date</div>
+                      <div className="text-[10px]" style={{ color: theme.textSecondary ?? theme.text }}>Venue · Date</div>
                     </div>
                   </div>
-                  <div className="px-4 py-3 flex items-center justify-between">
-                    <div className="text-xs font-semibold" style={{ color: theme.text }}>General Admission</div>
-                    <div className="px-3 py-1 rounded-lg text-xs font-bold"
-                      style={{ backgroundColor: theme.primary, color: theme.background }}>
-                      Buy ₦5,000
-                    </div>
+                  <div className="px-4 py-3 flex items-center justify-between"
+                    style={{ borderTop: `1px solid ${theme.border ?? "#27272a"}` }}>
+                    <div className="text-xs font-semibold" style={{ color: theme.textMuted ?? theme.text }}>General Admission</div>
+                    {theme.buttonStyle === "outline"
+                      ? <div className="px-3 py-1 rounded-lg text-xs font-bold"
+                          style={{ border: `2px solid ${theme.primary}`, color: theme.primary }}>
+                          Buy ₦5,000
+                        </div>
+                      : <div className="px-3 py-1 rounded-lg text-xs font-bold"
+                          style={{ backgroundColor: theme.primary, color: theme.onPrimary ?? theme.background }}>
+                          Buy ₦5,000
+                        </div>
+                    }
                   </div>
                 </div>
 
                 {/* Color override inputs */}
                 {colorEditorOpen && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-zinc-950 border border-zinc-800">
-                    {(Object.keys(theme) as (keyof BrandTheme)[]).map((key) => (
-                      <div key={key}>
-                        <label className="text-zinc-500 text-[10px] uppercase tracking-widest block mb-1.5">{COLOR_LABELS[key]}</label>
-                        <div className="flex items-center gap-2">
-                          <input type="color" value={theme[key]}
-                            onChange={(e) => setTheme((prev) => prev ? { ...prev, [key]: e.target.value } : prev)}
-                            className="w-8 h-8 rounded cursor-pointer bg-transparent border border-zinc-700 p-0.5 flex-shrink-0" />
-                          <input type="text" value={theme[key]} maxLength={7}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              if (/^#[0-9a-fA-F]{0,6}$/.test(v))
-                                setTheme((prev) => prev ? { ...prev, [key]: v } : prev);
-                            }}
-                            className="flex-1 min-w-0 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-white text-xs font-mono focus:outline-none focus:border-amber-400/50" />
+                    {COLOR_KEYS.map((key) => {
+                      const val = (theme[key] as string | undefined) ?? "#000000";
+                      return (
+                        <div key={key}>
+                          <label className="text-zinc-500 text-[10px] uppercase tracking-widest block mb-1.5">{COLOR_LABELS[key]}</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color" value={val}
+                              onChange={(e) => setTheme((prev) => prev ? { ...prev, [key]: e.target.value } : prev)}
+                              className="w-8 h-8 rounded cursor-pointer bg-transparent border border-zinc-700 p-0.5 flex-shrink-0" />
+                            <input type="text" value={val} maxLength={7}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (/^#[0-9a-fA-F]{0,6}$/.test(v))
+                                  setTheme((prev) => prev ? { ...prev, [key]: v } : prev);
+                              }}
+                              className="flex-1 min-w-0 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-white text-xs font-mono focus:outline-none focus:border-amber-400/50" />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
-            )}
+
+              {/* ── Style Controls ─────────────────────────────────────────── */}
+              <div>
+                <label className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5 mb-3">
+                  <Paintbrush className="w-3 h-3" /> Style
+                </label>
+
+                {/* Theme mode */}
+                <div className="mb-4">
+                  <p className="text-zinc-500 text-xs mb-2">Colour scheme</p>
+                  <div className="inline-flex rounded-lg border border-zinc-700 overflow-hidden text-xs font-semibold">
+                    {(["auto", "custom"] as const).map((v) => (
+                      <button key={v} type="button"
+                        onClick={() => setTheme((prev) => prev ? { ...prev, themeMode: v } : prev)}
+                        className={`px-3 py-1.5 transition-colors ${(theme.themeMode ?? "auto") === v ? "bg-amber-400 text-black" : "text-zinc-400 hover:text-white"}`}>
+                        {v === "auto" ? "Auto (system)" : "Custom (force)"}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-zinc-600 text-[10px] mt-1">
+                    {(theme.themeMode ?? "auto") === "custom"
+                      ? "Browser light/dark ignored — your colours always show as-is"
+                      : "Browser may tint colours based on system dark/light mode"}
+                  </p>
+                </div>
+
+                {/* Countdown style */}
+                <div className="mb-4">
+                  <p className="text-zinc-500 text-xs mb-2">Countdown style</p>
+                  <div className="flex gap-2">
+                    {([
+                      { v: "box",     label: "Box",     preview: <div className="flex gap-0.5">{["00","00","00","00"].map((n,i) => <div key={i} className="w-4 h-4 rounded text-[6px] font-black flex items-center justify-center bg-zinc-700 text-white">{n}</div>)}</div> },
+                      { v: "minimal", label: "Minimal", preview: <span className="text-[9px] font-black tabular-nums text-zinc-300">14d 03:22</span> },
+                      { v: "rings",   label: "Rings",   preview: <div className="flex gap-0.5">{[0.8,0.5,0.3,0.9].map((p,i) => { const r=7,c=2*Math.PI*r; return (<svg key={i} width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r={r} fill="none" strokeWidth="2" stroke="#3f3f46"/><circle cx="8" cy="8" r={r} fill="none" strokeWidth="2" stroke="#F59E0B" strokeDasharray={c} strokeDashoffset={c*(1-p)} strokeLinecap="round" transform="rotate(-90 8 8)"/></svg>); })}</div> },
+                    ] as const).map(({ v, label, preview }) => (
+                      <button key={v} type="button"
+                        onClick={() => setTheme((prev) => prev ? { ...prev, countdownStyle: v } : prev)}
+                        className={`flex flex-col items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${(theme.countdownStyle ?? "box") === v ? "border-amber-400/60 bg-amber-400/10 text-amber-400" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
+                        {preview}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Button style */}
+                <div>
+                  <p className="text-zinc-500 text-xs mb-2">Button style</p>
+                  <div className="flex gap-2">
+                    {([
+                      { v: "solid",   label: "Solid",   preview: <div className="px-2 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: theme.primary, color: theme.onPrimary ?? "#000" }}>Ticket</div> },
+                      { v: "outline", label: "Outline", preview: <div className="px-2 py-0.5 rounded text-[9px] font-bold" style={{ border: `1.5px solid ${theme.primary}`, color: theme.primary }}>Ticket</div> },
+                    ] as const).map(({ v, label, preview }) => (
+                      <button key={v} type="button"
+                        onClick={() => setTheme((prev) => prev ? { ...prev, buttonStyle: v } : prev)}
+                        className={`flex flex-col items-center gap-1.5 px-4 py-2 rounded-lg border text-xs font-semibold transition-colors ${(theme.buttonStyle ?? "outline") === v ? "border-amber-400/60 bg-amber-400/10 text-amber-400" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
+                        {preview}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>)}
 
             {/* Save */}
             <button type="button" onClick={handleSave} disabled={saving}
