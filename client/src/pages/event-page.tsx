@@ -1272,16 +1272,21 @@ export default function EventPage() {
 
   useEffect(() => {
     if (themeMode === "custom") {
+      const r = parseInt(bgColor.slice(1, 3), 16);
+      const g = parseInt(bgColor.slice(3, 5), 16);
+      const b = parseInt(bgColor.slice(5, 7), 16);
+      const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+      const scheme = lum < 0.4 ? "only dark" : "only light";
       let meta = document.querySelector('meta[name="color-scheme"]') as HTMLMetaElement | null;
       if (!meta) {
         meta = document.createElement("meta");
         meta.name = "color-scheme";
         document.head.appendChild(meta);
       }
-      meta.content = "only dark";
+      meta.content = scheme;
       return () => { if (meta) meta.content = "normal"; };
     }
-  }, [themeMode]);
+  }, [themeMode, bgColor]);
 
   return (
     <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor, '--brand-primary': primary, '--brand-accent': accent, '--brand-surface': surfaceColor, '--brand-text': textColor } as any}>

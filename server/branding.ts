@@ -11,12 +11,21 @@ const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const BRANDING_BUCKET = "Branding";
 
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
 const brandThemeSchema = z.object({
-  primary: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  accent: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  background: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  surface: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  text: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  primary:       hexColor,
+  accent:        hexColor,
+  background:    hexColor,
+  surface:       hexColor,
+  text:          hexColor,
+  textSecondary: hexColor.optional(),
+  textMuted:     hexColor.optional(),
+  onPrimary:     hexColor.optional(),
+  border:        hexColor.optional(),
+  themeMode:     z.enum(["custom", "auto"]).optional(),
+  countdownStyle: z.enum(["box", "minimal", "rings"]).optional(),
+  buttonStyle:   z.enum(["solid", "outline"]).optional(),
 });
 
 const brandingSchema = z.object({
