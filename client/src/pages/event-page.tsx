@@ -281,12 +281,13 @@ interface DiscountResult {
 
 // ─── Input component ──────────────────────────────────────────────────────────
 
-function DarkInput({ icon: Icon, field, placeholder, type = "text" }: any) {
+function DarkInput({ icon: Icon, field, placeholder, type = "text", borderColor }: any) {
   return (
     <div className="relative">
       <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 z-10" />
       <Input {...field} type={type} placeholder={placeholder}
-        className="pl-10 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 h-11" />
+        className="pl-10 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 h-11"
+        style={borderColor ? { borderColor } : undefined} />
     </div>
   );
 }
@@ -762,14 +763,14 @@ function PurchaseForm({
               <FormField control={form.control} name="customerName" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Full Name *</FormLabel>
-                  <FormControl><DarkInput icon={User} field={field} placeholder="Your full name" /></FormControl>
+                  <FormControl><DarkInput icon={User} field={field} placeholder="Your full name" borderColor={formBorderColor} /></FormControl>
                   <FormMessage className="text-red-400 text-xs" />
                 </FormItem>
               )} />
               <FormField control={form.control} name="customerPhone" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Phone *</FormLabel>
-                  <FormControl><DarkInput icon={Phone} field={field} placeholder="+234 xxx xxx xxxx" /></FormControl>
+                  <FormControl><DarkInput icon={Phone} field={field} placeholder="+234 xxx xxx xxxx" borderColor={formBorderColor} /></FormControl>
                   <FormMessage className="text-red-400 text-xs" />
                 </FormItem>
               )} />
@@ -777,7 +778,7 @@ function PurchaseForm({
             <FormField control={form.control} name="customerEmail" render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Email *</FormLabel>
-                <FormControl><DarkInput icon={Mail} field={field} placeholder="your@email.com" type="email" /></FormControl>
+                <FormControl><DarkInput icon={Mail} field={field} placeholder="your@email.com" type="email" borderColor={formBorderColor} /></FormControl>
                 <FormMessage className="text-red-400 text-xs" />
               </FormItem>
             )} />
@@ -786,7 +787,7 @@ function PurchaseForm({
                 <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">
                   Instagram <span className="normal-case text-zinc-600">(optional)</span>
                 </FormLabel>
-                <FormControl><DarkInput icon={Instagram} field={field} placeholder="@yourhandle" /></FormControl>
+                <FormControl><DarkInput icon={Instagram} field={field} placeholder="@yourhandle" borderColor={formBorderColor} /></FormControl>
               </FormItem>
             )} />
 
@@ -796,7 +797,8 @@ function PurchaseForm({
                   Gender <span className="normal-case text-zinc-600">(Optional)</span>
                 </FormLabel>
                 <FormControl>
-                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer">
+                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer"
+                    style={formBorderColor ? { borderColor: formBorderColor } : undefined}>
                     <option value="">Select...</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -812,7 +814,8 @@ function PurchaseForm({
                   Age Range <span className="normal-case text-zinc-600">(Optional)</span>
                 </FormLabel>
                 <FormControl>
-                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer">
+                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer"
+                    style={formBorderColor ? { borderColor: formBorderColor } : undefined}>
                     <option value="">Select...</option>
                     <option value="Under 18">Under 18</option>
                     <option value="18–24">18–24</option>
@@ -830,7 +833,8 @@ function PurchaseForm({
                   How did you hear about this event? <span className="normal-case text-zinc-600">(Optional)</span>
                 </FormLabel>
                 <FormControl>
-                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer">
+                  <select {...field} className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-md px-3 h-11 text-sm outline-none focus:border-amber-400 transition-colors cursor-pointer"
+                    style={formBorderColor ? { borderColor: formBorderColor } : undefined}>
                     <option value="">Select...</option>
                     <option value="Social Media">Social Media</option>
                     <option value="Friend/Family">Friend/Family</option>
@@ -878,6 +882,7 @@ function PurchaseForm({
                       onChange={(e) => { setRecipientEmail(e.target.value); setRecipientEmailError(""); }}
                       placeholder="Recipient email address"
                       className="w-full pl-10 bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 h-11 rounded-md text-sm outline-none focus:border-amber-400 transition-colors"
+                      style={formBorderColor ? { borderColor: formBorderColor } : undefined}
                     />
                   </div>
                   {recipientEmailError && (
@@ -930,6 +935,7 @@ function PurchaseForm({
                       }}
                       placeholder={`Attendee ${i + 1} name`}
                       className="w-full pl-10 bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 h-11 rounded-md text-sm outline-none focus:border-amber-400 transition-colors"
+                      style={formBorderColor ? { borderColor: formBorderColor } : undefined}
                     />
                   </div>
                 ))}
@@ -962,9 +968,11 @@ function PurchaseForm({
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyDiscount())}
                     placeholder="Enter code"
                     className="flex-1 bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 h-10 rounded-md px-3 text-sm uppercase outline-none focus:border-amber-400 transition-colors"
+                    style={formBorderColor ? { borderColor: formBorderColor } : undefined}
                   />
                   <button type="button" onClick={applyDiscount} disabled={!discountInput.trim() || applyingDiscount}
-                    className="px-4 h-10 rounded-md border border-zinc-600 text-zinc-300 hover:border-amber-400 hover:text-amber-400 text-sm font-semibold transition-colors disabled:opacity-50">
+                    className="px-4 h-10 rounded-md border border-zinc-600 text-zinc-300 hover:border-amber-400 hover:text-amber-400 text-sm font-semibold transition-colors disabled:opacity-50"
+                    style={formBorderColor ? { borderColor: formBorderColor } : undefined}>
                     {applyingDiscount ? <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin inline-block" /> : "Apply"}
                   </button>
                 </div>
@@ -1028,7 +1036,8 @@ function PurchaseForm({
           <Summary />
           <div className="mb-4">
             <label className="text-zinc-400 text-xs uppercase tracking-widest font-semibold block mb-2">Card Details</label>
-            <div className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3.5">
+            <div className="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3.5"
+              style={formBorderColor ? { borderColor: formBorderColor } : undefined}>
               {!stripeObj && (
                 <div className="flex items-center gap-2 text-zinc-500 text-sm">
                   <span className="w-4 h-4 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" /> Loading secure card form...
