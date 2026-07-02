@@ -327,6 +327,10 @@ function PurchaseForm({
 
   const paymentMethod = event.paymentMethod;
   const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
+  const btForm = event.branding?.brandTheme;
+  const onPrimaryForm = btForm?.onPrimary ?? "#000000";
+  const buttonStyleForm = btForm?.buttonStyle ?? "outline";
+  const formBorderColor = btForm?.border ?? null;
   const groupSize = ticket.groupSize ?? 1;
   const isGroupTicket = groupSize > 1;
 
@@ -739,7 +743,8 @@ function PurchaseForm({
   );
 
   const Summary = () => (
-    <div className="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 mb-5">
+    <div className="flex items-center justify-between bg-zinc-950 rounded-lg px-4 py-3 mb-5"
+      style={{ border: formBorderColor ? `1px solid ${formBorderColor}` : "1px solid #27272a" }}>
       <div>
         <p className="text-zinc-500 text-xs">{formData?.customerName} · {ticket.name}</p>
         <p className="text-white font-bold text-sm">{formData?.quantity} × {formatPrice(ticket.price)}</p>
@@ -977,7 +982,7 @@ function PurchaseForm({
                     <span className="text-green-400">Discount ({discountResult.code})</span>
                     <span className="text-green-400">−{formatPrice(discountResult.discountAmount)}</span>
                   </div>
-                  <div className="border-t border-zinc-800 pt-1.5" />
+                  <div className="pt-1.5" style={{ borderTop: formBorderColor ? `1px solid ${formBorderColor}` : "1px solid #27272a" }} />
                 </>
               )}
               <div className="flex items-center justify-between">
@@ -989,8 +994,10 @@ function PurchaseForm({
             <button type="submit" disabled={processing}
               className="w-full py-4 rounded-lg font-black uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={total === 0 || paymentMethod === "paystack" || paymentMethod === "stripe" || paymentMethod === "flutterwave"
-                ? { backgroundColor: primary, color: "#000" }
-                : { border: `2px solid ${primary}`, color: primary }}>
+                ? { backgroundColor: primary, color: onPrimaryForm }
+                : buttonStyleForm === "solid"
+                  ? { backgroundColor: primary, color: onPrimaryForm, border: `2px solid ${primary}` }
+                  : { border: `2px solid ${primary}`, color: primary }}>
               {processing
                 ? <><span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" /> Processing...</>
                 : total === 0
@@ -1096,9 +1103,10 @@ function TicketCard({ ticket, event, onSuccess }: {
   const textColor = bt2?.text ?? "#ffffff";
   const onPrimary = bt2?.onPrimary ?? "#000000";
   const buttonStyle = bt2?.buttonStyle ?? "outline";
+  const cardBorderStyle = bt2?.border ? `1px solid ${bt2.border}` : `1px solid ${primary}44`;
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: `${primary}18`, border: `1px solid ${primary}44` }}>
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: `${primary}18`, border: cardBorderStyle }}>
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="p-2.5 rounded-lg" style={{ backgroundColor: `${primary}18` }}>
@@ -1374,7 +1382,7 @@ export default function EventPage() {
                   style={{ color: textMutedColor }}>
                   <MapPin className="w-3 h-3" /> Location Map
                 </div>
-                <div className="rounded-xl overflow-hidden border border-zinc-800" style={{ height: 220 }}>
+                <div className="rounded-xl overflow-hidden" style={{ height: 220, border: borderStyle }}>
                   <iframe
                     title="Event location map"
                     width="100%"
