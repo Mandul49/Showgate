@@ -1,0 +1,28 @@
+Showgate already has a maintenance mode toggle, but it's currently broken — when maintenance mode is ON, it only shows a small bar/banner while the rest of the site (pages, forms, checkout, etc.) keeps working normally underneath. I need it to fully block the public site and show a dedicated full-screen maintenance page instead, while admin routes stay fully functional.
+
+Please do the following:
+
+1. FIND THE ROOT CAUSE:
+   - Locate every place in the codebase that checks the maintenance mode flag (frontend components, backend middleware, route guards, etc.).
+   - Identify why it's currently only rendering a banner instead of actually gating access — likely the banner component is being rendered alongside the normal routes instead of REPLACING them.
+   - Show me a list of every file where maintenance mode logic currently exists before making changes.
+
+2. FIX THE BACKEND (Express):
+   - Ensure there's a single middleware that checks the maintenance flag on every request.
+   - When maintenance mode is ON, this middleware must return a 503 response for all public API routes.
+   - EXCEPT: allow /api/admin/*, /api/auth/* (login), and /api/system/status to always work, regardless of maintenance mode.
+   - Remove any duplicate or conflicting maintenance checks scattered elsewhere in the backend — there should be ONE source of truth.
+
+3. FIX THE FRONTEND (React/Vite):
+   - Ensure that when maintenance mode is ON and the user is NOT on an /admin route, the app renders ONLY the full-screen MaintenancePage component — not the normal routes with a banner on top.
+   - The normal app routes (Home, Events, Organizer Dashboard, etc.) must not mount at all while maintenance mode is active for non-admin users.
+   - If the user is on an /admin route, maintenance mode must be completely ignored and the admin app should work exactly as normal.
+   - Remove the old banner component if it's no longer needed, or confirm it's not still being rendered somewhere.
+
+4. VERIFY IN A SINGLE PASS (do not stop after fixing one instance — find and fix ALL instances):
+   - Turn maintenance mode ON: confirm the public site (homepage, events page, ticket checkout) is fully blocked and shows only the maintenance page, not the banner + working site.
+   - Confirm /admin/login and /admin/dashboard still load and function fully.
+   - Confirm /api/admin/* endpoints still respond normally.
+   - Turn maintenance mode OFF: confirm the site returns to normal completely, no leftover banner or blocked routes.
+
+5. Before committing, explicitly list every file you changed and confirm each verification step above passed. Do not commit until all checks pass.

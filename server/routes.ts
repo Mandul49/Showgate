@@ -17,6 +17,33 @@ import { registerAdminRoutes } from "./admin";
 import { sendConfirmationEmail, sendTestEmail } from "./email";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ─── Maintenance mode gate (single source of truth) ───────────────────────
+  // Blocks all public API routes with 503 when maintenance_mode is "true".
+  // Exempted: /api/admin/*, /api/auth/*, /api/settings/public, /api/upgrade/webhook
+  const MAINTENANCE_EXEMPT = [
+    "/api/admin/",
+    "/api/auth/",
+    "/api/settings/public",
+    "/api/upgrade/webhook",
+    "/api/system/",
+  ];
+  app.use(async (req, res, next) => {
+    if (!req.path.startsWith("/api/")) return next();
+    if (MAINTENANCE_EXEMPT.some((p) => req.path.startsWith(p))) return next();
+    try {
+      const val = await storage.getPlatformSetting("maintenance_mode", "false");
+      if (val === "true") {
+        return res.status(503).json({
+          message: "Platform is currently under maintenance. Please try again later.",
+          code: "MAINTENANCE_MODE",
+        });
+      }
+    } catch {
+      // If DB is unreachable, don't block — fail open
+    }
+    return next();
+  });
+
   // ─── OG / Social preview (must be before Vite catch-all) ─────────────────
   registerOgRoutes(app);
 

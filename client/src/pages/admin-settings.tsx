@@ -122,8 +122,8 @@ export default function AdminSettings() {
               </div>
               <p className="text-xs text-zinc-500 ml-6">
                 {maintenanceMode
-                  ? "Public pages show a maintenance banner. Ticket purchases may still work."
-                  : "All public pages are operating normally."}
+                  ? "Public site is fully blocked. API returns 503. Admin panel unaffected."
+                  : "All public pages and APIs are operating normally."}
               </p>
             </div>
             <button

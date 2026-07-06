@@ -1,10 +1,10 @@
 import { useRef, useEffect } from "react";
-import { Switch, Route, Redirect, useLocation } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Wrench } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import Home from "@/pages/home";
 import Success from "@/pages/success";
@@ -81,36 +81,40 @@ function Router() {
   );
 }
 
-function MaintenanceBanner() {
-  const [location] = useLocation();
-  const bannerRef = useRef<HTMLDivElement>(null);
-  const { data } = useQuery<{ maintenanceMode: boolean; feePercent: number }>({
-    queryKey: ["/api/settings/public"],
-    staleTime: 60_000,
-  });
-
-  const isVisible = !location.startsWith("/admin") && !!data?.maintenanceMode;
-
-  useEffect(() => {
-    const el = bannerRef.current;
-    if (!isVisible || !el) {
-      document.documentElement.style.setProperty("--maintenance-h", "0px");
-      return;
-    }
-    const update = () =>
-      document.documentElement.style.setProperty("--maintenance-h", `${el.offsetHeight}px`);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [isVisible]);
-
-  if (!isVisible) return null;
+function MaintenancePage() {
   return (
-    <div ref={bannerRef} className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-black text-sm font-semibold text-center py-2.5 px-4 shadow-lg">
-      🚧 We're currently under maintenance. Some features may be temporarily unavailable. We'll be back soon.
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-zinc-950 text-white px-6">
+      <div className="flex flex-col items-center text-center max-w-md">
+        <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-8">
+          <Wrench className="w-9 h-9 text-amber-400" />
+        </div>
+        <h1 className="text-3xl font-black uppercase tracking-tight mb-3">Under Maintenance</h1>
+        <p className="text-zinc-400 text-base leading-relaxed mb-8">
+          We're making some improvements to Showgate. We'll be back shortly — thanks for your patience.
+        </p>
+        <div className="flex items-center gap-2 text-xs text-zinc-600 uppercase tracking-widest font-semibold">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          Work in progress
+        </div>
+      </div>
     </div>
   );
+}
+
+function MaintenanceGate({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const { data, isLoading } = useQuery<{ maintenanceMode: boolean }>({
+    queryKey: ["/api/settings/public"],
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const isAdminRoute = location.startsWith("/admin");
+
+  if (isAdminRoute) return <>{children}</>;
+  if (isLoading) return null;
+  if (data?.maintenanceMode) return <MaintenancePage />;
+  return <>{children}</>;
 }
 
 function ThemeToggle() {
@@ -138,11 +142,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <MaintenanceBanner />
         <ThemeToggle />
-        <div style={{ paddingTop: "var(--maintenance-h, 0px)" }}>
+        <MaintenanceGate>
           <Router />
-        </div>
+        </MaintenanceGate>
       </TooltipProvider>
     </QueryClientProvider>
   );
