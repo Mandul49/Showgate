@@ -123,6 +123,7 @@ export interface BrandTheme {
   themeMode?: "custom" | "auto";
   countdownStyle?: "box" | "minimal" | "rings";
   buttonStyle?: "solid" | "outline";
+  hideLogo?: boolean;
 }
 
 // ─── Organizers ───────────────────────────────────────────────────────────────

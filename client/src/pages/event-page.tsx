@@ -1311,7 +1311,7 @@ export default function EventPage() {
   const borderStyle = bt?.border ? `1px solid ${bt.border}` : `1px solid ${primary}28`;
   const countdownStyleVal = bt?.countdownStyle ?? "box";
   const brandName = event.branding?.name ?? "Showgate";
-  const brandLogoUrl = (event.branding?.isPro && event.branding?.logoUrl) ? event.branding.logoUrl : null;
+  const brandLogoUrl = (event.branding?.isPro && event.branding?.logoUrl && !bt?.hideLogo) ? event.branding.logoUrl : null;
 
   const isTestMode = event.paystackEnv === "test";
 

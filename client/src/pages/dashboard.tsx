@@ -2168,6 +2168,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const [theme, setTheme] = useState<BrandTheme | null>(null);
   const [extractedPalette, setExtractedPalette] = useState<string[]>([]);
   const [suggestIndex, setSuggestIndex] = useState(0);
+  const [hideLogoOnPage, setHideLogoOnPage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
   const token = getToken();
@@ -2187,6 +2188,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
       form.reset({ customBrandName: branding.customBrandName ?? "" });
       if (branding.brandTheme && !theme) setTheme(fillThemeColors(branding.brandTheme));
       if (branding.customLogoUrl && !logoPreviewUrl) setLogoPreviewUrl(branding.customLogoUrl);
+      setHideLogoOnPage(branding.brandTheme?.hideLogo === true);
     }
   }, [branding]);
 
@@ -2241,10 +2243,14 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
         logoUrl = null;
       }
 
+      const brandThemeToSend = theme
+        ? { ...theme, hideLogo: hideLogoOnPage || undefined }
+        : hideLogoOnPage ? { hideLogo: true } : null;
+
       const res = await apiRequest("PUT", "/api/branding/settings", {
         customBrandName: values.customBrandName || null,
         customLogoUrl: logoUrl,
-        brandTheme: theme,
+        brandTheme: brandThemeToSend,
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Save failed");
@@ -2312,7 +2318,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
               </label>
               <input {...form.register("customBrandName")} placeholder="e.g. Afrobeats Lagos"
                 className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors" />
-              <p className="text-zinc-600 text-xs mt-1">Shown on event pages instead of "Showgate"</p>
+              <p className="text-zinc-600 text-xs mt-1">Shown on event pages instead of "Showgate" — leave blank (or type a single space) to show no name</p>
             </div>
 
             {/* Logo Upload */}
@@ -2323,7 +2329,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
                 className="hidden" onChange={handleFileChange} />
 
-              {logoPreviewUrl ? (
+              {logoPreviewUrl ? (<>
                 <div className="flex items-center gap-4 p-3 rounded-xl bg-zinc-950 border border-zinc-800">
                   <img ref={previewImgRef} src={logoPreviewUrl} alt="Logo preview" crossOrigin="anonymous"
                     className="h-14 max-w-[140px] object-contain rounded"
@@ -2341,13 +2347,28 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
                       className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white text-xs font-semibold transition-colors">
                       Replace
                     </button>
-                    <button type="button" onClick={() => { setLogoFile(null); setLogoPreviewUrl(null); setTheme(null); }}
+                    <button type="button" onClick={() => { setLogoFile(null); setLogoPreviewUrl(null); setTheme(null); setHideLogoOnPage(false); }}
                       className="px-3 py-1.5 rounded-lg border border-red-900/40 text-red-400 hover:bg-red-500/10 text-xs font-semibold transition-colors">
                       Remove
                     </button>
                   </div>
                 </div>
-              ) : (
+
+                {/* Show logo toggle */}
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 mt-2">
+                  <div>
+                    <p className="text-zinc-300 text-xs font-semibold">Show logo on event page</p>
+                    <p className="text-zinc-600 text-xs mt-0.5">Displays above the event title</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setHideLogoOnPage((v) => !v)}
+                    className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${!hideLogoOnPage ? "bg-amber-400" : "bg-zinc-700"}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${!hideLogoOnPage ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
+              </>) : (
                 <button type="button" onClick={() => fileInputRef.current?.click()}
                   className="w-full flex flex-col items-center gap-2 py-8 rounded-xl border border-dashed border-zinc-700 hover:border-amber-400/40 hover:bg-amber-400/5 transition-colors">
                   <div className="p-2.5 rounded-lg bg-zinc-800"><Image className="w-5 h-5 text-zinc-500" /></div>
