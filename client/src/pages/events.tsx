@@ -4,6 +4,7 @@ import { ImageIcon, CalendarDays, MapPin, Ticket, LockKeyhole } from "lucide-rea
 import { SiInstagram } from "react-icons/si";
 import { Event, TicketType } from "@shared/schema";
 import sgLogo from "../assets/showgate-logo.png";
+import eventsHero from "../assets/events-hero.jpg";
 import { useTheme } from "@/lib/theme";
 
 type PublicEvent = Event & { ticketTypes: TicketType[] };
@@ -209,8 +210,9 @@ export default function EventsPage() {
 
       {/* Hero */}
       <section className="relative overflow-hidden min-h-[320px] sm:min-h-[380px] flex items-center pt-20 pb-12 px-5 border-b border-zinc-800/50">
-        {!isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #0a0a0a 0%, #1a1200 50%, #0a0a0a 100%)" }} />}
-        {isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(245,158,11,0.07), rgba(245,158,11,0.18))" }} />}
+        <img src={eventsHero} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover object-center" style={{ opacity: 0.5 }} />
+        {!isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(10,10,10,0.55) 0%, rgba(26,18,0,0.35) 50%, rgba(10,10,10,0.55) 100%)" }} />}
+        {isLight && <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(245,158,11,0.15), rgba(245,158,11,0.3))" }} />}
         <div className="relative z-10 max-w-3xl mx-auto w-full text-center">
           <h1 className="text-4xl sm:text-5xl font-black mb-4">
             Discover <span className="text-amber-400">Events</span>
