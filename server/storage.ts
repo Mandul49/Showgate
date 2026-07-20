@@ -659,6 +659,10 @@ export class DbStorage implements IStorage {
       coverImageUrl: row.coverImageUrl ?? null,
       coverImagePositionY: row.coverImagePositionY ?? 50,
       slug: (row as any).slug ?? null,
+      instagramUrl: row.instagramUrl ?? null,
+      facebookUrl: row.facebookUrl ?? null,
+      twitterUrl: row.twitterUrl ?? null,
+      tiktokUrl: row.tiktokUrl ?? null,
       createdAt: row.createdAt,
     };
   }

@@ -210,6 +210,10 @@ export const events = pgTable("events", {
   coverImageUrl: text("cover_image_url"),
   coverImagePositionY: integer("cover_image_position_y").default(50),
   slug: text("slug"),
+  instagramUrl: text("instagram_url"),
+  facebookUrl: text("facebook_url"),
+  twitterUrl: text("twitter_url"),
+  tiktokUrl: text("tiktok_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -229,6 +233,10 @@ export type Event = {
   coverImageUrl: string | null;
   coverImagePositionY: number | null;
   slug: string | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  twitterUrl: string | null;
+  tiktokUrl: string | null;
   createdAt: Date;
 };
 
@@ -246,6 +254,10 @@ export interface CreateEventData {
   coverImageUrl?: string | null;
   coverImagePositionY?: number | null;
   slug?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  twitterUrl?: string | null;
+  tiktokUrl?: string | null;
 }
 
 export interface UpdateEventData {
@@ -261,6 +273,10 @@ export interface UpdateEventData {
   coverImageUrl?: string | null;
   coverImagePositionY?: number | null;
   slug?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  twitterUrl?: string | null;
+  tiktokUrl?: string | null;
 }
 
 export const createEventSchema = z.object({
@@ -274,6 +290,10 @@ export const createEventSchema = z.object({
   description: z.string().optional().nullable(),
   coverImageUrl: z.string().optional().nullable(),
   coverImagePositionY: z.number().min(0).max(100).optional().nullable(),
+  instagramUrl: z.string().optional().nullable(),
+  facebookUrl: z.string().optional().nullable(),
+  twitterUrl: z.string().optional().nullable(),
+  tiktokUrl: z.string().optional().nullable(),
 });
 
 export const updateEventSchema = createEventSchema.partial();

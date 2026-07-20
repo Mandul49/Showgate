@@ -77,7 +77,7 @@ export function registerEventsRoutes(app: Express) {
         return res.status(400).json({ message: parsed.error.errors[0].message });
       }
 
-      const { title, date, location, maxTickets, paymentMethod, isActive, description, coverImageUrl, coverImagePositionY } = parsed.data;
+      const { title, date, location, maxTickets, paymentMethod, isActive, description, coverImageUrl, coverImagePositionY, instagramUrl, facebookUrl, twitterUrl, tiktokUrl } = parsed.data;
 
       const tierCheck = await checkEventTierLimits(organizer, {
         paymentMethod,
@@ -97,6 +97,10 @@ export function registerEventsRoutes(app: Express) {
         coverImageUrl: coverImageUrl ?? null,
         coverImagePositionY: coverImagePositionY ?? 50,
         slug,
+        instagramUrl: instagramUrl ?? null,
+        facebookUrl: facebookUrl ?? null,
+        twitterUrl: twitterUrl ?? null,
+        tiktokUrl: tiktokUrl ?? null,
       });
 
       return res.status(201).json({ ...event, ticketTypes: [] });
@@ -285,6 +289,10 @@ export function registerEventsRoutes(app: Express) {
         description: event.description ?? null,
         coverImageUrl: event.coverImageUrl ?? null,
         coverImagePositionY: event.coverImagePositionY ?? 50,
+        instagramUrl: event.instagramUrl ?? null,
+        facebookUrl: event.facebookUrl ?? null,
+        twitterUrl: event.twitterUrl ?? null,
+        tiktokUrl: event.tiktokUrl ?? null,
         ticketTypes: ticketTypes.map((tt) => {
           const groupSize = tt.groupSize ?? 1;
           const remainingSeats = Math.max(0, tt.quantityAvailable - tt.quantitySold);

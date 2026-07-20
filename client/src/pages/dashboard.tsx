@@ -14,9 +14,10 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
-  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2,
+  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2, Twitter,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
+import { SiInstagram, SiFacebook, SiTiktok } from "react-icons/si";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,10 @@ interface EventData {
   coverImageUrl: string | null;
   coverImagePositionY: number | null;
   slug: string | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  twitterUrl: string | null;
+  tiktokUrl: string | null;
   ticketTypes: TicketTypeData[];
   createdAt: string;
 }
@@ -90,6 +95,10 @@ const newEventSchema = z.object({
   isActive: z.boolean(),
   description: z.string().optional(),
   coverImageUrl: z.string().optional().nullable(),
+  instagramUrl: z.string().optional().nullable(),
+  facebookUrl: z.string().optional().nullable(),
+  twitterUrl: z.string().optional().nullable(),
+  tiktokUrl: z.string().optional().nullable(),
 });
 type NewEventForm = z.infer<typeof newEventSchema>;
 
@@ -270,6 +279,10 @@ function NewEventPanel({
       isActive: true,
       description: "",
       coverImageUrl: null,
+      instagramUrl: "",
+      facebookUrl: "",
+      twitterUrl: "",
+      tiktokUrl: "",
     },
   });
 
@@ -420,6 +433,35 @@ function NewEventPanel({
             <textarea {...form.register("description")} rows={3}
               placeholder="Tell attendees what this event is about..."
               className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 py-2.5 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600 resize-none" />
+          </div>
+
+          {/* Social Media Links */}
+          <div>
+            <label className="text-zinc-400 text-xs uppercase tracking-widest block mb-2">
+              Social Media <span className="normal-case text-zinc-600">(optional — links shown on event page)</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-600 rounded-lg px-3 h-10 focus-within:border-amber-400 transition-colors">
+                <SiInstagram className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+                <input {...form.register("instagramUrl")} placeholder="https://instagram.com/yourpage"
+                  className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-zinc-600 min-w-0" />
+              </div>
+              <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-600 rounded-lg px-3 h-10 focus-within:border-amber-400 transition-colors">
+                <SiFacebook className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+                <input {...form.register("facebookUrl")} placeholder="https://facebook.com/yourpage"
+                  className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-zinc-600 min-w-0" />
+              </div>
+              <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-600 rounded-lg px-3 h-10 focus-within:border-amber-400 transition-colors">
+                <Twitter className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+                <input {...form.register("twitterUrl")} placeholder="https://x.com/yourhandle"
+                  className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-zinc-600 min-w-0" />
+              </div>
+              <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-600 rounded-lg px-3 h-10 focus-within:border-amber-400 transition-colors">
+                <SiTiktok className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+                <input {...form.register("tiktokUrl")} placeholder="https://tiktok.com/@yourhandle"
+                  className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-zinc-600 min-w-0" />
+              </div>
+            </div>
           </div>
 
           {/* Cover Image */}
@@ -684,6 +726,10 @@ const editEventSchema = z.object({
   startTime: z.string().optional().nullable(),
   description: z.string().optional(),
   coverImageUrl: z.string().optional().nullable(),
+  instagramUrl: z.string().optional().nullable(),
+  facebookUrl: z.string().optional().nullable(),
+  twitterUrl: z.string().optional().nullable(),
+  tiktokUrl: z.string().optional().nullable(),
 });
 type EditEventForm = z.infer<typeof editEventSchema>;
 
@@ -706,6 +752,10 @@ function EditEventPanel({
       startTime: event.startTime ?? "",
       description: event.description ?? "",
       coverImageUrl: event.coverImageUrl ?? null,
+      instagramUrl: event.instagramUrl ?? "",
+      facebookUrl: event.facebookUrl ?? "",
+      twitterUrl: event.twitterUrl ?? "",
+      tiktokUrl: event.tiktokUrl ?? "",
     },
   });
 
@@ -815,6 +865,35 @@ function EditEventPanel({
           <textarea {...form.register("description")} rows={3}
             placeholder="Tell attendees what this event is about..."
             className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-400 transition-colors placeholder:text-zinc-600 resize-none" />
+        </div>
+
+        {/* Social Media Links */}
+        <div>
+          <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1.5">
+            Social Media <span className="normal-case text-zinc-600">(optional)</span>
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-600 rounded-lg px-3 h-9 focus-within:border-amber-400 transition-colors">
+              <SiInstagram className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+              <input {...form.register("instagramUrl")} placeholder="https://instagram.com/yourpage"
+                className="flex-1 bg-transparent text-white text-xs outline-none placeholder:text-zinc-600 min-w-0" />
+            </div>
+            <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-600 rounded-lg px-3 h-9 focus-within:border-amber-400 transition-colors">
+              <SiFacebook className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+              <input {...form.register("facebookUrl")} placeholder="https://facebook.com/yourpage"
+                className="flex-1 bg-transparent text-white text-xs outline-none placeholder:text-zinc-600 min-w-0" />
+            </div>
+            <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-600 rounded-lg px-3 h-9 focus-within:border-amber-400 transition-colors">
+              <Twitter className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+              <input {...form.register("twitterUrl")} placeholder="https://x.com/yourhandle"
+                className="flex-1 bg-transparent text-white text-xs outline-none placeholder:text-zinc-600 min-w-0" />
+            </div>
+            <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-600 rounded-lg px-3 h-9 focus-within:border-amber-400 transition-colors">
+              <SiTiktok className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+              <input {...form.register("tiktokUrl")} placeholder="https://tiktok.com/@yourhandle"
+                className="flex-1 bg-transparent text-white text-xs outline-none placeholder:text-zinc-600 min-w-0" />
+            </div>
+          </div>
         </div>
 
         <div>

@@ -11,8 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Instagram,
   ShieldCheck, ArrowLeft, Building2, CreditCard, Crown, AlertCircle, Copy, Check,
-  Tag, Users, X, CheckCircle2, LockKeyhole
+  Tag, Users, X, CheckCircle2, LockKeyhole, Twitter,
 } from "lucide-react";
+import { SiInstagram, SiFacebook, SiTiktok } from "react-icons/si";
 
 declare global {
   interface Window {
@@ -74,6 +75,10 @@ interface PublicEvent {
       buttonStyle?: "solid" | "outline";
     } | null;
   };
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  twitterUrl: string | null;
+  tiktokUrl: string | null;
   paystackPublicKey: string;
   paystackEnv?: "test" | "live";
   stripePublicKey: string;
@@ -1395,6 +1400,41 @@ export default function EventPage() {
               <p className="text-sm sm:text-base leading-relaxed max-w-xl" style={{ color: textMutedColor }}>
                 {event.description}
               </p>
+            )}
+
+            {/* Social follow links */}
+            {(event.instagramUrl || event.facebookUrl || event.twitterUrl || event.tiktokUrl) && (
+              <div className="flex items-center justify-center gap-2 mt-5 mb-2">
+                <span className="text-xs uppercase tracking-widest mr-1" style={{ color: textMutedColor }}>Follow</span>
+                {event.instagramUrl && (
+                  <a href={event.instagramUrl} target="_blank" rel="noopener noreferrer" aria-label="Instagram"
+                    className="w-9 h-9 flex items-center justify-center rounded-full transition-opacity hover:opacity-75"
+                    style={{ backgroundColor: surfaceColor, border: borderStyle }}>
+                    <SiInstagram className="w-4 h-4" style={{ color: textSecondaryColor }} />
+                  </a>
+                )}
+                {event.facebookUrl && (
+                  <a href={event.facebookUrl} target="_blank" rel="noopener noreferrer" aria-label="Facebook"
+                    className="w-9 h-9 flex items-center justify-center rounded-full transition-opacity hover:opacity-75"
+                    style={{ backgroundColor: surfaceColor, border: borderStyle }}>
+                    <SiFacebook className="w-4 h-4" style={{ color: textSecondaryColor }} />
+                  </a>
+                )}
+                {event.twitterUrl && (
+                  <a href={event.twitterUrl} target="_blank" rel="noopener noreferrer" aria-label="X / Twitter"
+                    className="w-9 h-9 flex items-center justify-center rounded-full transition-opacity hover:opacity-75"
+                    style={{ backgroundColor: surfaceColor, border: borderStyle }}>
+                    <Twitter className="w-4 h-4" style={{ color: textSecondaryColor }} />
+                  </a>
+                )}
+                {event.tiktokUrl && (
+                  <a href={event.tiktokUrl} target="_blank" rel="noopener noreferrer" aria-label="TikTok"
+                    className="w-9 h-9 flex items-center justify-center rounded-full transition-opacity hover:opacity-75"
+                    style={{ backgroundColor: surfaceColor, border: borderStyle }}>
+                    <SiTiktok className="w-4 h-4" style={{ color: textSecondaryColor }} />
+                  </a>
+                )}
+              </div>
             )}
 
             {event.location && (
