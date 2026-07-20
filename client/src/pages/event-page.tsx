@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   MapPin, Calendar, Clock, Ticket, User, Mail, Phone, Instagram,
   ShieldCheck, ArrowLeft, Building2, CreditCard, Crown, AlertCircle, Copy, Check,
-  Tag, Users, X, CheckCircle2
+  Tag, Users, X, CheckCircle2, LockKeyhole
 } from "lucide-react";
 
 declare global {
@@ -1098,10 +1098,11 @@ function PurchaseForm({
 
 // ─── Ticket card ──────────────────────────────────────────────────────────────
 
-function TicketCard({ ticket, event, onSuccess }: {
+function TicketCard({ ticket, event, onSuccess, isPast }: {
   ticket: PublicTicketType;
   event: PublicEvent;
   onSuccess: (orderId: string, name: string, total: number, qty: number, status?: string) => void;
+  isPast?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const soldOut = ticket.remaining <= 0;
@@ -1121,11 +1122,15 @@ function TicketCard({ ticket, event, onSuccess }: {
           <div className="p-2.5 rounded-lg" style={{ backgroundColor: `${primary}18` }}>
             <Ticket className="w-5 h-5" style={{ color: primary }} />
           </div>
-          {soldOut
-            ? <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-zinc-800 text-zinc-500 border border-zinc-700">Sold Out</span>
-            : <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
-                {ticket.remaining} left
+          {isPast
+            ? <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-zinc-800 text-zinc-600 border border-zinc-700 flex items-center gap-1">
+                <LockKeyhole className="w-3 h-3" /> Ended
               </span>
+            : soldOut
+              ? <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-zinc-800 text-zinc-500 border border-zinc-700">Sold Out</span>
+              : <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+                  {ticket.remaining} left
+                </span>
           }
         </div>
 
@@ -1159,26 +1164,30 @@ function TicketCard({ ticket, event, onSuccess }: {
           </div>
         </div>
 
-        {soldOut
-          ? <div className="w-full py-3 rounded-lg border border-zinc-700 text-center text-zinc-600 text-sm font-bold uppercase tracking-widest">
-              Sold Out
+        {isPast
+          ? <div className="w-full py-3 rounded-lg border border-zinc-800 text-center text-zinc-600 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+              <LockKeyhole className="w-4 h-4" /> Sales Closed
             </div>
-          : <button onClick={() => setOpen((v) => !v)}
-              className="w-full py-3.5 rounded-lg font-bold uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2"
-              style={open
-                ? { backgroundColor: `${primary}20`, color: primary, border: `1px solid ${primary}50` }
-                : buttonStyle === "solid"
-                  ? { backgroundColor: primary, color: onPrimary, border: `2px solid ${primary}` }
-                  : { border: `2px solid ${primary}`, color: primary }
-              }>
-              {open
-                ? <><ArrowLeft className="w-4 h-4" /> Close</>
-                : <><Ticket className="w-4 h-4" /> Get Ticket</>
-              }
-            </button>
+          : soldOut
+            ? <div className="w-full py-3 rounded-lg border border-zinc-700 text-center text-zinc-600 text-sm font-bold uppercase tracking-widest">
+                Sold Out
+              </div>
+            : <button onClick={() => setOpen((v) => !v)}
+                className="w-full py-3.5 rounded-lg font-bold uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2"
+                style={open
+                  ? { backgroundColor: `${primary}20`, color: primary, border: `1px solid ${primary}50` }
+                  : buttonStyle === "solid"
+                    ? { backgroundColor: primary, color: onPrimary, border: `2px solid ${primary}` }
+                    : { border: `2px solid ${primary}`, color: primary }
+                }>
+                {open
+                  ? <><ArrowLeft className="w-4 h-4" /> Close</>
+                  : <><Ticket className="w-4 h-4" /> Get Ticket</>
+                }
+              </button>
         }
 
-        {open && <PurchaseForm ticket={ticket} event={event} onSuccess={onSuccess} />}
+        {!isPast && open && <PurchaseForm ticket={ticket} event={event} onSuccess={onSuccess} />}
       </div>
     </div>
   );
@@ -1306,6 +1315,9 @@ export default function EventPage() {
 
   const isTestMode = event.paystackEnv === "test";
 
+  const eventDateTime = getEventDateTime(event.date, event.startTime);
+  const isPast = Date.now() - eventDateTime.getTime() > 4 * 60 * 60 * 1000;
+
   return (
     <div className="min-h-screen flex flex-col text-zinc-100" style={{ backgroundColor: bgColor, color: textColor, '--brand-primary': primary, '--brand-accent': accent, '--brand-surface': surfaceColor, '--brand-text': textColor } as any}>
       {isTestMode && (
@@ -1412,15 +1424,15 @@ export default function EventPage() {
       <div style={{ borderTop: `1px solid ${primary}25`, borderBottom: `1px solid ${primary}25`, backgroundColor: surfaceColor }}>
         <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className={`w-2 h-2 rounded-full ${totalRemaining > 0 ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+            <div className={`w-2 h-2 rounded-full ${isPast ? "bg-zinc-600" : totalRemaining > 0 ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
             <span className="text-zinc-400 text-xs font-semibold">
-              {totalRemaining > 0 ? `${totalRemaining} tickets remaining` : "Sold out"}
+              {isPast ? "Event has ended" : totalRemaining > 0 ? `${totalRemaining} tickets remaining` : "Sold out"}
             </span>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-40 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
               <div className="h-full rounded-full transition-all duration-700"
-                style={{ width: `${pctSold}%`, backgroundColor: primary }} />
+                style={{ width: `${pctSold}%`, backgroundColor: isPast ? "#52525b" : primary }} />
             </div>
             <span className="text-zinc-600 text-xs">{pctSold}% sold</span>
           </div>
@@ -1430,8 +1442,12 @@ export default function EventPage() {
       {/* Ticket types */}
       <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-12" style={{ backgroundColor: `${primary}0a` }}>
         <div className="text-center mb-8">
-          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide" style={{ color: textColor }}>Get Your Tickets</h2>
-          <p className="mt-2 text-sm opacity-50" style={{ color: textColor }}>Select a ticket type to get started</p>
+          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide" style={{ color: textColor }}>
+            {isPast ? "This event has ended" : "Get Your Tickets"}
+          </h2>
+          <p className="mt-2 text-sm opacity-50" style={{ color: textColor }}>
+            {isPast ? "Ticket sales for this event are now closed." : "Select a ticket type to get started"}
+          </p>
         </div>
 
         {event.ticketTypes.length === 0 ? (
@@ -1442,7 +1458,7 @@ export default function EventPage() {
         ) : (
           <div className={`grid grid-cols-1 ${event.ticketTypes.length > 1 ? "sm:grid-cols-2" : "max-w-md mx-auto"} gap-6`}>
             {event.ticketTypes.map((tt) => (
-              <TicketCard key={tt.id} ticket={tt} event={event} onSuccess={handleSuccess} />
+              <TicketCard key={tt.id} ticket={tt} event={event} onSuccess={handleSuccess} isPast={isPast} />
             ))}
           </div>
         )}

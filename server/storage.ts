@@ -276,6 +276,7 @@ export interface IStorage {
   incrementDiscountCodeUsed(id: string): Promise<DiscountCode>;
   deleteDiscountCode(id: string): Promise<void>;
   getPublicEvents(): Promise<Array<Event & { ticketTypes: TicketType[] }>>;
+  getPastPublicEvents(): Promise<Array<Event & { ticketTypes: TicketType[] }>>;
   getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }>;
   // Admin
   getAllUsers(): Promise<AdminUserRow[]>;
@@ -892,6 +893,56 @@ export class DbStorage implements IStorage {
       })
     );
     return results;
+  }
+
+  async getPastPublicEvents(): Promise<Array<Event & { ticketTypes: TicketType[] }>> {
+    const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+
+    // Active events whose date has already passed
+    const activeRows = await db
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.status, "active"),
+          eq(events.suspendedByAdmin, false),
+          sql`${events.date} < ${today}`
+        )
+      )
+      .orderBy(desc(events.date));
+
+    // Inactive / draft events with past dates that have at least one order
+    const inactiveRows = await db
+      .select()
+      .from(events)
+      .where(
+        and(
+          sql`${events.status} != 'active'`,
+          eq(events.suspendedByAdmin, false),
+          sql`${events.date} < ${today}`,
+          sql`EXISTS (SELECT 1 FROM orders WHERE orders.event_id = ${events.id})`
+        )
+      )
+      .orderBy(desc(events.date));
+
+    // Merge, de-dup, sort by date desc, cap at 10
+    const seen = new Set<string>();
+    const combined: (typeof events.$inferSelect)[] = [];
+    for (const row of [...activeRows, ...inactiveRows]) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        combined.push(row);
+      }
+    }
+    combined.sort((a, b) => (a.date > b.date ? -1 : 1));
+    const top10 = combined.slice(0, 10);
+
+    return Promise.all(
+      top10.map(async (ev) => {
+        const tts = await db.select().from(ticketTypes).where(eq(ticketTypes.eventId, ev.id));
+        return { ...ev, ticketTypes: tts };
+      })
+    );
   }
 
   async getPublicStats(): Promise<{ totalEvents: number; totalTicketsSold: number }> {

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ImageIcon, CalendarDays, MapPin, Ticket } from "lucide-react";
+import { ImageIcon, CalendarDays, MapPin, Ticket, LockKeyhole } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import { Event, TicketType } from "@shared/schema";
 import sgLogo from "../assets/showgate-logo.png";
@@ -115,10 +115,66 @@ function SkeletonCard() {
   );
 }
 
+function PastEventCard({ event }: { event: PublicEvent }) {
+  const { isLight } = useTheme();
+  const href = event.slug ? `/e/${event.slug}` : `/e/${event.id}`;
+  const cardBg = isLight ? "#f4f4f5" : "#0a0a0a";
+
+  return (
+    <Link href={href}>
+      <div
+        className="group cursor-pointer rounded-xl border border-zinc-800/50 overflow-hidden hover:-translate-y-0.5 transition-all duration-300 opacity-70 grayscale hover:opacity-100 hover:grayscale-0"
+        style={{
+          backgroundColor: cardBg,
+          boxShadow: isLight
+            ? "0 1px 4px 0 rgb(0 0 0 / 0.06)"
+            : "0 2px 12px rgba(0,0,0,0.4)",
+        }}
+      >
+        <div className="relative h-36 bg-zinc-900 overflow-hidden">
+          {event.coverImageUrl ? (
+            <img
+              src={event.coverImageUrl}
+              alt={event.title}
+              className="w-full h-full object-cover"
+              style={{ objectPosition: `center ${event.coverImagePositionY ?? 50}%` }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <ImageIcon className="w-8 h-8 text-zinc-700" />
+            </div>
+          )}
+          <div className="absolute top-2 right-2">
+            <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-zinc-900/90 text-zinc-500 border border-zinc-700">
+              <LockKeyhole className="w-2.5 h-2.5" /> Ended
+            </span>
+          </div>
+        </div>
+        <div className="px-4 pt-2.5 pb-3.5">
+          <h3 className="text-xs font-bold truncate mb-1" style={{ color: "var(--text-main)" }}>
+            {event.title}
+          </h3>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <CalendarDays className="w-3 h-3 text-zinc-600 flex-shrink-0" />
+            <span className="text-zinc-600 text-xs truncate">{formatEventDate(event.date, event.startTime)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-3 h-3 text-zinc-700 flex-shrink-0" />
+            <span className="text-zinc-700 text-xs truncate">{event.location}</span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function EventsPage() {
   const { isLight } = useTheme();
   const { data: eventsData, isLoading } = useQuery<PublicEvent[]>({
     queryKey: ["/api/events/public"],
+  });
+  const { data: pastEvents } = useQuery<PublicEvent[]>({
+    queryKey: ["/api/events/public/past"],
   });
 
   return (
@@ -164,7 +220,7 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* Grid */}
+      {/* Active Events Grid */}
       <section className="max-w-6xl mx-auto px-5 py-12">
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -182,6 +238,19 @@ export default function EventsPage() {
           </div>
         )}
       </section>
+
+      {/* Past Events */}
+      {!!pastEvents?.length && (
+        <section className="max-w-6xl mx-auto px-5 pb-16">
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="text-base font-bold" style={{ color: "var(--text-main)" }}>Past Events</h2>
+            <div className="flex-1 h-px bg-zinc-800/60" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {pastEvents.map((ev) => <PastEventCard key={ev.id} event={ev} />)}
+          </div>
+        </section>
+      )}
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <footer className="border-t border-amber-500/20 py-10 px-5">

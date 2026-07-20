@@ -116,6 +116,16 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
+  // ── GET /api/events/public/past — no auth, must be before /:id ──────────
+  app.get("/api/events/public/past", async (_req, res) => {
+    try {
+      const evts = await storage.getPastPublicEvents();
+      return res.json(evts);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── GET /api/events/:id ───────────────────────────────────────────────────
   app.get("/api/events/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
