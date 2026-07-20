@@ -881,10 +881,15 @@ export class DbStorage implements IStorage {
   }
 
   async getPublicEvents(): Promise<Array<Event & { ticketTypes: TicketType[] }>> {
+    const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
     const activeEvents = await db
       .select()
       .from(events)
-      .where(and(eq(events.status, "active"), eq(events.suspendedByAdmin, false)))
+      .where(and(
+        eq(events.status, "active"),
+        eq(events.suspendedByAdmin, false),
+        sql`${events.date} >= ${today}`
+      ))
       .orderBy(desc(events.createdAt));
     const results = await Promise.all(
       activeEvents.map(async (ev) => {
