@@ -48,7 +48,6 @@ function EventCard({ event }: { event: PublicEvent }) {
                 className="w-full h-full object-cover"
                 style={{ objectPosition: `center ${event.coverImagePositionY ?? 50}%` }}
               />
-              <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 40%, ${cardBg} 100%)` }} />
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
