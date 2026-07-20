@@ -209,6 +209,7 @@ export interface IStorage {
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
   getOrdersByEventId(eventId: string): Promise<Order[]>;
+  hasEventOrders(eventId: string): Promise<boolean>;
   getTotalTicketsSold(): Promise<number>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   // Event config
@@ -338,6 +339,14 @@ export class DbStorage implements IStorage {
       .where(eq(orders.eventId, eventId))
       .orderBy(sql`${orders.createdAt} DESC`);
     return rows;
+  }
+
+  async hasEventOrders(eventId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(orders)
+      .where(eq(orders.eventId, eventId));
+    return (row?.count ?? 0) > 0;
   }
 
   async getTotalTicketsSold(): Promise<number> {
