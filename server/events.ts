@@ -260,7 +260,11 @@ export function registerEventsRoutes(app: Express) {
         ? await storage.getEventById(param)
         : (await storage.getEventBySlug(param)) ?? (await storage.getEventById(param));
       if (!event) return res.status(404).json({ message: "Event not found" });
-      if (!event.isActive || event.suspendedByAdmin) return res.status(404).json({ message: "Event is not available" });
+      if (event.suspendedByAdmin) return res.status(404).json({ message: "Event is not available" });
+      // Allow active events OR past inactive events (ended events viewable as history)
+      const today = new Date().toISOString().split("T")[0];
+      const isPastDate = event.date < today;
+      if (!event.isActive && !isPastDate) return res.status(404).json({ message: "Event is not available" });
 
       const ticketTypes = await storage.getTicketTypesByEventId(event.id);
       const organizer = await storage.getOrganizerById(event.organizerId);
@@ -318,6 +322,12 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
+  // ── Shared helper: check whether an event's sales window has closed ──────
+  function isEventSalesClosed(date: string, startTime: string | null | undefined): boolean {
+    const dt = startTime ? new Date(`${date}T${startTime}`) : new Date(`${date}T00:00:00`);
+    return Date.now() - dt.getTime() > 4 * 60 * 60 * 1000; // > 4 hours after start
+  }
+
   // ── Shared helper: resolve and validate ticket type for public purchase ──────
   async function resolveTicketType(eventId: string, ticketTypeId: unknown, quantity: unknown) {
     if (!ticketTypeId || typeof ticketTypeId !== "string") {
@@ -362,6 +372,7 @@ export function registerEventsRoutes(app: Express) {
     try {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+      if (isEventSalesClosed(event.date, event.startTime)) return res.status(410).json({ message: "Ticket sales for this event are closed" });
 
       const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
       if (!reference) return res.status(400).json({ message: "Missing payment reference" });
@@ -448,6 +459,7 @@ export function registerEventsRoutes(app: Express) {
     try {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+      if (isEventSalesClosed(event.date, event.startTime)) return res.status(410).json({ message: "Ticket sales for this event are closed" });
 
       const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
       const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
@@ -514,6 +526,7 @@ export function registerEventsRoutes(app: Express) {
     try {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+      if (isEventSalesClosed(event.date, event.startTime)) return res.status(410).json({ message: "Ticket sales for this event are closed" });
 
       const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
       const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
@@ -581,6 +594,7 @@ export function registerEventsRoutes(app: Express) {
     try {
       const event = await storage.getEventById(req.params.id);
       if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
+      if (isEventSalesClosed(event.date, event.startTime)) return res.status(410).json({ message: "Ticket sales for this event are closed" });
 
       const organizer = await storage.getOrganizerById(event.organizerId);
       if (!organizer || organizer.tier !== "pro") {
