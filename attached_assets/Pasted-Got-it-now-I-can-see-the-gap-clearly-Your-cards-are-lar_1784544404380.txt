@@ -1,0 +1,27 @@
+Got it — now I can see the gap clearly. Your cards are large, only 2 fit per row with big gaps, and the image is closer to square/tall. The reference has a wider, shorter image and fits 3 per row in a tighter grid. Here's a prompt that resizes the card and image while keeping every one of your existing fields (title, date, location, price, Get Tickets button) untouched:
+
+---
+
+**Prompt for Replit AI:**
+
+```
+Find the event card component used on the Events page (likely EventCard.tsx or similar in client/src/components).
+
+Restyle the card's SIZE and IMAGE PROPORTIONS ONLY. Do NOT change any data fields, text, icons, button behavior, or links — the card must still show: cover image, title, date row (with calendar icon), location row (with pin icon), price ("From ₦X"), and the "Get Tickets" button, in the same order they appear now.
+
+Changes to make:
+
+1. GRID LAYOUT: Update the events grid container to display 3 cards per row on desktop (lg:grid-cols-3), 2 on tablet (sm:grid-cols-2), 1 on mobile — instead of the current 2-column layout with large gaps. Reduce gap spacing to a tighter gap-4 or gap-5.
+
+2. CARD WIDTH: Remove any fixed large width on the card so it fills its grid column naturally (w-full) instead of being oversized.
+
+3. IMAGE ASPECT RATIO: Change the event image container from its current tall/near-square proportion to a wider aspect ratio — use aspect-ratio: 16/10 (or aspect-[16/10] in Tailwind) with object-fit: cover, object-position: center. The image should look shorter and wider relative to the card, similar to a blog thumbnail, not a poster.
+
+4. CARD PADDING: Reduce internal padding around the title/date/location/price section slightly (e.g. p-4 instead of a larger padding) so the card feels compact and proportional to its new smaller size, without cutting off any text.
+
+5. Keep the white card background, rounded corners, and existing text/icon styling as-is — only adjust sizing and the image aspect ratio.
+
+6. Apply this to every place the event card is used (Events page, homepage featured events, Past Events section, etc.) — find all usages before committing, not just the main Events grid.
+
+7. Before committing, verify: the grid now shows 3 cards per row on desktop, all card images share the same wider aspect ratio, no existing text/icons/buttons were removed or altered, and cards render correctly on mobile.
+```

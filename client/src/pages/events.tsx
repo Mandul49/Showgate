@@ -39,7 +39,7 @@ function EventCard({ event }: { event: PublicEvent }) {
         }}
       >
         {/* Image area */}
-        <div className="relative h-40 bg-zinc-900 overflow-hidden">
+        <div className="relative w-full aspect-[16/10] bg-zinc-900 overflow-hidden">
           {event.coverImageUrl ? (
             <>
               <img
@@ -58,7 +58,7 @@ function EventCard({ event }: { event: PublicEvent }) {
         </div>
 
         {/* Card body */}
-        <div className="px-4 pt-3 pb-4">
+        <div className="p-4">
           <h3 className="text-sm font-bold truncate mb-1.5" style={{ color: "var(--text-main)" }}>
             {event.title}
           </h3>
@@ -101,8 +101,8 @@ function SkeletonCard() {
       className="rounded-xl border border-zinc-800 overflow-hidden animate-pulse"
       style={{ backgroundColor: isLight ? "#ffffff" : "#111111" }}
     >
-      <div className="h-40 bg-zinc-800" />
-      <div className="px-4 pb-4 pt-3 space-y-2.5">
+      <div className="w-full aspect-[16/10] bg-zinc-800" />
+      <div className="p-4 space-y-2.5">
         <div className="h-3.5 bg-zinc-800 rounded w-3/4" />
         <div className="h-3 bg-zinc-800 rounded w-1/2" />
         <div className="h-3 bg-zinc-800 rounded w-2/3" />
@@ -131,7 +131,7 @@ function PastEventCard({ event }: { event: PublicEvent }) {
             : "0 2px 12px rgba(0,0,0,0.4)",
         }}
       >
-        <div className="relative h-36 bg-zinc-900 overflow-hidden">
+        <div className="relative w-full aspect-[16/10] bg-zinc-900 overflow-hidden">
           {event.coverImageUrl ? (
             <img
               src={event.coverImageUrl}
@@ -223,8 +223,8 @@ export default function EventsPage() {
       {/* Active Events Grid */}
       <section className="max-w-6xl mx-auto px-5 py-12">
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : !eventsData?.length ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
@@ -233,7 +233,7 @@ export default function EventsPage() {
             <p className="text-zinc-600 text-sm">Check back soon — something exciting is coming.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {eventsData.map((ev) => <EventCard key={ev.id} event={ev} />)}
           </div>
         )}
