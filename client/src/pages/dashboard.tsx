@@ -269,6 +269,7 @@ function NewEventPanel({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [coverPosY, setCoverPosY] = useState(50);
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   const form = useForm<NewEventForm>({
     resolver: zodResolver(newEventSchema),
@@ -299,6 +300,7 @@ function NewEventPanel({
       return;
     }
 
+    setImageRemoved(false);
     setUploadingImage(true);
     try {
       const formData = new FormData();
@@ -322,6 +324,7 @@ function NewEventPanel({
     form.setValue("coverImageUrl", null);
     setImagePreview(null);
     setCoverPosY(50);
+    setImageRemoved(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -742,6 +745,7 @@ function EditEventPanel({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [coverPosY, setCoverPosY] = useState(event.coverImagePositionY ?? 50);
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   const form = useForm<EditEventForm>({
     resolver: zodResolver(editEventSchema),
@@ -772,6 +776,7 @@ function EditEventPanel({
       toast({ title: "File too large", description: "Please select an image under 5 MB.", variant: "destructive" });
       return;
     }
+    setImageRemoved(false);
     setUploadingImage(true);
     try {
       const formData = new FormData();
@@ -795,6 +800,7 @@ function EditEventPanel({
     form.setValue("coverImageUrl", null);
     setImagePreview(null);
     setCoverPosY(50);
+    setImageRemoved(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -815,8 +821,8 @@ function EditEventPanel({
     },
   });
 
-  const displayImageSrc = imagePreview ?? (event.coverImageUrl ? event.coverImageUrl : null);
-  const hasImage = !!(coverImageUrl || imagePreview);
+  const displayImageSrc = imageRemoved ? null : (imagePreview ?? (coverImageUrl || event.coverImageUrl));
+  const hasImage = !imageRemoved && !!(coverImageUrl || imagePreview);
 
   return (
     <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
