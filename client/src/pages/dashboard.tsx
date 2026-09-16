@@ -190,6 +190,10 @@ function CoverImageCrop({
   const dragStart = useRef<{ clientY: number; startY: number } | null>(null);
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    // Don't start drag if clicking on the delete button (or any child button)
+    if ((e.target as HTMLElement).closest("button")) {
+      return;
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
     isDragging.current = true;
     dragStart.current = { clientY: e.clientY, startY: positionY };
@@ -226,8 +230,12 @@ function CoverImageCrop({
         />
         <button
           type="button"
-          onClick={onRemove}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
           className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-900/80 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors z-10"
+          style={{ pointerEvents: "auto" }}
         >
           <X className="w-4 h-4" />
         </button>
