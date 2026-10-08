@@ -9,8 +9,32 @@ export interface AuthUser {
   adminRole?: string[] | null;
 }
 
+/** Reads the `exp` claim (seconds since epoch) from a JWT, or null if unreadable. */
+function getTokenExpiry(token: string): number | null {
+  try {
+    const payload = JSON.parse(
+      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns the stored token, or null if it is missing or past its `exp` claim.
+ * An expired token is cleared so isAuthenticated() is false and pages send
+ * the user to /login instead of rendering or calling the API with it.
+ */
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  const exp = getTokenExpiry(token);
+  if (exp !== null && exp * 1000 <= Date.now()) {
+    clearToken();
+    return null;
+  }
+  return token;
 }
 
 export function setToken(token: string): void {
@@ -60,3 +84,4 @@ export function isEmailVerified(): boolean {
     return true;
   }
 }
+
