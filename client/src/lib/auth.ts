@@ -22,6 +22,12 @@ export function clearToken(): void {
   localStorage.removeItem(USER_KEY);
 }
 
+export function signOut(reason?: string): void {
+  clearToken();
+  const target = reason ? `/login?reason=${encodeURIComponent(reason)}` : "/login";
+  window.location.replace(target);
+}
+
 export function saveUser(user: AuthUser): void {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }

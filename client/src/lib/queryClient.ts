@@ -1,12 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getToken } from "./auth";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-function resolveUrl(url: string): string {
-  if (url.startsWith("/") && API_BASE) return `${API_BASE}${url}`;
-  return url;
-}
+import { apiFetch, apiFetchRaw } from "./api";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -26,24 +19,15 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-function buildHeaders(data?: unknown): Record<string, string> {
-  const headers: Record<string, string> = {};
-  if (data) headers["Content-Type"] = "application/json";
-  const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return headers;
-}
-
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(resolveUrl(url), {
+  const res = await apiFetch(url, {
     method,
-    headers: buildHeaders(data),
+    headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
   });
 
   await throwIfResNotOk(res);
@@ -56,14 +40,14 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const token = getToken();
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const url = queryKey[0] as string;
 
-    const res = await fetch(resolveUrl(queryKey[0] as string), {
-      headers,
-      credentials: "include",
-    });
+    // Callers that opt into `returnNull` handle 401 themselves; everyone else
+    // goes through apiFetch, which signs the user out on 401.
+    const res =
+      unauthorizedBehavior === "returnNull"
+        ? await apiFetchRaw(url)
+        : await apiFetch(url);
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;

@@ -73,20 +73,27 @@ export async function requireAdmin(req: AuthRequest, res: Response, next: NextFu
     return res.status(401).json({ message: "Authentication required" });
   }
   const token = authHeader.slice(7);
+  let payload: { userId: string; role: string; tier: string };
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string };
-    const user = await storage.getUserById(payload.userId);
-    if (!user) return res.status(401).json({ message: "User not found. Please log in again." });
-    if (user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
-    req.userId = payload.userId;
-    req.userRole = user.role;
-    req.userTier = user.tier;
-    req.userEmail = user.email;
-    req.userAdminRole = user.adminRole;
-    next();
+    payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string };
   } catch {
     return res.status(401).json({ message: "Invalid or expired token. Please log in again." });
   }
+  let user: Awaited<ReturnType<typeof storage.getUserById>>;
+  try {
+    user = await storage.getUserById(payload.userId);
+  } catch (err) {
+    console.error("[auth] requireAdmin: failed to load user:", err);
+    return res.status(500).json({ message: "Could not verify session. Please retry." });
+  }
+  if (!user) return res.status(401).json({ message: "User not found. Please log in again." });
+  if (user.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  req.userId = payload.userId;
+  req.userRole = user.role;
+  req.userTier = user.tier;
+  req.userEmail = user.email;
+  req.userAdminRole = user.adminRole;
+  next();
 }
 
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
@@ -95,19 +102,26 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     return res.status(401).json({ message: "Authentication required" });
   }
   const token = authHeader.slice(7);
+  let payload: { userId: string; role: string; tier: string };
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string };
-    const user = await storage.getUserById(payload.userId);
-    if (!user) {
-      return res.status(401).json({ message: "User not found. Please log in again." });
-    }
-    req.userId = payload.userId;
-    req.userRole = user.role;
-    req.userTier = effectiveTier(user.tier, user.role, user.adminRole);
-    next();
+    payload = jwt.verify(token, JWT_SECRET) as { userId: string; role: string; tier: string };
   } catch {
     return res.status(401).json({ message: "Invalid or expired token. Please log in again." });
   }
+  let user: Awaited<ReturnType<typeof storage.getUserById>>;
+  try {
+    user = await storage.getUserById(payload.userId);
+  } catch (err) {
+    console.error("[auth] requireAuth: failed to load user:", err);
+    return res.status(500).json({ message: "Could not verify session. Please retry." });
+  }
+  if (!user) {
+    return res.status(401).json({ message: "User not found. Please log in again." });
+  }
+  req.userId = payload.userId;
+  req.userRole = user.role;
+  req.userTier = effectiveTier(user.tier, user.role, user.adminRole);
+  next();
 }
 
 const signupSchema = z.object({
