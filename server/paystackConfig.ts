@@ -1,16 +1,9 @@
-let _modeOverride: "test" | "live" | null = null;
-
 export function isTestMode(): boolean {
-  if (_modeOverride !== null) return _modeOverride === "test";
   return process.env.PAYSTACK_ENV === "test";
 }
 
 export function getPaystackMode(): "test" | "live" {
   return isTestMode() ? "test" : "live";
-}
-
-export function setPaystackMode(mode: "test" | "live"): void {
-  _modeOverride = mode;
 }
 
 export function getPaystackSecretKey(): string {

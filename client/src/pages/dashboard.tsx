@@ -2785,17 +2785,6 @@ export default function Dashboard() {
   const atEventLimit = tier === "free" && activeCount >= FREE_MAX_ACTIVE_EVENTS;
   const totalSold = events.reduce((s, e) => s + e.ticketTypes.reduce((ss, t) => ss + t.quantitySold, 0), 0);
 
-  const toggleModeMutation = useMutation({
-    mutationFn: async (mode: "test" | "live") => {
-      const res = await apiRequest("POST", "/api/admin/paystack-mode", { mode });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message);
-      return json;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/events"] }),
-    onError: (err: any) => toast({ title: "Failed to switch mode", description: err.message, variant: "destructive" }),
-  });
-
   const setupTestSubaccountMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/onboarding/setup-test-subaccount", {});
@@ -2912,31 +2901,6 @@ export default function Dashboard() {
             className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-2.5 py-0.5 rounded text-xs font-bold transition-colors disabled:opacity-50"
           >
             {bankCheckRetrying ? "Retrying..." : "Retry"}
-          </button>
-        </div>
-      )}
-
-      {paystackMode === "test" && (
-        <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide flex items-center justify-center gap-3">
-          <span>TEST MODE — No real payments will be processed</span>
-          <button
-            onClick={() => toggleModeMutation.mutate("live")}
-            disabled={toggleModeMutation.isPending}
-            className="bg-black/20 hover:bg-black/30 text-black px-2.5 py-0.5 rounded text-xs font-bold transition-colors disabled:opacity-50"
-          >
-            Switch to Live
-          </button>
-        </div>
-      )}
-      {paystackMode === "live" && (
-        <div className="bg-green-500/10 border-b border-green-500/20 text-green-400 text-center text-xs font-bold py-1.5 px-4 tracking-wide flex items-center justify-center gap-3">
-          <span>LIVE MODE — Real payments are active</span>
-          <button
-            onClick={() => toggleModeMutation.mutate("test")}
-            disabled={toggleModeMutation.isPending}
-            className="bg-green-500/20 hover:bg-green-500/30 text-green-300 px-2.5 py-0.5 rounded text-xs font-bold transition-colors disabled:opacity-50"
-          >
-            Switch to Test
           </button>
         </div>
       )}
