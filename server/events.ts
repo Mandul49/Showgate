@@ -12,19 +12,9 @@ import {
   checkMonthlyTicketLimit,
 } from "./tierLimits";
 import { sendConfirmationEmail } from "./email";
-import { getPaystackSecretKey, getPaystackPublicKey, isTestMode, getPaystackMode, setPaystackMode } from "./paystackConfig";
+import { getPaystackSecretKey, getPaystackPublicKey, isTestMode, getPaystackMode } from "./paystackConfig";
 
 export function registerEventsRoutes(app: Express) {
-
-  // ── POST /api/admin/paystack-mode ─────────────────────────────────────────
-  app.post("/api/admin/paystack-mode", requireAuth, async (req: AuthRequest, res) => {
-    const { mode } = req.body;
-    if (mode !== "test" && mode !== "live") {
-      return res.status(400).json({ message: "mode must be 'test' or 'live'" });
-    }
-    setPaystackMode(mode);
-    return res.json({ paystackMode: mode });
-  });
 
   // ── GET /api/events ───────────────────────────────────────────────────────
   app.get("/api/events", requireAuth, async (req: AuthRequest, res) => {
