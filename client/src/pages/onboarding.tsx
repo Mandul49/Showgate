@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { isAuthenticated, getUser, authHeaders } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
+import { fetchBankAccountStatus } from "@/lib/api";
 import {
   Building2, Landmark, Hash, ShieldCheck, CheckCircle2,
   ArrowRight, Ticket, ChevronDown, Loader2, BadgeCheck, AlertCircle
@@ -46,6 +47,17 @@ export default function Onboarding() {
   const { toast } = useToast();
   const [done, setDone] = useState<OrganizerResult | null>(null);
   const user = getUser();
+  const [statusState, setStatusState] = useState<"loading" | "no_bank_account" | "unknown">("loading");
+
+  async function checkStatus() {
+    setStatusState("loading");
+    const status = await fetchBankAccountStatus();
+    if (status.state === "ready") {
+      navigate("/dashboard");
+    } else {
+      setStatusState(status.state);
+    }
+  }
 
   useEffect(() => {
     if (!isAuthenticated()) { navigate("/login"); return; }
@@ -53,6 +65,7 @@ export default function Onboarding() {
     if (params.get("verified") === "1") {
       toast({ title: "Email verified!", description: "Your account is now active. Let's get you set up." });
     }
+    checkStatus();
   }, []);
 
   // Fetch bank list
@@ -146,6 +159,35 @@ export default function Onboarding() {
               <ArrowRight className="w-5 h-5" /> Go to Dashboard
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Loading / retry states (never show the form until the backend confirms) ──
+  if (statusState === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-page)" }}>
+        <div className="flex items-center gap-2 text-zinc-500 text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" /> Checking your account...
+        </div>
+      </div>
+    );
+  }
+
+  if (statusState === "unknown") {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "var(--bg-page)" }}>
+        <div className="w-full max-w-sm text-center">
+          <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-7 h-7 text-red-400" />
+          </div>
+          <h1 className="text-xl font-black text-white mb-2">Couldn't load your account</h1>
+          <p className="text-zinc-500 text-sm mb-6">We couldn't verify your payment account. Please try again.</p>
+          <button onClick={checkStatus}
+            className="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black uppercase tracking-widest text-sm transition-colors">
+            Retry
+          </button>
         </div>
       </div>
     );

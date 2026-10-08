@@ -7,6 +7,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
+import { fetchBankAccountStatus } from "@/lib/api";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
   Plus, Calendar, MapPin, Ticket, LogOut,
@@ -2654,13 +2655,27 @@ export default function Dashboard() {
   const [showProPopover, setShowProPopover] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const user = getUser();
+  const [bankCheckFailed, setBankCheckFailed] = useState(false);
+  const [bankCheckRetrying, setBankCheckRetrying] = useState(false);
+
+  async function verifyBankAccount() {
+    setBankCheckRetrying(true);
+    try {
+      const status = await fetchBankAccountStatus();
+      if (status.state === "no_bank_account") {
+        navigate("/onboarding");
+      } else {
+        // "ready" clears any banner; "unknown" shows a non-blocking retry banner.
+        setBankCheckFailed(status.state === "unknown" && status.reason !== "session");
+      }
+    } finally {
+      setBankCheckRetrying(false);
+    }
+  }
+
   useEffect(() => {
     if (!isAuthenticated()) { navigate("/login"); return; }
-    const token = getToken();
-    fetch("/api/onboarding/status", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((s) => { if (!s.completed) navigate("/onboarding"); })
-      .catch(() => navigate("/onboarding"));
+    verifyBankAccount();
   }, []);
 
   const { data, isLoading } = useQuery<EventsResponse>({
@@ -2888,6 +2903,19 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {bankCheckFailed && (
+        <div className="bg-red-500/10 border-b border-red-500/30 text-red-300 text-center text-xs font-bold py-2 px-4 tracking-wide flex items-center justify-center gap-3">
+          <span>Couldn't verify your payment account.</span>
+          <button
+            onClick={verifyBankAccount}
+            disabled={bankCheckRetrying}
+            className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-2.5 py-0.5 rounded text-xs font-bold transition-colors disabled:opacity-50"
+          >
+            {bankCheckRetrying ? "Retrying..." : "Retry"}
+          </button>
+        </div>
+      )}
+
       {paystackMode === "test" && (
         <div className="bg-yellow-400 text-black text-center text-xs font-bold py-2 px-4 tracking-wide flex items-center justify-center gap-3">
           <span>TEST MODE — No real payments will be processed</span>
@@ -2938,7 +2966,7 @@ export default function Dashboard() {
         <BrandingSection tier={tier} />
 
         {/* Live subaccount missing — warn organizer */}
-        {paystackMode === "live" && organizerInfo !== null && !organizerInfo.hasLiveSubaccount && (
+        {!isLoading && !!data && paystackMode === "live" && organizerInfo !== null && organizerInfo.hasLiveSubaccount === false && (
           <div className="flex items-center gap-4 rounded-xl border border-red-500/30 bg-red-500/5 px-5 py-4 mb-6">
             <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 flex-shrink-0">
               <AlertTriangle className="w-4 h-4 text-red-400" />

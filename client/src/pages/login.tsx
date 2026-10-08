@@ -7,6 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { setToken, saveUser } from "@/lib/auth";
+import { fetchBankAccountStatus } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { Ticket, Mail, Lock, EyeOff, Eye, ArrowLeft, Zap, ScrollText } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
@@ -339,19 +340,42 @@ export default function Login() {
     defaultValues: { email: "", password: "", confirmPassword: "" },
   });
 
-  async function checkOnboardingAndNavigate(token: string, role?: string) {
+  const [statusCheckFailed, setStatusCheckFailed] = useState(false);
+  const [statusRetrying, setStatusRetrying] = useState(false);
+  const [lastRole, setLastRole] = useState<string | undefined>(undefined);
+  const sessionExpired =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("reason") === "session_expired";
+
+  async function checkOnboardingAndNavigate(role?: string) {
+    setLastRole(role);
     if (role === "admin") {
       navigate("/admin");
       return;
     }
-    try {
-      const statusRes = await fetch("/api/onboarding/status", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const status = await statusRes.json();
-      navigate(status.completed ? "/dashboard" : "/onboarding");
-    } catch {
+    setStatusCheckFailed(false);
+    const status = await fetchBankAccountStatus();
+    if (status.state === "ready") {
+      navigate("/dashboard");
+    } else if (status.state === "no_bank_account") {
       navigate("/onboarding");
+    } else {
+      // Unknown: never assume the user has no bank account.
+      setStatusCheckFailed(true);
+      toast({
+        title: "Couldn't load your account",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function retryStatusCheck() {
+    setStatusRetrying(true);
+    try {
+      await checkOnboardingAndNavigate(lastRole);
+    } finally {
+      setStatusRetrying(false);
     }
   }
 
@@ -376,7 +400,7 @@ export default function Login() {
       queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
-      await checkOnboardingAndNavigate(json.token, json.user?.role);
+      await checkOnboardingAndNavigate(json.user?.role);
     } catch (err: any) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
     } finally {
@@ -422,7 +446,7 @@ export default function Login() {
       queryClient.clear();
       setToken(json.token);
       saveUser(json.user);
-      await checkOnboardingAndNavigate(json.token);
+      await checkOnboardingAndNavigate(json.user?.role);
     } catch (err: any) {
       toast({ title: "Sign up failed", description: err.message, variant: "destructive" });
     } finally {
@@ -484,6 +508,22 @@ export default function Login() {
               {tab === "login" ? "Sign in to manage your event" : "Set up your event ticketing page in minutes"}
             </p>
           </div>
+
+          {sessionExpired && !statusCheckFailed && (
+            <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-zinc-300">
+              Your session has expired. Please sign in again.
+            </div>
+          )}
+
+          {statusCheckFailed && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3">
+              <p className="text-sm text-zinc-300">Couldn't load your account. Please try again.</p>
+              <button type="button" onClick={retryStatusCheck} disabled={statusRetrying}
+                className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-xs font-black uppercase tracking-widest transition-colors disabled:opacity-60">
+                {statusRetrying ? "Retrying..." : "Retry"}
+              </button>
+            </div>
+          )}
 
           {/* Tab switcher */}
           <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 mb-6">

@@ -61,9 +61,10 @@ export function registerOnboardingRoutes(app: Express) {
   app.get("/api/onboarding/status", requireAuth, async (req: AuthRequest, res) => {
     try {
       const organizer = await storage.getOrganizerByUserId(req.userId!);
-      if (!organizer) return res.json({ completed: false });
+      if (!organizer) return res.json({ completed: false, state: "no_bank_account" });
       return res.json({
         completed: true,
+        state: "ready",
         organizer: {
           id: organizer.id,
           businessName: organizer.businessName,
