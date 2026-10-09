@@ -9,6 +9,7 @@ import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { fetchBankAccountStatus } from "@/lib/api";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus, Calendar, MapPin, Ticket, LogOut,
   ChevronDown, ChevronUp, Loader2, Lock, Users,
@@ -2248,6 +2249,63 @@ interface BrandingSettings {
   customLogoUrl: string | null;
   brandTheme: BrandTheme | null;
   tier: "free" | "pro";
+  brandingEnabled?: boolean;
+}
+
+function BrandingToggle() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: branding, isLoading } = useQuery<BrandingSettings>({
+    queryKey: ["/api/branding/settings"],
+  });
+
+  const enabled = branding?.brandingEnabled ?? true;
+
+  const mutation = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PUT", "/api/branding/enabled", { enabled: next });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Update failed");
+      return json as { brandingEnabled: boolean };
+    },
+    onSuccess: (json) => {
+      qc.invalidateQueries({ queryKey: ["/api/branding/settings"] });
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({
+        title: json.brandingEnabled ? "White-label branding on" : "White-label branding off",
+        description: json.brandingEnabled
+          ? "Your saved branding is now applied to your event pages."
+          : "Your events now use the default Showgate look. Your saved branding is kept.",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not update branding", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-3 px-5 py-4 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-semibold text-sm flex items-center gap-2">
+          White-label branding
+          <span className={`text-xs font-semibold ${enabled ? "text-green-400" : "text-zinc-500"}`}>
+            {enabled ? "On" : "Off"}
+          </span>
+        </p>
+        <p className="text-zinc-500 text-xs mt-0.5">
+          Off = your events use the default Showgate look. Your saved branding is kept.
+        </p>
+      </div>
+      <Switch
+        checked={enabled}
+        disabled={isLoading || mutation.isPending}
+        onCheckedChange={(next) => mutation.mutate(next)}
+        aria-label="Toggle white-label branding"
+        data-testid="switch-branding-enabled"
+      />
+    </div>
+  );
 }
 
 function BrandingSection({ tier }: { tier: "free" | "pro" }) {
@@ -2349,7 +2407,12 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Save failed");
       qc.invalidateQueries({ queryKey: ["/api/branding/settings"] });
-      toast({ title: "Branding saved", description: "Your brand and color theme are now live on event pages." });
+      toast({
+        title: "Branding saved",
+        description: branding?.brandingEnabled === false
+          ? "Saved. White-label branding is currently off, so it isn't applied to event pages."
+          : "Your brand and color theme are now live on event pages.",
+      });
     } catch (err: any) {
       toast({ title: "Save failed", description: err.message, variant: "destructive" });
     } finally { setSaving(false); }
@@ -2405,6 +2468,12 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
               <Loader2 className="w-4 h-4 animate-spin" /> Loading…
             </div>
           ) : (<>
+            {branding?.brandingEnabled === false && (
+              <div className="px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-400 text-xs">
+                White-label branding is off. These saved settings are not applied to your public pages or emails until you turn it back on.
+              </div>
+            )}
+
             {/* Brand Name */}
             <div>
               <label className="text-zinc-400 text-xs uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
@@ -2935,6 +3004,7 @@ export default function Dashboard() {
         </div>
 
         {/* Branding */}
+        {tier === "pro" && showTierSections && <BrandingToggle />}
         {tier !== null && showTierSections && <BrandingSection tier={tier} />}
 
         {/* Live subaccount missing — warn organizer */}

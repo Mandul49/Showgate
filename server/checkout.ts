@@ -236,7 +236,9 @@ export function registerCheckoutRoutes(app: Express) {
 
       // Resolve organizer branding for confirmation email
       const organizer = await storage.getOrganizerById(eventRecord.organizerId);
-      const isPro = organizer?.tier === "pro";
+      // In the email, `isPro` only drives branding (logo / "Powered by" footer),
+      // so it is true only when the organizer is Pro AND white-label branding is on.
+      const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false;
       const brandName = (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined;
       const brandLogoUrl = (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null;
 

@@ -15,6 +15,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS facebook_url text`);
     await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS twitter_url text`);
     await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS tiktok_url text`);
+    await db.execute(sql`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS branding_enabled boolean NOT NULL DEFAULT true`);
     console.log("[migrations] cover_image_position_y column ready");
   } catch (err: any) {
     console.error("[migrations] startup migration error (non-fatal):", err?.message ?? err);
