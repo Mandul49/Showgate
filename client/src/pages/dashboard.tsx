@@ -2252,62 +2252,6 @@ interface BrandingSettings {
   brandingEnabled?: boolean;
 }
 
-function BrandingToggle() {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-
-  const { data: branding, isLoading } = useQuery<BrandingSettings>({
-    queryKey: ["/api/branding/settings"],
-  });
-
-  const enabled = branding?.brandingEnabled ?? true;
-
-  const mutation = useMutation({
-    mutationFn: async (next: boolean) => {
-      const res = await apiRequest("PUT", "/api/branding/enabled", { enabled: next });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Update failed");
-      return json as { brandingEnabled: boolean };
-    },
-    onSuccess: (json) => {
-      qc.invalidateQueries({ queryKey: ["/api/branding/settings"] });
-      qc.invalidateQueries({ queryKey: ["/api/events"] });
-      toast({
-        title: json.brandingEnabled ? "White-label branding on" : "White-label branding off",
-        description: json.brandingEnabled
-          ? "Your saved branding is now applied to your event pages."
-          : "Your events now use the default Showgate look. Your saved branding is kept.",
-      });
-    },
-    onError: (err: any) => {
-      toast({ title: "Could not update branding", description: err.message, variant: "destructive" });
-    },
-  });
-
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-3 px-5 py-4 flex items-center gap-3">
-      <div className="flex-1 min-w-0">
-        <p className="text-white font-semibold text-sm flex items-center gap-2">
-          White-label branding
-          <span className={`text-xs font-semibold ${enabled ? "text-green-400" : "text-zinc-500"}`}>
-            {enabled ? "On" : "Off"}
-          </span>
-        </p>
-        <p className="text-zinc-500 text-xs mt-0.5">
-          Off = your events use the default Showgate look. Your saved branding is kept.
-        </p>
-      </div>
-      <Switch
-        checked={enabled}
-        disabled={isLoading || mutation.isPending}
-        onCheckedChange={(next) => mutation.mutate(next)}
-        aria-label="Toggle white-label branding"
-        data-testid="switch-branding-enabled"
-      />
-    </div>
-  );
-}
-
 function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -2328,6 +2272,43 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const { data: branding, isLoading } = useQuery<BrandingSettings>({
     queryKey: ["/api/branding/settings"],
     enabled: tier === "pro",
+  });
+
+  const brandingEnabled = branding?.brandingEnabled ?? true;
+
+  const enabledMutation = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PUT", "/api/branding/enabled", { enabled: next });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Update failed");
+      return json as { brandingEnabled: boolean };
+    },
+    onMutate: async (next: boolean) => {
+      await qc.cancelQueries({ queryKey: ["/api/branding/settings"] });
+      const previous = qc.getQueryData<BrandingSettings>(["/api/branding/settings"]);
+      if (previous) {
+        qc.setQueryData<BrandingSettings>(["/api/branding/settings"], { ...previous, brandingEnabled: next });
+      }
+      return { previous };
+    },
+    onSuccess: (json) => {
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({
+        title: json.brandingEnabled ? "White-label branding on" : "White-label branding off",
+        description: json.brandingEnabled
+          ? "Your saved branding is now applied to your event pages."
+          : "Your events now use the default Showgate look. Your saved branding is kept.",
+      });
+    },
+    onError: (err: any, _next, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["/api/branding/settings"], context.previous);
+      }
+      toast({ title: "Could not update branding", description: err.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["/api/branding/settings"] });
+    },
   });
 
   const form = useForm<BrandingForm>({
@@ -2444,13 +2425,29 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-zinc-900 transition-colors">
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer hover:bg-zinc-900 transition-colors">
         <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
           <Paintbrush className="w-4 h-4 text-amber-400" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold text-sm">White-label Branding</p>
+          <p className="text-white font-semibold text-sm flex items-center gap-2">
+            White-label Branding
+            <span className={`text-xs font-semibold ${brandingEnabled ? "text-green-400" : "text-zinc-500"}`}>
+              {brandingEnabled ? "On" : "Off"}
+            </span>
+          </p>
           <p className="text-zinc-500 text-xs mt-0.5">
             {branding?.customBrandName
               ? `Brand: ${branding.customBrandName}${branding?.brandTheme ? " · Color theme active" : ""}`
@@ -2458,8 +2455,22 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
           </p>
         </div>
         {branding?.brandTheme && <CheckCheck className="w-4 h-4 text-green-400 mr-1" />}
+        <div
+          className="flex-shrink-0"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <Switch
+            checked={brandingEnabled}
+            disabled={isLoading}
+            onCheckedChange={(next) => enabledMutation.mutate(next)}
+            aria-label="Toggle white-label branding"
+            data-testid="switch-branding-enabled"
+          />
+        </div>
         {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
-      </button>
+      </div>
 
       {open && (
         <div className="border-t border-zinc-800 px-5 pb-5 pt-4 space-y-5">
@@ -3004,7 +3015,6 @@ export default function Dashboard() {
         </div>
 
         {/* Branding */}
-        {tier === "pro" && showTierSections && <BrandingToggle />}
         {tier !== null && showTierSections && <BrandingSection tier={tier} />}
 
         {/* Live subaccount missing — warn organizer */}
