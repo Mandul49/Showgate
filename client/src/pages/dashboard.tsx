@@ -2425,51 +2425,39 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
-      <div
-        role="button"
-        tabIndex={0}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setOpen((v) => !v);
-          }
-        }}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer hover:bg-zinc-900 transition-colors">
-        <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
-          <Paintbrush className="w-4 h-4 text-amber-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold text-sm flex items-center gap-2">
-            White-label Branding
-            <span className={`text-xs font-semibold ${brandingEnabled ? "text-green-400" : "text-zinc-500"}`}>
-              {brandingEnabled ? "On" : "Off"}
+      <div className="flex items-center gap-3 px-5 py-4 hover:bg-zinc-900 transition-colors">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer">
+          <span className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
+            <Paintbrush className="w-4 h-4 text-amber-400" />
+          </span>
+          <span className="block flex-1 min-w-0">
+            <span className="text-white font-semibold text-sm flex items-center gap-2">
+              White-label Branding
+              <span className={`text-xs font-semibold ${brandingEnabled ? "text-green-400" : "text-zinc-500"}`}>
+                {brandingEnabled ? "On" : "Off"}
+              </span>
             </span>
-          </p>
-          <p className="text-zinc-500 text-xs mt-0.5">
-            {branding?.customBrandName
-              ? `Brand: ${branding.customBrandName}${branding?.brandTheme ? " · Color theme active" : ""}`
-              : "Logo upload · auto color theme · manual overrides"}
-          </p>
-        </div>
-        {branding?.brandTheme && <CheckCheck className="w-4 h-4 text-green-400 mr-1" />}
-        <div
+            <span className="block text-zinc-500 text-xs mt-0.5">
+              {branding?.customBrandName
+                ? `Brand: ${branding.customBrandName}${branding?.brandTheme ? " · Color theme active" : ""}`
+                : "Logo upload · auto color theme · manual overrides"}
+            </span>
+          </span>
+          {branding?.brandTheme && <CheckCheck className="w-4 h-4 text-green-400 mr-1" />}
+          {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+        </button>
+        <Switch
+          checked={brandingEnabled}
+          disabled={isLoading || enabledMutation.isPending}
+          onCheckedChange={(next) => enabledMutation.mutate(next)}
+          aria-label="Toggle white-label branding"
+          data-testid="switch-branding-enabled"
           className="flex-shrink-0"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          <Switch
-            checked={brandingEnabled}
-            disabled={isLoading}
-            onCheckedChange={(next) => enabledMutation.mutate(next)}
-            aria-label="Toggle white-label branding"
-            data-testid="switch-branding-enabled"
-          />
-        </div>
-        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+        />
       </div>
 
       {open && (
