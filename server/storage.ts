@@ -236,6 +236,7 @@ export interface IStorage {
   getOrganizerById(id: string): Promise<Organizer | undefined>;
   updateOrganizerTier(organizerId: string, tier: UserTier): Promise<Organizer>;
   updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer>;
+  updateOrganizerBrandingEnabled(organizerId: string, enabled: boolean): Promise<Organizer>;
   updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer>;
   updateOrganizerTestSubaccount(organizerId: string, testSubaccountCode: string): Promise<Organizer>;
   updateOrganizerBankAccount(organizerId: string, data: { bankName: string; bankCode: string; accountNumber: string }): Promise<Organizer>;
@@ -553,6 +554,7 @@ export class DbStorage implements IStorage {
       flutterwavePublicKey: row.flutterwavePublicKey ?? null,
       flutterwaveSecretKey: row.flutterwaveSecretKey ?? null,
       brandTheme: (row.brandTheme as import("@shared/schema").BrandTheme | null) ?? null,
+      brandingEnabled: row.brandingEnabled ?? true,
       createdAt: row.createdAt,
     };
   }
@@ -587,6 +589,15 @@ export class DbStorage implements IStorage {
   async updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer> {
     const [row] = await db.update(organizers)
       .set(data)
+      .where(eq(organizers.id, organizerId))
+      .returning();
+    if (!row) throw new Error("Organizer not found");
+    return this._mapOrganizer(row);
+  }
+
+  async updateOrganizerBrandingEnabled(organizerId: string, enabled: boolean): Promise<Organizer> {
+    const [row] = await db.update(organizers)
+      .set({ brandingEnabled: enabled })
       .where(eq(organizers.id, organizerId))
       .returning();
     if (!row) throw new Error("Organizer not found");

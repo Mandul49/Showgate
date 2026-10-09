@@ -60,6 +60,7 @@ interface PublicEvent {
     name: string;
     logoUrl: string | null;
     isPro: boolean;
+    brandingEnabled?: boolean;
     brandTheme?: {
       primary: string;
       accent: string;
@@ -1516,7 +1517,7 @@ export default function EventPage() {
             style={{ border: `1px solid ${primary}40`, color: textColor + "80" }}>
             {copied ? <><Check className="w-3.5 h-3.5 text-green-400" /> Link copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy event link</>}
           </button>
-          {event.branding?.isPro ? (
+          {(event.branding?.isPro && event.branding?.brandingEnabled !== false) ? (
             brandName !== "Showgate" ? (
               <p className="text-xs opacity-30" style={{ color: textColor }}>Powered by {brandName}</p>
             ) : null

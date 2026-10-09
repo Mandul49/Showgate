@@ -266,6 +266,7 @@ export function registerEventsRoutes(app: Express) {
 
       const ticketTypes = await storage.getTicketTypesByEventId(event.id);
       const organizer = await storage.getOrganizerById(event.organizerId);
+      const brandingActive = organizer?.tier === "pro" && organizer.brandingEnabled !== false;
 
       return res.json({
         id: event.id,
@@ -310,10 +311,13 @@ export function registerEventsRoutes(app: Express) {
             }
           : null,
         branding: {
-          name: (organizer?.tier === "pro" && organizer.customBrandName) ? organizer.customBrandName : (organizer?.businessName ?? "Showgate"),
-          logoUrl: (organizer?.tier === "pro" && organizer.customLogoUrl) ? organizer.customLogoUrl : null,
-          isPro: organizer?.tier === "pro" ?? false,
-          brandTheme: (organizer?.tier === "pro") ? (organizer.brandTheme ?? null) : null,
+          name: (brandingActive && organizer?.customBrandName) ? organizer.customBrandName : (organizer?.businessName ?? "Showgate"),
+          logoUrl: (brandingActive && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+          // isPro stays tier-based (not affected by the white-label toggle)
+          isPro: organizer?.tier === "pro",
+          // true only when Pro AND the white-label toggle is on
+          brandingEnabled: brandingActive,
+          brandTheme: brandingActive ? (organizer?.brandTheme ?? null) : null,
         },
         paystackPublicKey: getPaystackPublicKey(),
         paystackEnv: isTestMode() ? "test" : "live",
@@ -433,7 +437,7 @@ export function registerEventsRoutes(app: Express) {
       await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
       if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
-      const isPro = organizer?.tier === "pro";
+      const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,
@@ -497,7 +501,7 @@ export function registerEventsRoutes(app: Express) {
       if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
       const organizer = await storage.getOrganizerById(event.organizerId);
-      const isPro = organizer?.tier === "pro";
+      const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,
@@ -569,7 +573,7 @@ export function registerEventsRoutes(app: Express) {
       const order = await storage.createOrder(parsed.data, "confirmed");
       await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
 
-      const isPro = organizer?.tier === "pro";
+      const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,
@@ -661,7 +665,7 @@ export function registerEventsRoutes(app: Express) {
       await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
       if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
-      const isPro = organizer.tier === "pro";
+      const isPro = organizer.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,

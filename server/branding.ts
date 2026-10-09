@@ -34,6 +34,10 @@ const brandingSchema = z.object({
   brandTheme: brandThemeSchema.nullable().optional(),
 });
 
+const brandingEnabledSchema = z.object({
+  enabled: z.boolean(),
+});
+
 async function uploadToSupabase(buffer: Buffer, mimeType: string, filename: string): Promise<string> {
   const uploadUrl = `${SUPABASE_URL}/storage/v1/object/${BRANDING_BUCKET}/${filename}`;
   console.log(`[branding] uploading to Supabase Storage: ${uploadUrl}`);
@@ -71,9 +75,34 @@ export function registerBrandingRoutes(app: Express) {
         customLogoUrl: organizer.customLogoUrl,
         brandTheme: organizer.brandTheme,
         tier: organizer.tier,
+        brandingEnabled: organizer.brandingEnabled,
       });
     } catch (err: any) {
       console.error("[branding] GET settings error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PUT /api/branding/enabled (Pro only) ────────────────────────────────
+  // Toggles white-label branding on/off without touching saved settings.
+  app.put("/api/branding/enabled", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      console.log("[branding] PUT enabled for userId:", req.userId);
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(404).json({ message: "Organizer not found" });
+      if (organizer.tier !== "pro") {
+        return res.status(403).json({ message: "Upgrade to Pro to use custom branding" });
+      }
+
+      const parsed = brandingEnabledSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0].message });
+      }
+
+      const updated = await storage.updateOrganizerBrandingEnabled(organizer.id, parsed.data.enabled);
+      return res.json({ brandingEnabled: updated.brandingEnabled });
+    } catch (err: any) {
+      console.error("[branding] PUT enabled error:", err);
       return res.status(500).json({ message: err.message });
     }
   });
@@ -104,6 +133,7 @@ export function registerBrandingRoutes(app: Express) {
         customLogoUrl: updated.customLogoUrl,
         brandTheme: updated.brandTheme,
         tier: updated.tier,
+        brandingEnabled: updated.brandingEnabled,
       });
     } catch (err: any) {
       console.error("[branding] PUT settings error:", err);
