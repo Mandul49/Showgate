@@ -1340,7 +1340,7 @@ function EventCard({
   event, tier, onToggle, isToggling,
 }: {
   event: EventData;
-  tier: string;
+  tier: string | null;
   onToggle: (id: string, active: boolean) => void;
   isToggling: boolean;
 }) {
@@ -2695,7 +2695,15 @@ export default function Dashboard() {
     ? `₦${(publicSettings.proMonthlyNaira / 1000).toFixed(0)}k/mo`
     : "₦12k/mo";
 
-  const tier = data?.tier ?? "free";
+  // Server tier wins once loaded. The cached tier is only a placeholder while /api/events loads.
+  // null means "not yet known" and must never be treated as Free.
+  const cachedTier = getUser()?.tier;
+  const tier: "free" | "pro" | null =
+    data?.tier ?? (cachedTier === "pro" || cachedTier === "free" ? cachedTier : null);
+  // Free-only UI (banners, limits) renders only once the server has confirmed the tier.
+  const isFreeConfirmed = !!data && data.tier === "free";
+  // Upsell cards for Free-only features render once the server confirms, or immediately for a (cached) Pro user.
+  const showTierSections = tier === "pro" || !!data;
 
   const { data: paymentHistory } = useQuery<HistoryItem[]>({
     queryKey: ["/api/upgrade/history"],
@@ -2782,7 +2790,7 @@ export default function Dashboard() {
   }, [organizerInfo?.businessName]);
   const limits = data?.limits ?? { maxActiveEvents: FREE_MAX_ACTIVE_EVENTS, maxMonthlyTickets: 500, allowedPaymentMethods: ["paystack"] };
   const activeCount = events.filter((e) => e.isActive).length;
-  const atEventLimit = tier === "free" && activeCount >= FREE_MAX_ACTIVE_EVENTS;
+  const atEventLimit = isFreeConfirmed && activeCount >= FREE_MAX_ACTIVE_EVENTS;
   const totalSold = events.reduce((s, e) => s + e.ticketTypes.reduce((ss, t) => ss + t.quantitySold, 0), 0);
 
   const setupTestSubaccountMutation = useMutation({
@@ -2909,7 +2917,7 @@ export default function Dashboard() {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
-            { label: "Total Events", value: events.length, icon: Calendar, suffix: tier === "free" ? `/ ${FREE_MAX_ACTIVE_EVENTS} active max` : "" },
+            { label: "Total Events", value: events.length, icon: Calendar, suffix: isFreeConfirmed ? `/ ${FREE_MAX_ACTIVE_EVENTS} active max` : "" },
             { label: "Active Events", value: activeCount, icon: CheckCircle2, color: "text-green-400" },
             { label: "Tickets Sold", value: totalSold, icon: Users, color: "text-amber-400" },
           ].map(({ label, value, icon: Icon, suffix, color }) => (
@@ -2927,7 +2935,7 @@ export default function Dashboard() {
         </div>
 
         {/* Branding */}
-        <BrandingSection tier={tier} />
+        {tier !== null && showTierSections && <BrandingSection tier={tier} />}
 
         {/* Live subaccount missing — warn organizer */}
         {!isLoading && !!data && paystackMode === "live" && organizerInfo !== null && organizerInfo.hasLiveSubaccount === false && (
@@ -2954,7 +2962,7 @@ export default function Dashboard() {
         </div>
 
         {/* Flutterwave payment gateway */}
-        <FlutterwaveSection tier={tier} />
+        {tier !== null && showTierSections && <FlutterwaveSection tier={tier} />}
 
         {/* Test payment account setup */}
         {paystackMode === "test" && !organizerInfo?.hasTestSubaccount && (
@@ -2986,10 +2994,10 @@ export default function Dashboard() {
         )}
 
         {/* Pending bank transfers — Pro only */}
-        <PendingTransfersSection tier={tier} />
+        {tier !== null && <PendingTransfersSection tier={tier} />}
 
         {/* Pro upgrade banner — free tier only */}
-        {tier === "free" && (
+        {isFreeConfirmed && (
           <div className="flex items-center gap-4 rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4 mb-6">
             <div className="p-2 rounded-lg bg-violet-400/10 border border-violet-400/20 flex-shrink-0">
               <Zap className="w-4 h-4 text-violet-400" />
@@ -3216,7 +3224,7 @@ export default function Dashboard() {
         )}
 
         {/* Tier limit warning */}
-        {tier === "free" && atEventLimit && !showNewEventForm && (
+        {isFreeConfirmed && atEventLimit && !showNewEventForm && (
           <div className="flex items-center gap-3 bg-amber-400/5 border border-amber-400/15 rounded-xl p-4 mb-6">
             <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
             <p className="text-zinc-400 text-sm flex-1">
@@ -3227,7 +3235,7 @@ export default function Dashboard() {
         )}
 
         {/* New event panel */}
-        {showNewEventForm && (
+        {showNewEventForm && tier !== null && (
           <NewEventPanel
             tier={tier}
             limits={limits}
@@ -3241,6 +3249,7 @@ export default function Dashboard() {
           <h2 className="text-white font-bold">Your Events</h2>
           <button
             onClick={() => {
+              if (tier === null) return; // tier not yet known
               if (atEventLimit) {
                 toast({ title: "Event limit reached", description: "Deactivate an event or upgrade to Pro.", variant: "destructive" });
                 return;
