@@ -777,6 +777,7 @@ export class DbStorage implements IStorage {
       amount: row.amount,
       reference: row.reference,
       status: row.status as PurchaseStatus,
+      attendeeDetails: (row.attendeeDetails as { name: string; email?: string }[] | null) ?? null,
       createdAt: row.createdAt,
     };
   }

@@ -421,6 +421,7 @@ export const ticketPurchases = pgTable("ticket_purchases", {
   amount: integer("amount").notNull(),
   reference: text("reference").notNull().unique(),
   status: text("status").notNull().default("confirmed"),
+  attendeeDetails: jsonb("attendee_details"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -437,6 +438,7 @@ export type TicketPurchase = {
   amount: number;
   reference: string;
   status: PurchaseStatus;
+  attendeeDetails: { name: string; email?: string }[] | null;
   createdAt: Date;
 };
 
@@ -452,6 +454,7 @@ export interface CreateTicketPurchaseData {
   amount: number;
   reference: string;
   status: PurchaseStatus;
+  attendeeDetails?: { name: string; email?: string }[] | null;
 }
 
 export const checkoutSchema = z.object({
@@ -461,6 +464,10 @@ export const checkoutSchema = z.object({
   buyerEmail: z.string().email("Valid email required"),
   buyerPhone: z.string().min(7, "Phone number required"),
   quantity: z.number().int().min(1).max(10),
+  attendeeNames: z.array(z.string().trim().min(2, "Each ticket needs a full name")),
+}).refine((d) => d.attendeeNames.length === d.quantity, {
+  message: "Please enter a name for each ticket",
+  path: ["attendeeNames"],
 });
 
 // ─── Platform Stats ────────────────────────────────────────────────────────────

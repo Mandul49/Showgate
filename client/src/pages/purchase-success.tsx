@@ -16,6 +16,7 @@ interface PurchaseData {
   eventStartTime: string | null;
   eventLocation: string | null;
   ticketTypeName: string;
+  attendeeDetails?: { name: string; email?: string }[] | null;
 }
 
 function fmtTime12h(t: string): string {
@@ -185,6 +186,21 @@ export default function PurchaseSuccess() {
                   <p className="text-amber-400 font-black text-2xl">{fmtCurrency(purchase.amount)}</p>
                 </div>
               </div>
+
+              {/* Attendees */}
+              {purchase.attendeeDetails && purchase.attendeeDetails.length > 0 && (
+                <div className="border border-zinc-800 rounded-xl p-4">
+                  <p className="text-zinc-600 text-[10px] uppercase tracking-widest mb-2">Attendees</p>
+                  <ul className="space-y-1.5">
+                    {purchase.attendeeDetails.map((a, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm text-zinc-200">
+                        <span className="text-zinc-600 text-xs font-mono w-12 flex-shrink-0">Ticket {i + 1}</span>
+                        <span className="font-semibold">{a.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Reference */}
               <div className="border border-zinc-800 rounded-xl p-4">
