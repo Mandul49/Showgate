@@ -99,6 +99,24 @@ export default function EventPublic() {
   });
 
   const quantity = Number(form.watch("quantity") || 1);
+  const buyerNameValue = form.watch("buyerName") || "";
+
+  // One name per ticket. Ticket 1 follows the buyer's name until edited directly.
+  const [attendeeInputs, setAttendeeInputs] = useState<string[]>([]);
+  const [ticket1Edited, setTicket1Edited] = useState(false);
+  const attendeeNames: string[] = Array.from({ length: quantity }, (_, i) =>
+    i === 0 && !ticket1Edited ? buyerNameValue : attendeeInputs[i] ?? ""
+  );
+  const allNamesFilled = attendeeNames.every((n) => n.trim().length >= 2);
+
+  function setAttendeeName(index: number, value: string) {
+    if (index === 0) setTicket1Edited(true);
+    setAttendeeInputs((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }
 
   const checkoutMutation = useMutation({
     mutationFn: async (values: BuyerForm) => {
@@ -106,6 +124,7 @@ export default function EventPublic() {
       const res = await apiRequest("POST", "/api/checkout", {
         ...values,
         quantity: Number(values.quantity),
+        attendeeNames: attendeeNames.map((n) => n.trim()),
         eventId,
         ticketTypeId: selectedTypeId,
       });
@@ -278,9 +297,27 @@ export default function EventPublic() {
                   </select>
                 </div>
 
+                <div className="space-y-3 pt-1">
+                  <p className="text-zinc-500 text-xs uppercase tracking-widest">Who is attending?</p>
+                  {attendeeNames.map((name, i) => (
+                    <div key={i}>
+                      <label htmlFor={`attendee-${i}`} className="block text-zinc-400 text-xs mb-1 pl-1">
+                        Ticket {i + 1} name
+                      </label>
+                      <input
+                        id={`attendee-${i}`}
+                        value={name}
+                        onChange={(e) => setAttendeeName(i, e.target.value)}
+                        placeholder={`Ticket ${i + 1} name`}
+                        className={inputClass(false)}
+                      />
+                    </div>
+                  ))}
+                </div>
+
                 <button
                   type="submit"
-                  disabled={isPending || event.ticketTypes.every((t) => t.soldOut)}
+                  disabled={isPending || !allNamesFilled || event.ticketTypes.every((t) => t.soldOut)}
                   className="w-full h-14 rounded-xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-black font-black uppercase tracking-widest text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-3 mt-1"
                 >
                   {isPending ? (

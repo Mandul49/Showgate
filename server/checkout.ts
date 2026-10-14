@@ -56,7 +56,7 @@ export function registerCheckoutRoutes(app: Express) {
         return res.status(400).json({ message: parsed.error.errors[0].message });
       }
 
-      const { eventId, ticketTypeId, buyerName, buyerEmail, buyerPhone, quantity } = parsed.data;
+      const { eventId, ticketTypeId, buyerName, buyerEmail, buyerPhone, quantity, attendeeNames } = parsed.data;
 
       const event = await storage.getEventById(eventId);
       if (!event || !event.isActive) {
@@ -120,6 +120,7 @@ export function registerCheckoutRoutes(app: Express) {
           buyer_email: buyerEmail,
           buyer_phone: buyerPhone,
           quantity,
+          attendee_names: attendeeNames,
         },
       };
 
@@ -202,7 +203,7 @@ export function registerCheckoutRoutes(app: Express) {
       const existing = await storage.getTicketPurchaseByReference(reference);
       if (existing) return res.sendStatus(200);
 
-      const { event_id, ticket_type_id, buyer_name, buyer_email, buyer_phone, quantity } = metadata ?? {};
+      const { event_id, ticket_type_id, buyer_name, buyer_email, buyer_phone, quantity, attendee_names } = metadata ?? {};
       if (!event_id || !ticket_type_id) {
         console.warn("[webhook] Missing metadata on charge.success:", reference);
         return res.sendStatus(200);
@@ -220,6 +221,13 @@ export function registerCheckoutRoutes(app: Express) {
 
       const qty = Number(quantity) || 1;
 
+      // Older in-flight checkouts won't carry attendee_names; store null for those.
+      const attendeeDetails = Array.isArray(attendee_names)
+        ? attendee_names
+            .filter((n: unknown): n is string => typeof n === "string" && n.trim().length > 0)
+            .map((n: string) => ({ name: n.trim() }))
+        : null;
+
       const purchase = await storage.createTicketPurchase({
         eventId: event_id,
         ticketTypeId: ticket_type_id,
@@ -230,6 +238,7 @@ export function registerCheckoutRoutes(app: Express) {
         amount: Math.round(amount / 100),
         reference,
         status: "confirmed",
+        attendeeDetails: attendeeDetails && attendeeDetails.length > 0 ? attendeeDetails : null,
       });
 
       await storage.incrementTicketTypeSold(ticket_type_id, qty);
