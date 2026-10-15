@@ -24,13 +24,18 @@ import { randomUUID } from "crypto";
 // discount, and events.ts compares it to Paystack kobo via `chargedAmount * 100`).
 // The admin client formatters expect KOBO, so this view multiplies by 100.
 // orders has no organizer column, so organizer_id is resolved via events.
+// ticket_purchases is left-joined to events so purchases of deleted events are
+// intentionally kept in admin revenue (deleteEvent/adminDeleteEvent do not remove
+// purchases, and counting every confirmed sale is the accurate total).
+// amount_kobo is still the GROSS ticket amount, not Showgate's fee.
 const CONFIRMED_SALES = sql`(
   select tp.event_id::text as event_id,
-         tp.organizer_id::text as organizer_id,
+         coalesce(tp.organizer_id::text, e.organizer_id::text) as organizer_id,
          tp.quantity as quantity,
          tp.amount::bigint * 100 as amount_kobo,
          tp.created_at as created_at
   from ticket_purchases tp
+  left join events e on e.id::text = tp.event_id::text
   where tp.status = 'confirmed'
   union all
   select o.event_id::text as event_id,
