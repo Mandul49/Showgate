@@ -223,7 +223,7 @@ export default function AdminEvents() {
                     <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wide">
                       <span className="flex items-center gap-1"><Ticket className="w-3 h-3" />Tickets</span>
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wide">Revenue</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wide">Showgate fee</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
