@@ -1,4 +1,4 @@
-import { eq, sql, and, inArray, desc } from "drizzle-orm";
+import { eq, sql, and, inArray, desc, type SQL } from "drizzle-orm";
 import { db } from "./db";
 import {
   orders, users, organizers, events, ticketTypes, ticketPurchases, eventConfig,
@@ -15,6 +15,38 @@ import {
   type DiscountCode, type CreateDiscountCodeData,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+
+// ── Admin revenue source ────────────────────────────────────────────────────
+// Confirmed ticket sales live in two tables: `ticket_purchases` (written by
+// /api/checkout and the Paystack webhook) and `orders` (written by the public
+// event-page purchase endpoints). Both store whole NAIRA (ticket_purchases.amount
+// is Math.round(kobo / 100); orders.total_amount is ticketType.price * qty minus
+// discount, and events.ts compares it to Paystack kobo via `chargedAmount * 100`).
+// The admin client formatters expect KOBO, so this view multiplies by 100.
+// orders has no organizer column, so organizer_id is resolved via events.
+const CONFIRMED_SALES = sql`(
+  select tp.event_id::text as event_id,
+         tp.organizer_id::text as organizer_id,
+         tp.quantity as quantity,
+         tp.amount::bigint * 100 as amount_kobo,
+         tp.created_at as created_at
+  from ticket_purchases tp
+  where tp.status = 'confirmed'
+  union all
+  select o.event_id::text as event_id,
+         e.organizer_id::text as organizer_id,
+         o.quantity as quantity,
+         o.total_amount::bigint * 100 as amount_kobo,
+         o.created_at as created_at
+  from orders o
+  left join events e on e.id::text = o.event_id
+  where o.status = 'confirmed'
+)`;
+
+async function queryRows<T>(query: SQL): Promise<T[]> {
+  const result = await db.execute(query);
+  return result.rows as T[];
+}
 
 const DEFAULT_CONFIG: EventConfig = {
   eventName: "My Event",
@@ -1050,16 +1082,27 @@ export class DbStorage implements IStorage {
       .groupBy(events.organizerId);
     const eventMap = new Map(eventRows.map(r => [r.organizerId, { total: r.total, active: r.active }]));
 
-    const statsRows = await db
+    // Tickets come from ticket_types.quantity_sold (incremented by both purchase paths);
+    // revenue comes from confirmed ticket_purchases + orders, in kobo.
+    const ticketRows = await db
       .select({
-        organizerId: ticketPurchases.organizerId,
-        tickets: sql<number>`cast(coalesce(sum(${ticketPurchases.quantity}), 0) as int)`,
-        revenue: sql<number>`cast(coalesce(sum(case when ${ticketPurchases.status} = 'confirmed' then ${ticketPurchases.amount} else 0 end), 0) as bigint)`,
+        organizerId: events.organizerId,
+        tickets: sql<number>`cast(coalesce(sum(${ticketTypes.quantitySold}), 0) as int)`,
       })
-      .from(ticketPurchases)
-      .where(sql`${ticketPurchases.organizerId} is not null`)
-      .groupBy(ticketPurchases.organizerId);
-    const statsMap = new Map(statsRows.map(r => [r.organizerId!, { tickets: r.tickets, revenue: Number(r.revenue) }]));
+      .from(ticketTypes)
+      .innerJoin(events, eq(events.id, ticketTypes.eventId))
+      .groupBy(events.organizerId);
+    const revenueRows = await queryRows<{ organizer_id: string; revenue: string | number }>(sql`
+      select s.organizer_id as organizer_id, coalesce(sum(s.amount_kobo), 0) as revenue
+      from ${CONFIRMED_SALES} s
+      where s.organizer_id is not null
+      group by s.organizer_id
+    `);
+    const ticketsMap = new Map(ticketRows.map(r => [r.organizerId, r.tickets]));
+    const orgRevenueMap = new Map(revenueRows.map(r => [r.organizer_id, Number(r.revenue)]));
+    const statsMap = {
+      get: (id: string) => ({ tickets: ticketsMap.get(id) ?? 0, revenue: orgRevenueMap.get(id) ?? 0 }),
+    };
 
     return rows.map(r => {
       const evCounts = eventMap.get(r.id) ?? { total: 0, active: 0 };
@@ -1124,16 +1167,14 @@ export class DbStorage implements IStorage {
       .groupBy(events.id)
       .orderBy(sql`${events.createdAt} DESC`);
 
-    const revenueRows = await db
-      .select({
-        eventId: ticketPurchases.eventId,
-        revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
-      })
-      .from(ticketPurchases)
-      .innerJoin(events, eq(events.id, ticketPurchases.eventId))
-      .where(and(eq(events.organizerId, row.id), eq(ticketPurchases.status, "confirmed")))
-      .groupBy(ticketPurchases.eventId);
-    const revenueMap = new Map(revenueRows.map(r => [r.eventId, Number(r.revenue)]));
+    // Per-event revenue in kobo from confirmed ticket_purchases + orders.
+    const revenueRows = await queryRows<{ event_id: string; revenue: string | number }>(sql`
+      select s.event_id as event_id, coalesce(sum(s.amount_kobo), 0) as revenue
+      from ${CONFIRMED_SALES} s
+      where s.organizer_id = ${row.id}
+      group by s.event_id
+    `);
+    const revenueMap = new Map(revenueRows.map(r => [r.event_id, Number(r.revenue)]));
 
     const eventsResult: AdminOrganizerEventRow[] = eventRows.map(e => ({
       id: e.id,
@@ -1149,6 +1190,7 @@ export class DbStorage implements IStorage {
       createdAt: e.createdAt,
     }));
 
+    // NOTE: recentPurchases intentionally lists ticket_purchases only (orders are not included).
     const purchaseRows = await db
       .select({
         id: ticketPurchases.id,
@@ -1382,15 +1424,12 @@ export class DbStorage implements IStorage {
       .groupBy(ticketTypes.eventId);
     const soldMap = new Map(ticketCounts.map(r => [r.eventId, r.sold]));
 
-    const revenueRows = await db
-      .select({
-        eventId: ticketPurchases.eventId,
-        revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
-      })
-      .from(ticketPurchases)
-      .where(eq(ticketPurchases.status, "confirmed"))
-      .groupBy(ticketPurchases.eventId);
-    const revenueMap = new Map(revenueRows.map(r => [r.eventId, Number(r.revenue)]));
+    const revenueRows = await queryRows<{ event_id: string; revenue: string | number }>(sql`
+      select s.event_id as event_id, coalesce(sum(s.amount_kobo), 0) as revenue
+      from ${CONFIRMED_SALES} s
+      group by s.event_id
+    `);
+    const revenueMap = new Map(revenueRows.map(r => [r.event_id, Number(r.revenue)]));
 
     return rows.map(r => ({
       id: r.id,
@@ -1451,16 +1490,16 @@ export class DbStorage implements IStorage {
       .orderBy(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt})`);
 
     // Ticket revenue + count by month
-    const ticketMonthRows = await db
-      .select({
-        month: sql<string>`to_char(date_trunc('month', ${ticketPurchases.createdAt}), 'YYYY-MM')`,
-        revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
-        count: sql<number>`cast(coalesce(sum(${ticketPurchases.quantity}), 0) as int)`,
-      })
-      .from(ticketPurchases)
-      .where(and(eq(ticketPurchases.status, "confirmed"), sql`${ticketPurchases.createdAt} >= ${twelveMonthsAgo}`))
-      .groupBy(sql`date_trunc('month', ${ticketPurchases.createdAt})`)
-      .orderBy(sql`date_trunc('month', ${ticketPurchases.createdAt})`);
+    // (confirmed ticket_purchases + orders, revenue in kobo)
+    const ticketMonthRows = await queryRows<{ month: string; revenue: string | number; count: number }>(sql`
+      select to_char(date_trunc('month', s.created_at), 'YYYY-MM') as month,
+             coalesce(sum(s.amount_kobo), 0) as revenue,
+             cast(coalesce(sum(s.quantity), 0) as int) as count
+      from ${CONFIRMED_SALES} s
+      where s.created_at >= ${twelveMonthsAgo}
+      group by date_trunc('month', s.created_at)
+      order by date_trunc('month', s.created_at)
+    `);
 
     const subRevMap = new Map(subRevRows.map(r => [r.month, Number(r.revenue)]));
     const ticketRevMap = new Map(ticketMonthRows.map(r => [r.month, Number(r.revenue)]));
@@ -1499,16 +1538,14 @@ export class DbStorage implements IStorage {
     const topEventTitleMap = new Map(topEventDetails.map(e => [e.id, e.title]));
 
     const topEventRevRows = topEventIds.length > 0
-      ? await db
-          .select({
-            eventId: ticketPurchases.eventId,
-            revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
-          })
-          .from(ticketPurchases)
-          .where(and(eq(ticketPurchases.status, "confirmed"), inArray(ticketPurchases.eventId, topEventIds)))
-          .groupBy(ticketPurchases.eventId)
+      ? await queryRows<{ event_id: string; revenue: string | number }>(sql`
+          select s.event_id as event_id, coalesce(sum(s.amount_kobo), 0) as revenue
+          from ${CONFIRMED_SALES} s
+          where s.event_id in (${sql.join(topEventIds.map(id => sql`${id}`), sql`, `)})
+          group by s.event_id
+        `)
       : [];
-    const topEventRevMap = new Map(topEventRevRows.map(r => [r.eventId, Number(r.revenue)]));
+    const topEventRevMap = new Map(topEventRevRows.map(r => [r.event_id, Number(r.revenue)]));
 
     const topEventsByTickets = topEventsRows.map(r => ({
       id: r.id,
@@ -1518,17 +1555,17 @@ export class DbStorage implements IStorage {
     }));
 
     // Top 5 organizers by revenue processed
-    const topOrgRows = await db
-      .select({
-        organizerId: ticketPurchases.organizerId,
-        revenue: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)`,
-        tickets: sql<number>`cast(coalesce(sum(${ticketPurchases.quantity}), 0) as int)`,
-      })
-      .from(ticketPurchases)
-      .where(and(eq(ticketPurchases.status, "confirmed"), sql`${ticketPurchases.organizerId} is not null`))
-      .groupBy(ticketPurchases.organizerId)
-      .orderBy(sql`sum(${ticketPurchases.amount}) desc`)
-      .limit(5);
+    const topOrgRawRows = await queryRows<{ organizer_id: string; revenue: string | number; tickets: number }>(sql`
+      select s.organizer_id as organizer_id,
+             coalesce(sum(s.amount_kobo), 0) as revenue,
+             cast(coalesce(sum(s.quantity), 0) as int) as tickets
+      from ${CONFIRMED_SALES} s
+      where s.organizer_id is not null
+      group by s.organizer_id
+      order by sum(s.amount_kobo) desc
+      limit 5
+    `);
+    const topOrgRows = topOrgRawRows.map(r => ({ organizerId: r.organizer_id, revenue: r.revenue, tickets: r.tickets }));
 
     const topOrgIds = topOrgRows.map(r => r.organizerId!).filter(Boolean);
     const topOrgDetails = topOrgIds.length > 0
@@ -1590,10 +1627,9 @@ export class DbStorage implements IStorage {
       : 0;
 
     // All-time totals
-    const [totalTixRev] = await db
-      .select({ total: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)` })
-      .from(ticketPurchases)
-      .where(eq(ticketPurchases.status, "confirmed"));
+    const [totalTixRev] = await queryRows<{ total: string | number }>(
+      sql`select coalesce(sum(s.amount_kobo), 0) as total from ${CONFIRMED_SALES} s`
+    );
     const [totalSubRev] = await db
       .select({ total: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)` })
       .from(subscriptionReferences);
@@ -1638,7 +1674,9 @@ export class DbStorage implements IStorage {
     const [activeEventsCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events).where(eq(events.isActive, true));
     const [ticketsSold] = await db.select({ total: sql<number>`cast(coalesce(sum(quantity_sold), 0) as int)` }).from(ticketTypes);
     const [proUsers] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(eq(users.tier, "pro"));
-    const [totalRevenue] = await db.select({ total: sql<number>`cast(coalesce(sum(${ticketPurchases.amount}), 0) as bigint)` }).from(ticketPurchases).where(eq(ticketPurchases.status, "confirmed"));
+    const [totalRevenue] = await queryRows<{ total: string | number }>(
+      sql`select coalesce(sum(s.amount_kobo), 0) as total from ${CONFIRMED_SALES} s`
+    );
     const [monthlySubRevenue] = await db.select({ total: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)` }).from(subscriptionReferences).where(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt}) = date_trunc('month', now())`);
     const [signupsThisWeek] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(sql`${users.createdAt} >= now() - interval '7 days'`);
     const [signupsThisMonth] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(sql`date_trunc('month', ${users.createdAt}) = date_trunc('month', now())`);
@@ -1670,15 +1708,14 @@ export class DbStorage implements IStorage {
       .groupBy(sql`date_trunc('day', ${users.createdAt})`)
       .orderBy(sql`date_trunc('day', ${users.createdAt})`);
 
-    const ticketRows = await db
-      .select({
-        date: sql<string>`to_char(date_trunc('day', ${ticketPurchases.createdAt}), 'YYYY-MM-DD')`,
-        count: sql<number>`cast(coalesce(sum(${ticketPurchases.quantity}), 0) as int)`,
-      })
-      .from(ticketPurchases)
-      .where(sql`${ticketPurchases.createdAt} >= now() - interval '30 days' AND ${ticketPurchases.status} = 'confirmed'`)
-      .groupBy(sql`date_trunc('day', ${ticketPurchases.createdAt})`)
-      .orderBy(sql`date_trunc('day', ${ticketPurchases.createdAt})`);
+    const ticketRows = await queryRows<{ date: string; count: number }>(sql`
+      select to_char(date_trunc('day', s.created_at), 'YYYY-MM-DD') as date,
+             cast(coalesce(sum(s.quantity), 0) as int) as count
+      from ${CONFIRMED_SALES} s
+      where s.created_at >= now() - interval '30 days'
+      group by date_trunc('day', s.created_at)
+      order by date_trunc('day', s.created_at)
+    `);
 
     const fillDays = (data: { date: string; count: number }[]) => {
       const map = new Map(data.map(d => [d.date, d.count]));
