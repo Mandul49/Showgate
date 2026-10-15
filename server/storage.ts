@@ -24,13 +24,17 @@ import { randomUUID } from "crypto";
 // discount, and events.ts compares it to Paystack kobo via `chargedAmount * 100`).
 // The admin client formatters expect KOBO, so this view multiplies by 100.
 // orders has no organizer column, so organizer_id is resolved via events.
+// ticket_purchases is inner-joined to events so rows whose event was deleted
+// (deleteEvent/adminDeleteEvent do not remove purchases) are not counted.
+// amount_kobo is still the GROSS ticket amount, not Showgate's fee.
 const CONFIRMED_SALES = sql`(
   select tp.event_id::text as event_id,
-         tp.organizer_id::text as organizer_id,
+         coalesce(tp.organizer_id::text, e.organizer_id::text) as organizer_id,
          tp.quantity as quantity,
          tp.amount::bigint * 100 as amount_kobo,
          tp.created_at as created_at
   from ticket_purchases tp
+  join events e on e.id::text = tp.event_id::text
   where tp.status = 'confirmed'
   union all
   select o.event_id::text as event_id,
@@ -1505,6 +1509,8 @@ export class DbStorage implements IStorage {
     const ticketRevMap = new Map(ticketMonthRows.map(r => [r.month, Number(r.revenue)]));
     const ticketCountMap = new Map(ticketMonthRows.map(r => [r.month, r.count]));
 
+    // Same setting free-tier checkout uses. Approximation: applies one rate to all gross sales,
+    // ignoring the per-tier Pro rate (pro_ticket_fee_percent).
     const feePercentStr = await this.getPlatformSetting("platform_fee_percent", "2.5");
     const feeMultiplier = parseFloat(feePercentStr) / 100 || 0.025;
 

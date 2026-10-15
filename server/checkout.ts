@@ -6,8 +6,8 @@ import { fulfillUpgrade } from "./upgrade";
 import { sendConfirmationEmail } from "./email";
 import { getPaystackSecretKey, isTestMode } from "./paystackConfig";
 
-const FREE_TIER_FEE_PCT = 0.025;       // 2.5% fixed for free-tier organizers
-const DEFAULT_PLATFORM_FEE_PCT = 0.02; // 2% default for pro — overridden by platform_fee_percent DB setting
+const FREE_TIER_FALLBACK_FEE_PCT = 0.025; // used only if platform_fee_percent is missing/invalid for free-tier organizers
+const DEFAULT_PLATFORM_FEE_PCT = 0.02;    // 2% fallback for pro — normally set by the pro_ticket_fee_percent DB setting
 
 export function registerCheckoutRoutes(app: Express) {
   // ── GET /api/events/:id/public ────────────────────────────────────────────
@@ -94,7 +94,9 @@ export function registerCheckoutRoutes(app: Express) {
       const amountKobo = ticketType.price * quantity * 100;
       let feePct: number;
       if (organizer.tier === "free") {
-        feePct = FREE_TIER_FEE_PCT;
+        const freeFeeStr = await storage.getPlatformSetting("platform_fee_percent", "2.5");
+        const parsedFree = parseFloat(freeFeeStr) / 100;
+        feePct = Number.isNaN(parsedFree) || parsedFree <= 0 ? FREE_TIER_FALLBACK_FEE_PCT : parsedFree;
       } else {
         const feePercentStr = await storage.getPlatformSetting("pro_ticket_fee_percent", "2");
         feePct = parseFloat(feePercentStr) / 100 || DEFAULT_PLATFORM_FEE_PCT;
