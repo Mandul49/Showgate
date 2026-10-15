@@ -43,6 +43,34 @@ const CONFIRMED_SALES = sql`(
   where o.status = 'confirmed'
 )`;
 
+// ── Showgate fee rule (single source of truth for admin revenue) ────────────
+// Mirrors server/checkout.ts: free-tier organizers pay a fixed 2.5%; every other
+// tier pays `pro_ticket_fee_percent` (default 2%). Showgate revenue from tickets
+// is the fee only; gross sales belong to organizers and are shown on organizer views.
+// The tier is read from organizers.tier at query time (same column checkout reads),
+// so historical sales are re-rated at the organizer's CURRENT tier.
+const FREE_TIER_FEE_PCT = 0.025;
+const DEFAULT_PRO_FEE_PCT = 0.02;
+
+// CONFIRMED_SALES plus a `fee_kobo` column (rounded per sale, like checkout's
+// transaction_charge). Every admin fee aggregate must select from this source.
+async function confirmedSalesWithFee(): Promise<SQL> {
+  const [setting] = await db.select().from(platformSettings).where(eq(platformSettings.key, "pro_ticket_fee_percent"));
+  const proFeePct = parseFloat(setting?.value ?? "2") / 100 || DEFAULT_PRO_FEE_PCT;
+  return sql`(
+    select s.event_id as event_id,
+           s.organizer_id as organizer_id,
+           s.quantity as quantity,
+           s.amount_kobo as amount_kobo,
+           s.created_at as created_at,
+           round(s.amount_kobo * (case when coalesce(org.tier, 'free') = 'free'
+                                       then ${FREE_TIER_FEE_PCT}::numeric
+                                       else ${proFeePct}::numeric end))::bigint as fee_kobo
+    from ${CONFIRMED_SALES} s
+    left join organizers org on org.id::text = s.organizer_id
+  )`;
+}
+
 async function queryRows<T>(query: SQL): Promise<T[]> {
   const result = await db.execute(query);
   return result.rows as T[];
@@ -225,13 +253,16 @@ export interface AdminChartData {
 
 export interface AdminAnalyticsData {
   revenueByMonth: { month: string; subscriptionRevenue: number; ticketFeeRevenue: number }[];
-  ticketsByMonth: { month: string; count: number; revenue: number }[];
+  ticketsByMonth: { month: string; count: number }[];
   topEventsByTickets: { id: string; title: string; ticketsSold: number; revenue: number }[];
   topOrganizersByRevenue: { id: string; businessName: string; email: string; revenue: number; ticketsSold: number }[];
   subscriptionGrowth: { month: string; newSubscriptions: number; cumulative: number }[];
   tierRatio: { free: number; pro: number };
   avgTicketsPerEvent: number;
+  /** Gross ticket sales in kobo. Organizer-owned money, NOT Showgate revenue. */
   totalTicketRevenue: number;
+  /** Showgate fee on confirmed ticket sales, in kobo. */
+  totalTicketFeeRevenue: number;
   totalSubscriptionRevenue: number;
 }
 
@@ -1424,9 +1455,11 @@ export class DbStorage implements IStorage {
       .groupBy(ticketTypes.eventId);
     const soldMap = new Map(ticketCounts.map(r => [r.eventId, r.sold]));
 
+    // Showgate fee per event (kobo). Gross sales are intentionally not exposed here.
+    const feeSales = await confirmedSalesWithFee();
     const revenueRows = await queryRows<{ event_id: string; revenue: string | number }>(sql`
-      select s.event_id as event_id, coalesce(sum(s.amount_kobo), 0) as revenue
-      from ${CONFIRMED_SALES} s
+      select s.event_id as event_id, coalesce(sum(s.fee_kobo), 0) as revenue
+      from ${feeSales} s
       group by s.event_id
     `);
     const revenueMap = new Map(revenueRows.map(r => [r.event_id, Number(r.revenue)]));
@@ -1489,13 +1522,14 @@ export class DbStorage implements IStorage {
       .groupBy(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt})`)
       .orderBy(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt})`);
 
-    // Ticket revenue + count by month
-    // (confirmed ticket_purchases + orders, revenue in kobo)
+    // Showgate ticket fee + ticket count by month
+    // (confirmed ticket_purchases + orders, fee in kobo via the shared fee rule)
+    const feeSales = await confirmedSalesWithFee();
     const ticketMonthRows = await queryRows<{ month: string; revenue: string | number; count: number }>(sql`
       select to_char(date_trunc('month', s.created_at), 'YYYY-MM') as month,
-             coalesce(sum(s.amount_kobo), 0) as revenue,
+             coalesce(sum(s.fee_kobo), 0) as revenue,
              cast(coalesce(sum(s.quantity), 0) as int) as count
-      from ${CONFIRMED_SALES} s
+      from ${feeSales} s
       where s.created_at >= ${twelveMonthsAgo}
       group by date_trunc('month', s.created_at)
       order by date_trunc('month', s.created_at)
@@ -1505,19 +1539,15 @@ export class DbStorage implements IStorage {
     const ticketRevMap = new Map(ticketMonthRows.map(r => [r.month, Number(r.revenue)]));
     const ticketCountMap = new Map(ticketMonthRows.map(r => [r.month, r.count]));
 
-    const feePercentStr = await this.getPlatformSetting("platform_fee_percent", "2.5");
-    const feeMultiplier = parseFloat(feePercentStr) / 100 || 0.025;
-
     const revenueByMonth = months.map(month => ({
       month,
       subscriptionRevenue: subRevMap.get(month) ?? 0,
-      ticketFeeRevenue: Math.round((ticketRevMap.get(month) ?? 0) * feeMultiplier),
+      ticketFeeRevenue: ticketRevMap.get(month) ?? 0,
     }));
 
     const ticketsByMonth = months.map(month => ({
       month,
       count: ticketCountMap.get(month) ?? 0,
-      revenue: ticketRevMap.get(month) ?? 0,
     }));
 
     // Top 5 events by tickets sold
@@ -1539,8 +1569,8 @@ export class DbStorage implements IStorage {
 
     const topEventRevRows = topEventIds.length > 0
       ? await queryRows<{ event_id: string; revenue: string | number }>(sql`
-          select s.event_id as event_id, coalesce(sum(s.amount_kobo), 0) as revenue
-          from ${CONFIRMED_SALES} s
+          select s.event_id as event_id, coalesce(sum(s.fee_kobo), 0) as revenue
+          from ${feeSales} s
           where s.event_id in (${sql.join(topEventIds.map(id => sql`${id}`), sql`, `)})
           group by s.event_id
         `)
@@ -1554,7 +1584,7 @@ export class DbStorage implements IStorage {
       revenue: topEventRevMap.get(r.id) ?? 0,
     }));
 
-    // Top 5 organizers by revenue processed
+    // Top 5 organizers ranked by GROSS sales (organizer revenue, not Showgate revenue)
     const topOrgRawRows = await queryRows<{ organizer_id: string; revenue: string | number; tickets: number }>(sql`
       select s.organizer_id as organizer_id,
              coalesce(sum(s.amount_kobo), 0) as revenue,
@@ -1627,8 +1657,8 @@ export class DbStorage implements IStorage {
       : 0;
 
     // All-time totals
-    const [totalTixRev] = await queryRows<{ total: string | number }>(
-      sql`select coalesce(sum(s.amount_kobo), 0) as total from ${CONFIRMED_SALES} s`
+    const [totalTixFee] = await queryRows<{ total: string | number; gross: string | number }>(
+      sql`select coalesce(sum(s.fee_kobo), 0) as total, coalesce(sum(s.amount_kobo), 0) as gross from ${feeSales} s`
     );
     const [totalSubRev] = await db
       .select({ total: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)` })
@@ -1642,7 +1672,8 @@ export class DbStorage implements IStorage {
       subscriptionGrowth,
       tierRatio,
       avgTicketsPerEvent,
-      totalTicketRevenue: Number(totalTixRev?.total ?? 0),
+      totalTicketRevenue: Number(totalTixFee?.gross ?? 0),
+      totalTicketFeeRevenue: Number(totalTixFee?.total ?? 0),
       totalSubscriptionRevenue: Number(totalSubRev?.total ?? 0),
     };
   }
@@ -1674,8 +1705,9 @@ export class DbStorage implements IStorage {
     const [activeEventsCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events).where(eq(events.isActive, true));
     const [ticketsSold] = await db.select({ total: sql<number>`cast(coalesce(sum(quantity_sold), 0) as int)` }).from(ticketTypes);
     const [proUsers] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(eq(users.tier, "pro"));
+    const feeSales = await confirmedSalesWithFee();
     const [totalRevenue] = await queryRows<{ total: string | number }>(
-      sql`select coalesce(sum(s.amount_kobo), 0) as total from ${CONFIRMED_SALES} s`
+      sql`select coalesce(sum(s.fee_kobo), 0) as total from ${feeSales} s`
     );
     const [monthlySubRevenue] = await db.select({ total: sql<number>`cast(coalesce(sum(${subscriptionReferences.amountKobo}), 0) as bigint)` }).from(subscriptionReferences).where(sql`date_trunc('month', ${subscriptionReferences.fulfilledAt}) = date_trunc('month', now())`);
     const [signupsThisWeek] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(sql`${users.createdAt} >= now() - interval '7 days'`);

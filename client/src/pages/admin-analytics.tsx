@@ -14,13 +14,14 @@ import { AdminLayout } from "@/components/admin-layout";
 
 interface AdminAnalyticsData {
   revenueByMonth: { month: string; subscriptionRevenue: number; ticketFeeRevenue: number }[];
-  ticketsByMonth: { month: string; count: number; revenue: number }[];
+  ticketsByMonth: { month: string; count: number }[];
   topEventsByTickets: { id: string; title: string; ticketsSold: number; revenue: number }[];
   topOrganizersByRevenue: { id: string; businessName: string; email: string; revenue: number; ticketsSold: number }[];
   subscriptionGrowth: { month: string; newSubscriptions: number; cumulative: number }[];
   tierRatio: { free: number; pro: number };
   avgTicketsPerEvent: number;
-  totalTicketRevenue: number;
+  totalTicketRevenue: number; // gross ticket sales (organizer-owned, not Showgate revenue)
+  totalTicketFeeRevenue: number; // Showgate fee on ticket sales
   totalSubscriptionRevenue: number;
 }
 
@@ -84,21 +85,21 @@ export default function AdminAnalytics() {
 
     sections.push("");
     sections.push("Ticket Sales by Month");
-    sections.push("Month,Tickets Sold,Gross Revenue (₦)");
+    sections.push("Month,Tickets Sold");
     data.ticketsByMonth.forEach(r =>
-      sections.push(`${r.month},${r.count},${Math.round(r.revenue / 100)}`)
+      sections.push(`${r.month},${r.count}`)
     );
 
     sections.push("");
     sections.push("Top 5 Events by Tickets Sold");
-    sections.push("Event,Tickets Sold,Revenue (₦)");
+    sections.push("Event,Tickets Sold,Showgate Fee (₦)");
     data.topEventsByTickets.forEach(r =>
       sections.push(`"${r.title.replace(/"/g, '""')}",${r.ticketsSold},${Math.round(r.revenue / 100)}`)
     );
 
     sections.push("");
-    sections.push("Top 5 Organizers by Revenue");
-    sections.push("Business,Email,Revenue (₦),Tickets Sold");
+    sections.push("Top 5 Organizers by Gross Sales (organizer-owned, not Showgate revenue)");
+    sections.push("Business,Email,Gross Sales (₦),Tickets Sold");
     data.topOrganizersByRevenue.forEach(r =>
       sections.push(`"${r.businessName.replace(/"/g, '""')}","${r.email}",${Math.round(r.revenue / 100)},${r.ticketsSold}`)
     );
@@ -135,7 +136,7 @@ export default function AdminAnalytics() {
 
   if (!data) return null;
 
-  const totalShowgateRevenue = data.totalSubscriptionRevenue + Math.round(data.totalTicketRevenue * 0.025);
+  const totalShowgateRevenue = data.totalSubscriptionRevenue + data.totalTicketFeeRevenue;
   const pieData = [
     { name: "Free", value: data.tierRatio.free },
     { name: "Pro", value: data.tierRatio.pro },
@@ -170,7 +171,7 @@ export default function AdminAnalytics() {
             icon={<DollarSign className="w-4 h-4 text-amber-400" />}
             label="Showgate Revenue"
             value={fmtK(totalShowgateRevenue)}
-            sub="subscriptions + 2.5% fees"
+            sub="subscriptions + ticket fees"
           />
           <StatCard
             icon={<TrendingUp className="w-4 h-4 text-sky-400" />}
@@ -181,8 +182,8 @@ export default function AdminAnalytics() {
           <StatCard
             icon={<Ticket className="w-4 h-4 text-emerald-400" />}
             label="Ticket Fee Revenue"
-            value={fmtK(Math.round(data.totalTicketRevenue * 0.025))}
-            sub="2.5% of gross ticket sales"
+            value={fmtK(data.totalTicketFeeRevenue)}
+            sub="Showgate's cut of ticket sales"
           />
           <StatCard
             icon={<Calendar className="w-4 h-4 text-violet-400" />}
@@ -212,7 +213,7 @@ export default function AdminAnalytics() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Ticket Fee Revenue" subtitle="Showgate's 2.5% cut, monthly" icon={<DollarSign className="w-4 h-4 text-amber-400" />}>
+          <ChartCard title="Ticket Fee Revenue" subtitle="Showgate's fee on ticket sales, monthly" icon={<DollarSign className="w-4 h-4 text-amber-400" />}>
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={data.revenueByMonth.map(d => ({ ...d, label: shortMonth(d.month), fee: Math.round(d.ticketFeeRevenue / 100) }))}>
                 <defs>
@@ -282,7 +283,7 @@ export default function AdminAnalytics() {
                       <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                         <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                       </div>
-                      <div className="text-[10px] text-zinc-600">{fmtNaira(ev.revenue)} gross revenue</div>
+                      <div className="text-[10px] text-zinc-600">{fmtNaira(ev.revenue)} Showgate fee</div>
                     </div>
                   );
                 })}
@@ -290,7 +291,7 @@ export default function AdminAnalytics() {
             )}
           </ChartCard>
 
-          <ChartCard title="Top 5 Organizers" subtitle="By revenue processed" icon={<Users className="w-4 h-4 text-sky-400" />}>
+          <ChartCard title="Top 5 Organizers" subtitle="By gross sales (organizer revenue, not Showgate revenue)" icon={<Users className="w-4 h-4 text-sky-400" />}>
             {data.topOrganizersByRevenue.length === 0 ? (
               <div className="flex items-center justify-center h-[200px] text-zinc-600 text-sm">No organizer data yet</div>
             ) : (
@@ -365,9 +366,9 @@ export default function AdminAnalytics() {
               <span className="text-sm font-semibold text-zinc-200">All-Time Totals</span>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-              <SummaryRow label="Gross Ticket Revenue" value={fmtNaira(data.totalTicketRevenue)} />
+              <SummaryRow label="Gross ticket sales (organizer-owned, not Showgate revenue)" value={fmtNaira(data.totalTicketRevenue)} />
               <SummaryRow label="Subscription Revenue" value={fmtNaira(data.totalSubscriptionRevenue)} />
-              <SummaryRow label="Showgate Ticket Fees" value={fmtNaira(Math.round(data.totalTicketRevenue * 0.025))} highlight />
+              <SummaryRow label="Showgate Ticket Fees" value={fmtNaira(data.totalTicketFeeRevenue)} highlight />
               <SummaryRow label="Total Showgate Revenue" value={fmtNaira(totalShowgateRevenue)} highlight />
               <SummaryRow label="Avg Tickets Per Event" value={data.avgTicketsPerEvent.toString()} />
               <SummaryRow label="Pro Conversion Rate"

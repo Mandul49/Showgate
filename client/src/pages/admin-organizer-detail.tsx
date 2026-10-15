@@ -274,7 +274,7 @@ export default function AdminOrganizerDetail() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard icon={Calendar} label="Events" value={org.eventCount} accent="blue" />
           <StatCard icon={Ticket} label="Tickets Sold" value={org.ticketsSold} accent="amber" />
-          <StatCard icon={DollarSign} label="Revenue" value={fmtNaira(org.revenue)} accent="green" />
+          <StatCard icon={DollarSign} label="Gross sales" value={fmtNaira(org.revenue)} accent="green" />
           <StatCard icon={Users} label="Subscriptions" value={org.subscriptionHistory.length} accent="violet" />
         </div>
 
@@ -318,7 +318,7 @@ export default function AdminOrganizerDetail() {
                 <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b border-zinc-800">
-                      {["Event", "Date", "Status", "Tickets", "Revenue", "Payment", "Created"].map(h => (
+                      {["Event", "Date", "Status", "Tickets", "Gross sales", "Payment", "Created"].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-zinc-500 text-xs uppercase tracking-widest font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>

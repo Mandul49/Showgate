@@ -202,7 +202,7 @@ export default function AdminOrganizers() {
               <table className="w-full min-w-[960px] text-sm">
                 <thead>
                   <tr className="border-b border-zinc-800">
-                    {["Name / Email", "Tier", "Pro Expires", "Subaccount", "Events", "Tickets", "Revenue", "Joined", ""].map((h, i) => (
+                    {["Name / Email", "Tier", "Pro Expires", "Subaccount", "Events", "Tickets", "Gross sales", "Joined", ""].map((h, i) => (
                       <th key={i} className="px-4 py-3 text-left text-zinc-500 text-xs uppercase tracking-widest font-medium whitespace-nowrap">
                         {h}
                       </th>

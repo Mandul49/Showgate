@@ -479,7 +479,7 @@ export default function AdminPanel() {
             sub={stats ? `${stats.inactiveEvents} inactive · ${stats.totalEvents} total` : undefined}
           />
           <StatCard icon={Ticket} label="Tickets Sold" value={stats?.totalTicketsSold ?? "—"} />
-          <StatCard icon={DollarSign} label="Total Revenue" value={stats ? fmtNaira(stats.totalRevenue) : "—"} />
+          <StatCard icon={DollarSign} label="Showgate Fee Revenue (all-time)" value={stats ? fmtNaira(stats.totalRevenue) : "—"} />
         </div>
 
         {/* Stats row 2 */}
