@@ -9,7 +9,6 @@ import { isAuthenticated, clearToken, getUser, getToken } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { fetchBankAccountStatus } from "@/lib/api";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Switch } from "@/components/ui/switch";
 import {
   Plus, Calendar, MapPin, Ticket, LogOut,
   ChevronDown, ChevronUp, Loader2, Lock, Users,
@@ -2252,75 +2251,6 @@ interface BrandingSettings {
   brandingEnabled?: boolean;
 }
 
-function BrandingToggle() {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const [pending, setPending] = useState<boolean | null>(null);
-
-  const { data: branding } = useQuery<BrandingSettings>({
-    queryKey: ["/api/branding/settings"],
-  });
-
-  const enabled = pending ?? branding?.brandingEnabled ?? true;
-
-  const mutation = useMutation({
-    mutationFn: async (next: boolean) => {
-      const res = await apiRequest("PUT", "/api/branding/enabled", { enabled: next });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Update failed");
-      return json as { brandingEnabled: boolean };
-    },
-    onSuccess: (json) => {
-      toast({
-        title: json.brandingEnabled ? "White-label branding on" : "White-label branding off",
-        description: json.brandingEnabled
-          ? "Your saved branding is now applied to your event pages."
-          : "Your events now use the default Showgate look. Your saved branding is kept.",
-      });
-    },
-    onError: (err: any) => {
-      console.error("[branding-toggle] error", err);
-      toast({ title: "Could not update branding", description: err.message, variant: "destructive" });
-    },
-    onSettled: () => {
-      setPending(null);
-      qc.invalidateQueries({ queryKey: ["/api/branding/settings"] });
-      qc.invalidateQueries({ queryKey: ["/api/events"] });
-    },
-  });
-
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-5 py-4 mb-3">
-      <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
-        <Paintbrush className="w-4 h-4 text-amber-400" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-white font-semibold text-sm flex items-center gap-2">
-          White-label branding
-          <span className={`text-xs font-semibold ${enabled ? "text-green-400" : "text-zinc-500"}`}>
-            {enabled ? "On" : "Off"}
-          </span>
-        </p>
-        <p className="text-zinc-500 text-xs mt-0.5">
-          Turn off to use the default Showgate look. Your saved branding is kept.
-        </p>
-      </div>
-      <Switch
-        checked={enabled}
-        disabled={mutation.isPending}
-        onCheckedChange={(next) => {
-          setPending(next);
-          console.log("[branding-toggle] request", next);
-          mutation.mutate(next);
-        }}
-        aria-label="Toggle white-label branding"
-        data-testid="switch-branding-enabled"
-        className="flex-shrink-0"
-      />
-    </div>
-  );
-}
-
 function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -3029,7 +2959,6 @@ export default function Dashboard() {
         </div>
 
         {/* Branding */}
-        {tier === "pro" && showTierSections && <BrandingToggle />}
         {tier !== null && showTierSections && <BrandingSection tier={tier} />}
 
         {/* Live subaccount missing — warn organizer */}
