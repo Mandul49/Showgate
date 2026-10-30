@@ -39,6 +39,7 @@ import {
 
 interface AdminEventRow {
   id: string;
+  slug?: string | null;
   title: string;
   date: string;
   startTime: string | null;
@@ -281,14 +282,14 @@ export default function AdminEvents() {
                             <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-700 text-zinc-100 w-48">
                               <DropdownMenuItem
                                 className="gap-2 text-xs cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800"
-                                onClick={() => window.open(`/e/${ev.id}`, "_blank")}
+                                onClick={() => window.open(`/e/${ev.slug ?? ev.id}`, "_blank")}
                               >
                                 <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
                                 View public page
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="gap-2 text-xs cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800"
-                                onClick={() => window.open(`/analytics/${ev.id}`, "_blank")}
+                                onClick={() => window.open(`/analytics/${ev.slug ?? ev.id}`, "_blank")}
                               >
                                 <BarChart2 className="w-3.5 h-3.5 text-zinc-400" />
                                 View analytics

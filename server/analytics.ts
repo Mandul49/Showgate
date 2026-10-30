@@ -101,10 +101,11 @@ export function registerAnalyticsRoutes(app: Express) {
   // ── GET /api/analytics/:eventId ─────────────────────────────────────────
   app.get("/api/analytics/:eventId", requireAuth, async (req: any, res) => {
     try {
-      const { eventId } = req.params;
+      const { eventId: eventParam } = req.params;
 
-      const event = await storage.getEventById(eventId);
+      const event = (await storage.getEventBySlug(eventParam)) ?? (await storage.getEventById(eventParam));
       if (!event) return res.status(404).json({ message: "Event not found" });
+      const eventId = event.id;
 
       const isAdmin = isAdminUser(req.userRole);
       const organizer = await storage.getOrganizerByUserId(req.userId!);
@@ -171,6 +172,7 @@ export function registerAnalyticsRoutes(app: Express) {
         tier: analyticsTier,
         event: {
           id: event.id,
+          slug: event.slug ?? null,
           title: event.title,
           date: event.date,
           location: event.location,
@@ -256,6 +258,7 @@ export function registerAnalyticsRoutes(app: Express) {
           const evConfirmed = evOrders.filter((o) => o.status === "confirmed");
           return {
             id: ev.id,
+            slug: ev.slug ?? null,
             title: ev.title,
             date: ev.date,
             isActive: ev.isActive,

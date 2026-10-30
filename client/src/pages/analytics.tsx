@@ -71,6 +71,7 @@ interface AnalyticsData {
   }[];
   allEventsSummary?: {
     id: string;
+    slug?: string | null;
     title: string;
     date: string;
     isActive: boolean;
@@ -433,7 +434,7 @@ export default function Analytics() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => downloadPurchasesCSV(eventId!)}
+              onClick={() => downloadPurchasesCSV(data.event.id)}
               title="Download all ticket purchases as CSV"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors">
               <Download className="w-3.5 h-3.5" />
@@ -760,11 +761,11 @@ export default function Analytics() {
                         {data.allEventsSummary.map((ev) => (
                           <tr
                             key={ev.id}
-                            className={`hover:bg-zinc-800/30 transition-colors cursor-pointer ${ev.id === eventId ? "bg-amber-400/5" : ""}`}
-                            onClick={() => navigate(`/analytics/${ev.id}`)}>
+                            className={`hover:bg-zinc-800/30 transition-colors cursor-pointer ${ev.id === data.event.id ? "bg-amber-400/5" : ""}`}
+                            onClick={() => navigate(`/analytics/${ev.slug ?? ev.id}`)}>
                             <td className="px-4 py-3 font-medium whitespace-nowrap">
-                              <span className={ev.id === eventId ? "text-amber-400" : "text-white"}>{ev.title}</span>
-                              {ev.id === eventId && <span className="ml-2 text-[10px] text-amber-400/60">← current</span>}
+                              <span className={ev.id === data.event.id ? "text-amber-400" : "text-white"}>{ev.title}</span>
+                              {ev.id === data.event.id && <span className="ml-2 text-[10px] text-amber-400/60">← current</span>}
                             </td>
                             <td className="px-4 py-3 text-zinc-400 text-xs whitespace-nowrap">{fmtDate(ev.date)}</td>
                             <td className="px-4 py-3">

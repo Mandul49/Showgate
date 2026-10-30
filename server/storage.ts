@@ -192,6 +192,7 @@ export interface AdminSubscriptionStats {
 
 export interface AdminEventRow {
   id: string;
+  slug: string | null;
   title: string;
   date: string;
   startTime: string | null;
@@ -1404,6 +1405,7 @@ export class DbStorage implements IStorage {
     const rows = await db
       .select({
         id: events.id,
+        slug: events.slug,
         title: events.title,
         date: events.date,
         startTime: events.startTime,
@@ -1438,6 +1440,7 @@ export class DbStorage implements IStorage {
 
     return rows.map(r => ({
       id: r.id,
+      slug: r.slug ?? null,
       title: r.title,
       date: r.date,
       startTime: r.startTime ?? null,
