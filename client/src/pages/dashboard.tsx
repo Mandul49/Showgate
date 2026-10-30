@@ -1443,7 +1443,7 @@ function EventCard({
           <div className="flex items-center gap-2 flex-shrink-0">
             <CopyLinkButton eventId={event.id} slug={event.slug} />
             <a
-              href={`/analytics/${event.id}`}
+              href={`/analytics/${event.slug ?? event.id}`}
               title="View analytics"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold transition-colors hover:border-amber-400/40 text-zinc-400 hover:text-amber-400">
               <BarChart2 className="w-3.5 h-3.5" />
