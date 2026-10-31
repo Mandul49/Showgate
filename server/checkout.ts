@@ -2,6 +2,7 @@ import type { Express } from "express";
 import crypto from "crypto";
 import { storage } from "./storage";
 import { checkoutSchema } from "@shared/schema";
+import { fulfillPaystackOrder } from "./paystackFulfillment";
 import { fulfillUpgrade } from "./upgrade";
 import { sendConfirmationEmail } from "./email";
 import { getPaystackSecretKey, isTestMode } from "./paystackConfig";
@@ -202,6 +203,23 @@ export function registerCheckoutRoutes(app: Express) {
       // Idempotency — skip if already processed
       const existing = await storage.getTicketPurchaseByReference(reference);
       if (existing) return res.sendStatus(200);
+
+      // Popup checkout: the browser attaches the full order payload as metadata so a
+      // payment still becomes an order if the buyer never returns to the site.
+      const popupOrder = metadata?.showgate_order;
+      if (popupOrder && typeof popupOrder === "object" && popupOrder.eventId) {
+        const result = await fulfillPaystackOrder(
+          popupOrder.eventId,
+          { ...popupOrder, reference },
+          { fromWebhook: true },
+        );
+        if (result.status >= 400) {
+          console.error(`[webhook] Popup order NOT fulfilled for paid reference ${reference}: ${result.status} ${result.body?.message}`);
+        } else {
+          console.log(`[webhook] Popup order fulfilled: ${reference}`);
+        }
+        return res.sendStatus(200);
+      }
 
       const { event_id, ticket_type_id, buyer_name, buyer_email, buyer_phone, quantity, attendee_names } = metadata ?? {};
       if (!event_id || !ticket_type_id) {

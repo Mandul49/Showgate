@@ -243,7 +243,8 @@ export interface AdminAnalyticsData {
 
 export interface IStorage {
   // Orders
-  createOrder(order: InsertOrder, status?: string): Promise<Order>;
+  createOrder(order: InsertOrder, status?: string, paymentReference?: string): Promise<Order>;
+  getOrderByPaymentReference(reference: string): Promise<Order | undefined>;
   getOrder(id: string): Promise<Order | undefined>;
   getAllOrders(): Promise<Order[]>;
   getOrdersByEventId(eventId: string): Promise<Order[]>;
@@ -358,9 +359,14 @@ export class DbStorage implements IStorage {
 
   // ── Orders ───────────────────────────────────────────────────────────────
 
-  async createOrder(insertOrder: InsertOrder, status = "confirmed"): Promise<Order> {
+  async createOrder(insertOrder: InsertOrder, status = "confirmed", paymentReference?: string): Promise<Order> {
     const id = randomUUID();
-    const [row] = await db.insert(orders).values({ ...insertOrder, id, status }).returning();
+    const [row] = await db.insert(orders).values({ ...insertOrder, id, status, paymentReference: paymentReference ?? null }).returning();
+    return row;
+  }
+
+  async getOrderByPaymentReference(reference: string): Promise<Order | undefined> {
+    const [row] = await db.select().from(orders).where(eq(orders.paymentReference, reference));
     return row;
   }
 
