@@ -12,6 +12,7 @@ import {
   checkMonthlyTicketLimit,
 } from "./tierLimits";
 import { sendConfirmationEmail } from "./email";
+import { fulfillPaystackOrder, isEventSalesClosed, resolveTicketType, resolveDiscount } from "./paystackFulfillment";
 import { getPaystackSecretKey, getPaystackPublicKey, isTestMode, getPaystackMode } from "./paystackConfig";
 
 export function registerEventsRoutes(app: Express) {
@@ -328,132 +329,13 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
-  // ── Shared helper: check whether an event's sales window has closed ──────
-  function isEventSalesClosed(date: string, startTime: string | null | undefined): boolean {
-    const dt = startTime ? new Date(`${date}T${startTime}`) : new Date(`${date}T00:00:00`);
-    return Date.now() - dt.getTime() > 4 * 60 * 60 * 1000; // > 4 hours after start
-  }
-
-  // ── Shared helper: resolve and validate ticket type for public purchase ──────
-  async function resolveTicketType(eventId: string, ticketTypeId: unknown, quantity: unknown) {
-    if (!ticketTypeId || typeof ticketTypeId !== "string") {
-      return { error: "ticketTypeId is required" } as const;
-    }
-    const qty = typeof quantity === "number" ? quantity : parseInt(String(quantity), 10);
-    if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
-      return { error: "quantity must be an integer between 1 and 20" } as const;
-    }
-    const tt = await storage.getTicketTypeById(ticketTypeId);
-    if (!tt) return { error: "Ticket type not found" } as const;
-    if (tt.eventId !== eventId) return { error: "Ticket type does not belong to this event" } as const;
-    const groupSize = tt.groupSize ?? 1;
-    const seatDeduction = qty * groupSize;
-    const remaining = tt.quantityAvailable - tt.quantitySold;
-    if (remaining < seatDeduction) return { error: "Not enough tickets remaining for this type" } as const;
-    const totalAmount = tt.price * qty;
-    return { ticketType: tt, qty, totalAmount, seatDeduction } as const;
-  }
-
-  // ── Shared helper: validate discount code and compute discounted total ────
-  async function resolveDiscount(eventId: string, discountCode: string | undefined, ticketTypeId: string, baseTotal: number) {
-    if (!discountCode) return { discountAmount: 0, discountCodeId: null };
-    const dc = await storage.getDiscountCodeByCode(eventId, discountCode.trim().toUpperCase());
-    if (!dc) return { discountAmount: 0, discountCodeId: null };
-    if (dc.expiresAt && new Date() > dc.expiresAt) return { discountAmount: 0, discountCodeId: null };
-    if (dc.usageLimit !== null && dc.timesUsed >= dc.usageLimit) return { discountAmount: 0, discountCodeId: null };
-    if (dc.appliesTo === "specific" && dc.appliesToTicketTypeId && dc.appliesToTicketTypeId !== ticketTypeId) {
-      return { discountAmount: 0, discountCodeId: null };
-    }
-    let discountAmount = 0;
-    if (dc.type === "percent") {
-      discountAmount = Math.round(baseTotal * dc.value / 100);
-    } else {
-      discountAmount = Math.min(baseTotal, dc.value);
-    }
-    return { discountAmount, discountCodeId: dc.id, discountCodeStr: dc.code };
-  }
-
   // ── POST /api/public/events/:id/purchase/paystack ─────────────────────────
+  // The webhook (checkout.ts) runs the same fulfilment, so whichever of the two
+  // arrives first creates the order and the other returns it unchanged.
   app.post("/api/public/events/:id/purchase/paystack", async (req, res) => {
     try {
-      const event = await storage.getEventById(req.params.id);
-      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
-      if (isEventSalesClosed(event.date, event.startTime)) return res.status(410).json({ message: "Ticket sales for this event are closed" });
-
-      const { reference, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
-      if (!reference) return res.status(400).json({ message: "Missing payment reference" });
-      const emailSchema = z.string().email();
-      const toEmail = (recipientEmail && emailSchema.safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
-
-      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
-      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
-
-      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
-      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
-
-      const secretKey = getPaystackSecretKey();
-      if (!secretKey) return res.status(500).json({ message: "Payment not configured" });
-
-      const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-        headers: { Authorization: `Bearer ${secretKey}` },
-      });
-      if (!paystackRes.ok) return res.status(400).json({ message: "Payment verification failed" });
-
-      const paystackData: any = await paystackRes.json();
-      if (!paystackData.status || paystackData.data?.status !== "success")
-        return res.status(400).json({ message: "Payment was not successful" });
-
-      // Server-authoritative amount check (Paystack amounts are in kobo)
-      if (paystackData.data.amount < chargedAmount * 100)
-        return res.status(400).json({ message: "Paid amount is less than ticket price" });
-
-      const parsed = insertOrderSchema.safeParse({
-        eventId: event.id,
-        ticketTypeId: ticketType.id,
-        customerName,
-        customerEmail,
-        customerPhone,
-        instagramHandle: instagramHandle || null,
-        ticketType: ticketType.name,
-        quantity: qty,
-        totalAmount: chargedAmount,
-        discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
-        discountAmount: discount.discountAmount,
-        attendeeDetails: attendeeDetails || null,
-        gender: gender || null,
-        ageRange: ageRange || null,
-        heardFrom: heardFrom || null,
-      });
-      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-
-      const organizer = await storage.getOrganizerById(event.organizerId);
-      const monthlyCheck = await checkMonthlyTicketLimit(organizer!, qty);
-      if (!monthlyCheck.allowed) {
-        return res.status(403).json({ message: monthlyCheck.message, code: monthlyCheck.code });
-      }
-
-      const order = await storage.createOrder(parsed.data, "confirmed");
-      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
-      if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
-
-      const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
-      sendConfirmationEmail({
-        to: toEmail,
-        buyerName: customerName,
-        eventTitle: event.title,
-        eventDate: event.date,
-        eventLocation: event.location,
-        ticketTypeName: ticketType.name,
-        quantity: qty,
-        amount: totalAmount,
-        reference: order.id,
-        brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
-        brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
-        isPro,
-      }).catch(console.error);
-
-      return res.status(201).json(order);
+      const result = await fulfillPaystackOrder(req.params.id, req.body ?? {});
+      return res.status(result.status).json(result.body);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }

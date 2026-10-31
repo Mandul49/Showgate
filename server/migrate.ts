@@ -17,6 +17,8 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS tiktok_url text`);
     await db.execute(sql`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS branding_enabled boolean NOT NULL DEFAULT true`);
     await db.execute(sql`ALTER TABLE ticket_purchases ADD COLUMN IF NOT EXISTS attendee_details jsonb`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference text`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS orders_payment_reference_unique ON orders (payment_reference) WHERE payment_reference IS NOT NULL`);
     console.log("[migrations] cover_image_position_y column ready");
   } catch (err: any) {
     console.error("[migrations] startup migration error (non-fatal):", err?.message ?? err);

@@ -22,11 +22,13 @@ export const orders = pgTable("orders", {
   attendeeDetails: jsonb("attendee_details"),
   discountCode: text("discount_code"),
   discountAmount: integer("discount_amount").notNull().default(0),
+  paymentReference: text("payment_reference"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
+  paymentReference: true,
   status: true,
   createdAt: true,
 }).extend({

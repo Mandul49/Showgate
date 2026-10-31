@@ -601,6 +601,25 @@ function PurchaseForm({
         amount: total * 100,
         currency: "NGN",
         ref,
+        // Lets the server create the order from the Paystack webhook if this tab
+        // closes before the callback below completes.
+        metadata: {
+          showgate_order: {
+            eventId: event.id,
+            ticketTypeId: ticket.id,
+            quantity: data.quantity,
+            customerName: data.customerName,
+            customerEmail: data.customerEmail,
+            customerPhone: data.customerPhone,
+            instagramHandle: data.instagramHandle || null,
+            gender: data.gender || null,
+            ageRange: data.ageRange || null,
+            heardFrom: data.heardFrom || null,
+            discountCode: discountResult?.code || undefined,
+            recipientEmail: resolvedRecipient,
+            attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
+          },
+        },
         callback: (response: any) => {
           settled = true;
           clearTimeout(launchTimeout);
