@@ -718,7 +718,7 @@ export default function Analytics() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-zinc-800">
-                          {["Buyer", "Email", "Ticket", "Qty", "Amount", "Date"].map((h) => (
+                          {["Buyer", "Email", "Phone", "Ticket", "Qty", "Amount", "Date"].map((h) => (
                             <th key={h} className="text-left text-zinc-500 text-xs uppercase tracking-widest px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -728,6 +728,7 @@ export default function Analytics() {
                           <tr key={i} className="hover:bg-zinc-800/30 transition-colors">
                             <td className="px-4 py-3 text-white font-medium whitespace-nowrap">{b.name}</td>
                             <td className="px-4 py-3 text-zinc-400 text-xs">{b.email}</td>
+                            <td className="px-4 py-3 text-zinc-400 text-xs whitespace-nowrap">{b.phone || "—"}</td>
                             <td className="px-4 py-3 text-zinc-300 text-xs whitespace-nowrap">{b.ticketType}</td>
                             <td className="px-4 py-3 text-zinc-400 text-center">{b.quantity}</td>
                             <td className="px-4 py-3 text-amber-400 font-bold whitespace-nowrap">{fmtMoney(b.amount)}</td>
