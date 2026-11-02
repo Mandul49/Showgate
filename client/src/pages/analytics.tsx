@@ -657,7 +657,7 @@ export default function Analytics() {
                         <div key={i} className="flex items-center justify-between px-4 py-3 gap-3">
                           <div className="min-w-0">
                             <p className="text-white text-sm font-semibold truncate">{b.name}</p>
-                            <p className="text-zinc-500 text-xs truncate">{b.email}</p>
+                            <p className="text-zinc-500 text-xs truncate">{b.email}{b.phone ? ` · ${b.phone}` : ""}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-amber-400 text-xs font-bold">{fmtMoney(b.amount)}</p>
