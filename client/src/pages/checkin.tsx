@@ -5,12 +5,12 @@ import { ArrowLeft, Check, Search, UserCheck } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
 
 type Buyer = {
-  id: string; name: string; email: string; phone: string;
-  ticketType: string; quantity: number; createdAt: string | null; checkedInAt: string | null;
+  key: string; orderId: string; seat: number; of: number; name: string; buyerName: string;
+  email: string; phone: string; ticketType: string; createdAt: string | null; checkedInAt: string | null;
 };
 type CheckInData = {
   event: { id: string; title: string; date: string; location: string };
-  buyers: Buyer[];
+  tickets: Buyer[];
 };
 
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("authToken")}` });
@@ -36,21 +36,21 @@ export default function CheckIn() {
   });
 
   const toggle = useMutation({
-    mutationFn: async ({ id, checkedIn }: { id: string; checkedIn: boolean }) => {
+    mutationFn: async ({ id, seat, checkedIn }: { id: string; seat: number; checkedIn: boolean }) => {
       const res = await fetch(`/api/analytics/${eventId}/checkin/${id}`, {
         method: "PATCH",
         headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ checkedIn }),
+        body: JSON.stringify({ seat, checkedIn }),
       });
       if (!res.ok) throw new Error((await res.json()).message);
       return res.json();
     },
-    onMutate: async ({ id, checkedIn }) => {
+    onMutate: async ({ id, seat, checkedIn }) => {
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<CheckInData>(key);
       if (prev) qc.setQueryData<CheckInData>(key, {
         ...prev,
-        buyers: prev.buyers.map((b) => b.id === id ? { ...b, checkedInAt: checkedIn ? new Date().toISOString() : null } : b),
+        tickets: prev.tickets.map((b) => b.orderId === id && b.seat === seat ? { ...b, checkedInAt: checkedIn ? new Date().toISOString() : null } : b),
       });
       return { prev };
     },
@@ -60,8 +60,8 @@ export default function CheckIn() {
 
   const buyers = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = (data?.buyers ?? []).filter((b) =>
-      !q || [b.name, b.email, b.phone, b.ticketType, b.id].some((v) => v?.toLowerCase().includes(q)));
+    const list = (data?.tickets ?? []).filter((b) =>
+      !q || [b.name, b.buyerName, b.email, b.phone, b.ticketType, b.orderId].some((v) => v?.toLowerCase().includes(q)));
     // Waiting first (original order), checked-in at the bottom (most recent last)
     const waiting = list.filter((b) => !b.checkedInAt);
     const done = list.filter((b) => b.checkedInAt)
@@ -69,9 +69,8 @@ export default function CheckIn() {
     return [...waiting, ...done];
   }, [data, search]);
 
-  const totalTickets = (data?.buyers ?? []).reduce((s, b) => s + b.quantity, 0);
-  const inTickets = (data?.buyers ?? []).filter((b) => b.checkedInAt).reduce((s, b) => s + b.quantity, 0);
-  const inBuyers = (data?.buyers ?? []).filter((b) => b.checkedInAt).length;
+  const totalTickets = (data?.tickets ?? []).length;
+  const inTickets = (data?.tickets ?? []).filter((b) => b.checkedInAt).length;
 
   if (isLoading) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Loading check-in…</div>
@@ -103,7 +102,7 @@ export default function CheckIn() {
         <div>
           <h1 className="text-2xl font-black text-white">{data.event.title}</h1>
           <p className="text-zinc-500 text-xs mt-1">
-            {inBuyers} of {data.buyers.length} buyers checked in · {inTickets} of {totalTickets} tickets
+            {inTickets} of {totalTickets} tickets checked in
           </p>
         </div>
 
@@ -124,9 +123,9 @@ export default function CheckIn() {
             {buyers.map((b) => {
               const done = !!b.checkedInAt;
               return (
-                <li key={b.id}>
+                <li key={b.key}>
                   <button
-                    onClick={() => toggle.mutate({ id: b.id, checkedIn: !done })}
+                    onClick={() => toggle.mutate({ id: b.orderId, seat: b.seat, checkedIn: !done })}
                     aria-pressed={done}
                     className={`w-full flex items-center gap-4 text-left rounded-xl border px-4 py-3 transition-all ${
                       done
@@ -139,12 +138,14 @@ export default function CheckIn() {
                       {done && <Check className="w-4 h-4 text-zinc-950" strokeWidth={3} />}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className={`block font-semibold truncate ${done ? "line-through text-zinc-500" : "text-white"}`}>{b.name}</span>
-                      <span className="block text-xs text-zinc-500 truncate">{b.email} · {b.phone}</span>
+                      <span className={`block font-semibold truncate ${done ? "line-through text-zinc-500" : "text-white"}`}>
+                        {b.name}
+                        {b.of > 1 && <span className="ml-2 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 no-underline">{b.seat + 1}/{b.of}</span>}
+                      </span>
+                      <span className="block text-xs text-zinc-500 truncate">{b.name !== b.buyerName ? `Buyer: ${b.buyerName} · ` : ""}{b.email} · {b.phone}</span>
                     </span>
                     <span className="text-right shrink-0">
                       <span className="block text-xs font-semibold text-amber-400">{b.ticketType}</span>
-                      <span className="block text-xs text-zinc-500">{b.quantity} ticket{b.quantity === 1 ? "" : "s"}</span>
                     </span>
                   </button>
                 </li>

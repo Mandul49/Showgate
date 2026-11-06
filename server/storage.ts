@@ -249,7 +249,7 @@ export interface IStorage {
   getAllOrders(): Promise<Order[]>;
   getOrdersByEventId(eventId: string): Promise<Order[]>;
   hasEventOrders(eventId: string): Promise<boolean>;
-  setOrderCheckedIn(id: string, checkedIn: boolean): Promise<Order | undefined>;
+  setOrderCheckedIn(id: string, seat: number, checkedIn: boolean): Promise<Order | undefined>;
   getTotalTicketsSold(): Promise<number>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   // Event config
@@ -387,10 +387,12 @@ export class DbStorage implements IStorage {
     return rows;
   }
 
-  async setOrderCheckedIn(id: string, checkedIn: boolean): Promise<Order | undefined> {
-    const [row] = await db.update(orders)
-      .set({ checkedInAt: checkedIn ? new Date() : null })
-      .where(eq(orders.id, id)).returning();
+  async setOrderCheckedIn(id: string, seat: number, checkedIn: boolean): Promise<Order | undefined> {
+    const [cur] = await db.select().from(orders).where(eq(orders.id, id));
+    if (!cur) return undefined;
+    const seats = { ...((cur.checkedInSeats as Record<string, string> | null) ?? {}) };
+    if (checkedIn) seats[String(seat)] = new Date().toISOString(); else delete seats[String(seat)];
+    const [row] = await db.update(orders).set({ checkedInSeats: seats }).where(eq(orders.id, id)).returning();
     return row;
   }
 
