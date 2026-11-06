@@ -22,16 +22,23 @@ export function registerAnalyticsRoutes(app: Express) {
       const orders = (await storage.getOrdersByEventId(event.id)).filter((o) => o.status === "confirmed");
       return res.json({
         event: { id: event.id, title: event.title, date: event.date, location: event.location },
-        buyers: orders.map((o) => ({
-          id: o.id,
-          name: o.customerName,
-          email: o.customerEmail,
-          phone: o.customerPhone,
-          ticketType: o.ticketType,
-          quantity: o.quantity,
-          createdAt: o.createdAt,
-          checkedInAt: o.checkedInAt,
-        })),
+        tickets: orders.flatMap((o) => {
+          const attendees = (o.attendeeDetails as { name?: string }[] | null) ?? [];
+          const seats = (o.checkedInSeats as Record<string, string> | null) ?? {};
+          return Array.from({ length: Math.max(1, o.quantity) }, (_, i) => ({
+            key: `${o.id}:${i}`,
+            orderId: o.id,
+            seat: i,
+            of: Math.max(1, o.quantity),
+            name: attendees[i]?.name?.trim() || o.customerName,
+            buyerName: o.customerName,
+            email: o.customerEmail,
+            phone: o.customerPhone,
+            ticketType: o.ticketType,
+            createdAt: o.createdAt,
+            checkedInAt: seats[String(i)] ?? null,
+          }));
+        }),
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -47,8 +54,13 @@ export function registerAnalyticsRoutes(app: Express) {
       if (!orders.some((o) => o.id === req.params.orderId)) {
         return res.status(404).json({ message: "Order not found" });
       }
-      const updated = await storage.setOrderCheckedIn(req.params.orderId, !!req.body?.checkedIn);
-      return res.json({ id: updated!.id, checkedInAt: updated!.checkedInAt });
+      const seat = Number(req.body?.seat ?? 0);
+      const order = orders.find((o) => o.id === req.params.orderId)!;
+      if (!Number.isInteger(seat) || seat < 0 || seat >= Math.max(1, order.quantity)) {
+        return res.status(400).json({ message: "Invalid ticket number" });
+      }
+      await storage.setOrderCheckedIn(order.id, seat, !!req.body?.checkedIn);
+      return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
