@@ -19,6 +19,7 @@ import UpgradeSuccess from "@/pages/upgrade-success";
 import EventPage from "@/pages/event-page";
 import PurchaseSuccess from "@/pages/purchase-success";
 import Analytics from "@/pages/analytics";
+import CheckIn from "@/pages/checkin";
 import Subscription from "@/pages/subscription";
 import AdminPanel from "@/pages/admin-panel";
 import AdminOrganizers from "@/pages/admin-organizers";
@@ -65,6 +66,7 @@ function Router() {
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/pricing" component={Pricing} />
         <Route path="/upgrade-success" component={UpgradeSuccess} />
+        <Route path="/analytics/:eventId/checkin" component={CheckIn} />
         <Route path="/analytics/:eventId" component={Analytics} />
         <Route path="/subscription" component={Subscription} />
         <Route path="/admin" component={AdminPanel} />

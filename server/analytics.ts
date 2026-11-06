@@ -3,6 +3,57 @@ import { requireAuth, isAdminUser, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 
 export function registerAnalyticsRoutes(app: Express) {
+  async function authorizeEvent(req: any, res: any) {
+    const event = (await storage.getEventBySlug(req.params.eventId)) ?? (await storage.getEventById(req.params.eventId));
+    if (!event) { res.status(404).json({ message: "Event not found" }); return null; }
+    const isAdmin = isAdminUser(req.userRole);
+    const organizer = await storage.getOrganizerByUserId(req.userId!);
+    if (!isAdmin && (!organizer || organizer.id !== event.organizerId)) {
+      res.status(403).json({ message: "Access denied" }); return null;
+    }
+    return event;
+  }
+
+  // ── GET /api/analytics/:eventId/checkin — buyer list with check-in state ──
+  app.get("/api/analytics/:eventId/checkin", requireAuth, async (req: any, res) => {
+    try {
+      const event = await authorizeEvent(req, res);
+      if (!event) return res;
+      const orders = (await storage.getOrdersByEventId(event.id)).filter((o) => o.status === "confirmed");
+      return res.json({
+        event: { id: event.id, title: event.title, date: event.date, location: event.location },
+        buyers: orders.map((o) => ({
+          id: o.id,
+          name: o.customerName,
+          email: o.customerEmail,
+          phone: o.customerPhone,
+          ticketType: o.ticketType,
+          quantity: o.quantity,
+          createdAt: o.createdAt,
+          checkedInAt: o.checkedInAt,
+        })),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PATCH /api/analytics/:eventId/checkin/:orderId ────────────────────────
+  app.patch("/api/analytics/:eventId/checkin/:orderId", requireAuth, async (req: any, res) => {
+    try {
+      const event = await authorizeEvent(req, res);
+      if (!event) return res;
+      const orders = await storage.getOrdersByEventId(event.id);
+      if (!orders.some((o) => o.id === req.params.orderId)) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      const updated = await storage.setOrderCheckedIn(req.params.orderId, !!req.body?.checkedIn);
+      return res.json({ id: updated!.id, checkedInAt: updated!.checkedInAt });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── GET /api/organizer/events/:eventId/purchases/export ──────────────────
   app.get("/api/organizer/events/:eventId/purchases/export", requireAuth, async (req: any, res) => {
     try {
