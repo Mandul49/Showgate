@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft, BarChart2, TrendingUp, Ticket, DollarSign,
   Users, Download, Crown, Lock, Calendar, MapPin,
-  RefreshCw, ExternalLink, Tag
+  RefreshCw, ExternalLink, Tag, UserCheck
 } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
 
@@ -433,6 +433,11 @@ export default function Analytics() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <a href={`/analytics/${eventId}/checkin`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-400/30 text-xs font-semibold text-amber-400 hover:bg-amber-400/10 transition-colors">
+              <UserCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Check-in</span>
+            </a>
             <button
               onClick={() => downloadPurchasesCSV(data.event.id)}
               title="Download all ticket purchases as CSV"

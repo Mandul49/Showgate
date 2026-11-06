@@ -23,6 +23,7 @@ export const orders = pgTable("orders", {
   discountCode: text("discount_code"),
   discountAmount: integer("discount_amount").notNull().default(0),
   paymentReference: text("payment_reference"),
+  checkedInAt: timestamp("checked_in_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
