@@ -273,6 +273,7 @@ export function registerCheckoutRoutes(app: Express) {
       sendConfirmationEmail({
         to: purchase.customerEmail,
         buyerName: purchase.customerName,
+        organizerId: eventRecord.organizerId,
         eventTitle: eventRecord.title,
         eventDate: eventRecord.date,
         eventLocation: eventRecord.location,

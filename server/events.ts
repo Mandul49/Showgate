@@ -387,6 +387,7 @@ export function registerEventsRoutes(app: Express) {
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,
+        organizerId: event.organizerId,
         eventTitle: event.title,
         eventDate: event.date,
         eventLocation: event.location,
@@ -459,6 +460,7 @@ export function registerEventsRoutes(app: Express) {
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,
+        organizerId: event.organizerId,
         eventTitle: event.title,
         eventDate: event.date,
         eventLocation: event.location,
@@ -551,6 +553,7 @@ export function registerEventsRoutes(app: Express) {
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,
+        organizerId: event.organizerId,
         eventTitle: event.title,
         eventDate: event.date,
         eventLocation: event.location,

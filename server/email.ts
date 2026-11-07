@@ -1,10 +1,12 @@
 import { Resend } from "resend";
+import { storage } from "./storage";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "Showgate <support@showgate.ng>";
 
 export interface ConfirmationEmailOptions {
   to: string;
+  organizerId?: string;
   buyerName: string;
   eventTitle: string;
   eventDate?: string;
@@ -290,4 +292,55 @@ export async function sendConfirmationEmail(opts: ConfirmationEmailOptions): Pro
         </div>
       </div>`,
   });
+  await sendOrganizerNotification(opts);
+}
+
+function escapeHtml(v: string): string {
+  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Notify the event organiser that someone bought tickets. Never throws. */
+async function sendOrganizerNotification(opts: ConfirmationEmailOptions): Promise<void> {
+  if (!opts.organizerId) return;
+  try {
+    const organizer = await storage.getOrganizerById(opts.organizerId);
+    const user = organizer ? await storage.getUserById(organizer.userId) : undefined;
+    if (!user?.email) return;
+
+    const row = (label: string, value: string, last = false, extra = "") =>
+      `<tr><td style="padding:10px 0;${last ? "" : "border-bottom:1px solid #27272a;"}color:#71717a;font-size:13px;">${label}</td><td style="padding:10px 0;${last ? "" : "border-bottom:1px solid #27272a;"}color:#fff;font-weight:600;text-align:right;${extra}">${value}</td></tr>`;
+
+    const pending = !!opts.isBankTransfer;
+    const buyerName = escapeHtml(opts.buyerName);
+    const eventTitle = escapeHtml(opts.eventTitle);
+
+    await sendEmail({
+      to: user.email,
+      subject: pending
+        ? `New bank transfer order for ${opts.eventTitle}`
+        : `New ticket purchase for ${opts.eventTitle}`,
+      label: "Organizer purchase notification",
+      html: `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:28px 32px;">
+          <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
+          <h1 style="margin:10px 0 0;font-size:22px;color:#000;font-weight:900;">${pending ? "New order awaiting payment" : "New ticket purchase 🎟️"}</h1>
+        </div>
+        <div style="padding:28px 32px;">
+          <p style="margin:0 0 20px;color:#a1a1aa;"><strong style="color:#fff">${buyerName}</strong> ${pending ? "placed an order for" : "just bought tickets to"} <strong style="color:#fff">${eventTitle}</strong>.</p>
+          <table style="width:100%;border-collapse:collapse;">
+            ${row("Name", buyerName)}
+            ${row("Email", escapeHtml(opts.to))}
+            ${row("Ticket", escapeHtml(opts.ticketTypeName))}
+            ${row("Tickets purchased", String(opts.quantity))}
+            ${row("Amount", `₦${opts.amount.toLocaleString()}`, false, "color:#f59e0b;font-weight:900;")}
+            ${row("Reference", escapeHtml(opts.reference.toUpperCase()), false, "font-family:monospace;")}
+            ${row("Status", pending ? "Awaiting Payment" : "Confirmed", true, `color:${pending ? "#f59e0b" : "#22c55e"};`)}
+          </table>
+        </div>
+      </div>`,
+    });
+  } catch (err: any) {
+    console.error("[email] Organizer notification failed:", err?.message ?? err);
+  }
 }
