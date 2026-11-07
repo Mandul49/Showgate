@@ -158,6 +158,7 @@ export async function fulfillPaystackOrder(
     quantity: qty,
     amount: totalAmount,
     reference: order.id,
+    checkinOrderId: order.id,
     brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
     brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
     isPro,

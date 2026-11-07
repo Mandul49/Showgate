@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Search, UserCheck } from "lucide-react";
+import { ArrowLeft, Check, QrCode, Search, UserCheck } from "lucide-react";
+import QrScanner from "@/components/QrScanner";
 import { isAuthenticated } from "@/lib/auth";
 
 type Buyer = {
@@ -25,6 +26,7 @@ export default function CheckIn() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [scanning, setScanning] = useState(false);
   const key = ["/api/analytics", eventId, "checkin"];
   const cacheKey = `checkin:${eventId}`;
   const queueKey = `checkin-queue:${eventId}`;
@@ -188,6 +190,12 @@ export default function CheckIn() {
           </p>
         </div>
 
+        <button
+          onClick={() => setScanning(true)}
+          className="w-full flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-black font-bold rounded-lg py-3 text-sm">
+          <QrCode className="w-4 h-4" /> Scan QR code
+        </button>
+
         <div className="relative">
           <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -236,6 +244,9 @@ export default function CheckIn() {
           </ul>
         )}
       </div>
+      {scanning && eventId && (
+        <QrScanner eventId={eventId} onScanned={() => qc.invalidateQueries({ queryKey: key })} onClose={() => setScanning(false)} />
+      )}
     </div>
   );
 }

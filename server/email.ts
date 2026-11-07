@@ -7,6 +7,8 @@ const FROM = "Showgate <support@showgate.ng>";
 export interface ConfirmationEmailOptions {
   to: string;
   organizerId?: string;
+  /** When set (confirmed orders only), the email embeds a check-in QR code for this order. */
+  checkinOrderId?: string;
   buyerName: string;
   eventTitle: string;
   eventDate?: string;
@@ -258,6 +260,15 @@ export async function sendConfirmationEmail(opts: ConfirmationEmailOptions): Pro
       </div>`
     : "";
 
+  const baseUrl = (process.env.APP_BASE_URL || "").replace(/\/$/, "");
+  const qrHtml = (opts.checkinOrderId && !opts.isBankTransfer && baseUrl)
+    ? `<div style="margin-top:24px;padding:20px;background:#fff;border-radius:12px;text-align:center;">
+        <img src="${baseUrl}/api/qr/${encodeURIComponent(opts.checkinOrderId)}.png" alt="Check-in QR code" width="200" height="200" style="display:block;margin:0 auto;" />
+        <p style="margin:12px 0 0;font-size:13px;color:#000;font-weight:700;">Show this QR code at the gate</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#52525b;">${opts.quantity > 1 ? `One code for all ${opts.quantity} tickets. It can be scanned once per ticket.` : "Valid for one entry."}</p>
+      </div>`
+    : "";
+
   const statusLabel = opts.isBankTransfer ? "Awaiting Payment" : "Confirmed";
   const statusColor = opts.isBankTransfer ? "#f59e0b" : "#22c55e";
   const headerTitle = opts.isBankTransfer
@@ -288,6 +299,7 @@ export async function sendConfirmationEmail(opts: ConfirmationEmailOptions): Pro
             <tr><td style="padding:10px 0;color:#71717a;font-size:13px;">Status</td><td style="padding:10px 0;font-weight:700;text-align:right;color:${statusColor};">${statusLabel}</td></tr>
           </table>
           ${bankDetailsHtml}
+          ${qrHtml}
           ${poweredBy}
         </div>
       </div>`,

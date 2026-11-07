@@ -250,6 +250,7 @@ export interface IStorage {
   getOrdersByEventId(eventId: string): Promise<Order[]>;
   hasEventOrders(eventId: string): Promise<boolean>;
   setOrderCheckedIn(id: string, seat: number, checkedIn: boolean): Promise<Order | undefined>;
+  checkInNextSeat(id: string, total: number): Promise<{ seat: number; checkedIn: number } | null>;
   getTotalTicketsSold(): Promise<number>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   // Event config
@@ -394,6 +395,21 @@ export class DbStorage implements IStorage {
     if (checkedIn) seats[String(seat)] = new Date().toISOString(); else delete seats[String(seat)];
     const [row] = await db.update(orders).set({ checkedInSeats: seats }).where(eq(orders.id, id)).returning();
     return row;
+  }
+
+  /** Atomically claims the lowest unchecked seat. Returns null when every seat is used. */
+  async checkInNextSeat(id: string, total: number): Promise<{ seat: number; checkedIn: number } | null> {
+    return db.transaction(async (tx) => {
+      const [cur] = await tx.select().from(orders).where(eq(orders.id, id)).for("update");
+      if (!cur) return null;
+      const seats = { ...((cur.checkedInSeats as Record<string, string> | null) ?? {}) };
+      let seat = -1;
+      for (let i = 0; i < total; i++) if (!seats[String(i)]) { seat = i; break; }
+      if (seat < 0) return null;
+      seats[String(seat)] = new Date().toISOString();
+      await tx.update(orders).set({ checkedInSeats: seats }).where(eq(orders.id, id));
+      return { seat, checkedIn: Object.keys(seats).length };
+    });
   }
 
   async hasEventOrders(eventId: string): Promise<boolean> {

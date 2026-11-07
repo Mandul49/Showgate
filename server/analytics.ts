@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { requireAuth, isAdminUser, type AuthRequest } from "./auth";
 import { storage } from "./storage";
+import QRCode from "qrcode";
 
 export function registerAnalyticsRoutes(app: Express) {
   async function authorizeEvent(req: any, res: any) {
@@ -13,6 +14,52 @@ export function registerAnalyticsRoutes(app: Express) {
     }
     return event;
   }
+
+  // ── GET /api/qr/:orderId.png — QR image embedded in buyer emails ─────────
+  // Public by design (email clients fetch it). The order id is an unguessable UUID.
+  app.get("/api/qr/:orderId.png", async (req, res) => {
+    try {
+      const id = String(req.params.orderId);
+      if (!/^[0-9a-fA-F-]{36}$/.test(id)) return res.status(404).end();
+      const png = await QRCode.toBuffer(`SG:${id}`, { type: "png", width: 400, margin: 2, errorCorrectionLevel: "M" });
+      res.set({ "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" });
+      return res.send(png);
+    } catch {
+      return res.status(500).end();
+    }
+  });
+
+  // ── POST /api/analytics/:eventId/scan — check in the next unused ticket ──
+  // Body: { code: "SG:<orderId>" }. One scan checks in one ticket; a 3-ticket
+  // order can be scanned 3 times, after which it is rejected as fully used.
+  app.post("/api/analytics/:eventId/scan", requireAuth, async (req: any, res) => {
+    try {
+      const event = await authorizeEvent(req, res);
+      if (!event) return res;
+      const code = String(req.body?.code ?? "").trim();
+      const orderId = code.startsWith("SG:") ? code.slice(3) : code;
+      const order = (await storage.getOrdersByEventId(event.id)).find((o) => o.id === orderId);
+      if (!order) return res.status(404).json({ result: "invalid", message: "Ticket not found for this event" });
+      if (order.status !== "confirmed") return res.status(409).json({ result: "unpaid", message: "Payment not confirmed for this order" });
+      const total = Math.max(1, order.quantity);
+      const attendees = (order.attendeeDetails as { name?: string }[] | null) ?? [];
+      const claimed = await storage.checkInNextSeat(order.id, total);
+      const base = { buyerName: order.customerName, ticketType: order.ticketType, total };
+      if (!claimed) {
+        return res.status(409).json({ result: "used", message: `All ${total} ticket${total > 1 ? "s" : ""} already checked in`, ...base, checkedIn: total });
+      }
+      return res.json({
+        result: "ok",
+        message: "Checked in",
+        ...base,
+        name: attendees[claimed.seat]?.name?.trim() || order.customerName,
+        seat: claimed.seat,
+        checkedIn: claimed.checkedIn,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
 
   // ── GET /api/analytics/:eventId/checkin — buyer list with check-in state ──
   app.get("/api/analytics/:eventId/checkin", requireAuth, async (req: any, res) => {
