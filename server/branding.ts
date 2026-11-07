@@ -26,6 +26,7 @@ const brandThemeSchema = z.object({
   themeMode:     z.enum(["custom", "auto"]).optional(),
   countdownStyle: z.enum(["box", "minimal", "rings"]).optional(),
   buttonStyle:   z.enum(["solid", "outline"]).optional(),
+  hideLogo:      z.boolean().optional(),
 });
 
 const brandingSchema = z.object({
