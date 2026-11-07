@@ -150,6 +150,7 @@ export async function fulfillPaystackOrder(
   sendConfirmationEmail({
     to: toEmail,
     buyerName: customerName,
+    organizerId: event.organizerId,
     eventTitle: event.title,
     eventDate: event.date,
     eventLocation: event.location,
