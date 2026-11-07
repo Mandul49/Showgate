@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Search, UserCheck } from "lucide-react";
@@ -13,6 +13,11 @@ type CheckInData = {
   tickets: Buyer[];
 };
 
+type Pending = { id: string; seat: number; checkedIn: boolean };
+const readJson = <T,>(k: string, fallback: T): T => {
+  try { return JSON.parse(localStorage.getItem(k) ?? "") as T; } catch { return fallback; }
+};
+
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("authToken")}` });
 
 export default function CheckIn() {
@@ -21,41 +26,111 @@ export default function CheckIn() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const key = ["/api/analytics", eventId, "checkin"];
+  const cacheKey = `checkin:${eventId}`;
+  const queueKey = `checkin-queue:${eventId}`;
+  const [online, setOnline] = useState(navigator.onLine);
+  const [pending, setPending] = useState<Pending[]>(() => readJson<Pending[]>(queueKey, []));
 
   useEffect(() => { if (!isAuthenticated()) navigate("/login"); }, []);
+
+  // Service worker keeps the page itself loadable offline
+  useEffect(() => {
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }, []);
+
+  const savePending = (list: Pending[]) => {
+    localStorage.setItem(queueKey, JSON.stringify(list));
+    setPending(list);
+  };
+
+  const sendToggle = async ({ id, seat, checkedIn }: Pending) => {
+    const res = await fetch(`/api/analytics/${eventId}/checkin/${id}`, {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ seat, checkedIn }),
+    });
+    if (!res.ok) throw new Error((await res.json()).message);
+    return res.json();
+  };
+
+  // Push check-ins made offline once we are back online
+  const flushing = useRef(false);
+  const flush = async () => {
+    if (flushing.current) return;
+    flushing.current = true;
+    try {
+      let queue = readJson<Pending[]>(queueKey, []);
+      while (queue.length) {
+        try { await sendToggle(queue[0]); } catch (e) {
+          if (e instanceof TypeError) break; // still offline, keep the rest
+        }
+        queue = queue.slice(1);
+        savePending(queue);
+      }
+    } finally { flushing.current = false; }
+    qc.invalidateQueries({ queryKey: key });
+  };
+
+  useEffect(() => {
+    const up = () => { setOnline(true); flush(); };
+    const down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    if (navigator.onLine) flush();
+    return () => { window.removeEventListener("online", up); window.removeEventListener("offline", down); };
+  }, [eventId]);
 
   const { data, isLoading, isError, error } = useQuery<CheckInData, Error>({
     queryKey: key,
     queryFn: async () => {
-      const res = await fetch(`/api/analytics/${eventId}/checkin`, { headers: authHeaders() });
-      if (!res.ok) throw new Error((await res.json()).message);
-      return res.json();
+      // Never overwrite local offline check-ins with stale server data
+      if (readJson<Pending[]>(queueKey, []).length) await flush();
+      try {
+        const res = await fetch(`/api/analytics/${eventId}/checkin`, { headers: authHeaders() });
+        if (!res.ok) throw new Error((await res.json()).message);
+        const json = await res.json();
+        localStorage.setItem(cacheKey, JSON.stringify(json));
+        return json;
+      } catch (e) {
+        const cached = readJson<CheckInData | null>(cacheKey, null);
+        if (e instanceof TypeError && cached) return cached; // offline: use last loaded list
+        throw e;
+      }
     },
+    initialData: () => readJson<CheckInData | undefined>(cacheKey, undefined),
+    initialDataUpdatedAt: 0,
     enabled: !!eventId,
     refetchInterval: 15000,
+    networkMode: "always",
   });
 
   const toggle = useMutation({
-    mutationFn: async ({ id, seat, checkedIn }: { id: string; seat: number; checkedIn: boolean }) => {
-      const res = await fetch(`/api/analytics/${eventId}/checkin/${id}`, {
-        method: "PATCH",
-        headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ seat, checkedIn }),
-      });
-      if (!res.ok) throw new Error((await res.json()).message);
-      return res.json();
+    networkMode: "always",
+    mutationFn: async (p: Pending) => {
+      try {
+        return await sendToggle(p);
+      } catch (e) {
+        if (!(e instanceof TypeError)) throw e;
+        // Offline: queue it (latest action per seat wins) and keep the optimistic state
+        savePending([...readJson<Pending[]>(queueKey, []).filter((q) => !(q.id === p.id && q.seat === p.seat)), p]);
+        return null;
+      }
     },
     onMutate: async ({ id, seat, checkedIn }) => {
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<CheckInData>(key);
-      if (prev) qc.setQueryData<CheckInData>(key, {
-        ...prev,
-        tickets: prev.tickets.map((b) => b.orderId === id && b.seat === seat ? { ...b, checkedInAt: checkedIn ? new Date().toISOString() : null } : b),
-      });
+      if (prev) {
+        const next = {
+          ...prev,
+          tickets: prev.tickets.map((b) => b.orderId === id && b.seat === seat ? { ...b, checkedInAt: checkedIn ? new Date().toISOString() : null } : b),
+        };
+        qc.setQueryData<CheckInData>(key, next);
+        localStorage.setItem(cacheKey, JSON.stringify(next));
+      }
       return { prev };
     },
     onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(key, ctx.prev); },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+    onSettled: () => { if (!readJson<Pending[]>(queueKey, []).length) qc.invalidateQueries({ queryKey: key }); },
   });
 
   const buyers = useMemo(() => {
@@ -97,6 +172,13 @@ export default function CheckIn() {
           <span className="text-white font-semibold text-sm">Check-in</span>
         </div>
       </div>
+
+      {(!online || pending.length > 0) && (
+        <div className="bg-amber-400/10 border-b border-amber-400/30 text-amber-300 text-xs text-center py-2 px-4">
+          {!online ? "You're offline. Showing the last loaded list." : "Syncing check-ins…"}
+          {pending.length > 0 && ` ${pending.length} check-in${pending.length > 1 ? "s" : ""} will sync when you're back online.`}
+        </div>
+      )}
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
         <div>
