@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Search, UserCheck } from "lucide-react";
+import { ArrowLeft, Check, Crown, Search, UserCheck } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
 
 type Buyer = {
@@ -11,6 +11,7 @@ type Buyer = {
 type CheckInData = {
   event: { id: string; title: string; date: string; location: string };
   tickets: Buyer[];
+  vips?: { id: string; name: string }[];
 };
 
 type Pending = { id: string; seat: number; checkedIn: boolean };
@@ -144,6 +145,7 @@ export default function CheckIn() {
     return [...waiting, ...done];
   }, [data, search]);
 
+  const vips = data?.vips ?? [];
   const totalTickets = (data?.tickets ?? []).length;
   const inTickets = (data?.tickets ?? []).filter((b) => b.checkedInAt).length;
 
@@ -197,6 +199,18 @@ export default function CheckIn() {
             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/50"
           />
         </div>
+
+        {vips.length > 0 && (
+          <ul className="space-y-2">
+            {vips.map((v) => (
+              <li key={v.id} className="flex items-center gap-4 rounded-xl border border-fuchsia-400/60 bg-gradient-to-r from-fuchsia-500/20 to-amber-400/20 px-4 py-3">
+                <Crown className="w-6 h-6 shrink-0 text-amber-300" />
+                <span className="min-w-0 flex-1 font-bold text-white truncate">{v.name}</span>
+                <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded bg-fuchsia-500 text-white">VIP</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {buyers.length === 0 ? (
           <p className="text-center text-zinc-600 text-sm py-12">No buyers found.</p>

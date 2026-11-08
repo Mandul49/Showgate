@@ -200,6 +200,7 @@ export type EventStatus = "active" | "inactive" | "draft";
 export type PaymentMethod = "paystack" | "bank_transfer" | "flutterwave";
 
 export const events = pgTable("events", {
+  vipGuests: jsonb("vip_guests"),
   id: varchar("id", { length: 36 }).primaryKey(),
   organizerId: varchar("organizer_id", { length: 36 }).notNull(),
   title: text("title").notNull(),
