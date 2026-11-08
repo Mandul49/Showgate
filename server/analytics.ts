@@ -6,7 +6,7 @@ import { events } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
-type Vip = { id: string; name: string };
+type Vip = { id: string; name: string; checkedInAt?: string | null };
 // storage._mapEvent drops unknown columns, so read the list straight from the table
 async function readVips(eventId: string): Promise<Vip[]> {
   const [row] = await db.select({ v: events.vipGuests }).from(events).where(eq(events.id, eventId));
@@ -70,12 +70,32 @@ export function registerAnalyticsRoutes(app: Express) {
       if (!event) return res;
       const input = Array.isArray(req.body?.vips) ? req.body.vips : null;
       if (!input) return res.status(400).json({ message: "vips must be a list" });
+      const existing = new Map((await readVips(event.id)).map((v) => [v.id, v.checkedInAt ?? null]));
       const vips: Vip[] = input
-        .map((v: any) => ({ id: String(v?.id || randomUUID()), name: String(v?.name ?? "").trim().slice(0, 100) }))
+        .map((v: any) => {
+          const id = String(v?.id || randomUUID());
+          return { id, name: String(v?.name ?? "").trim().slice(0, 100), checkedInAt: existing.get(id) ?? null };
+        })
         .filter((v: Vip) => v.name)
         .slice(0, 200);
       await db.update(events).set({ vipGuests: vips }).where(eq(events.id, event.id));
       return res.json({ vips });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PATCH special guest check-in ──
+  app.patch("/api/analytics/:eventId/vip-checkin/:vipId", requireAuth, async (req: any, res) => {
+    try {
+      const event = await authorizeEvent(req, res);
+      if (!event) return res;
+      const vips = await readVips(event.id);
+      const vip = vips.find((v) => v.id === req.params.vipId);
+      if (!vip) return res.status(404).json({ message: "Special guest not found" });
+      vip.checkedInAt = req.body?.checkedIn ? new Date().toISOString() : null;
+      await db.update(events).set({ vipGuests: vips }).where(eq(events.id, event.id));
+      return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
