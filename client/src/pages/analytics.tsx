@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, BarChart2, TrendingUp, Ticket, DollarSign,
   Users, Download, Crown, Lock, Calendar, MapPin,
-  RefreshCw, ExternalLink, Tag, UserCheck
+  RefreshCw, ExternalLink, Tag, UserCheck, Trash2, Pencil, Check
 } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
 
@@ -115,6 +115,96 @@ function useChartJs(cb: () => void, deps: any[]) {
     script.onload = cb;
     document.head.appendChild(script);
   }, deps);
+}
+
+// ─── Special guests ───────────────────────────────────────────────────────────
+
+type Guest = { id: string; name: string };
+
+function SpecialGuests({ eventId }: { eventId: string }) {
+  const qc = useQueryClient();
+  const key = ["/api/events", eventId, "vips"];
+  const headers = () => ({ Authorization: `Bearer ${localStorage.getItem("authToken")}`, "Content-Type": "application/json" });
+  const [name, setName] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const { data: guests = [] } = useQuery<Guest[]>({
+    queryKey: key,
+    queryFn: async () => {
+      const res = await fetch(`/api/events/${eventId}/vips`, { headers: headers() });
+      if (!res.ok) throw new Error((await res.json()).message);
+      return (await res.json()).vips;
+    },
+  });
+
+  async function save(next: Guest[]) {
+    setBusy(true); setErr("");
+    try {
+      const res = await fetch(`/api/events/${eventId}/vips`, { method: "PUT", headers: headers(), body: JSON.stringify({ vips: next }) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+      qc.setQueryData(key, json.vips);
+      return true;
+    } catch (e: any) { setErr(e.message); return false; }
+    finally { setBusy(false); }
+  }
+
+  const add = async () => {
+    const n = name.trim();
+    if (n && await save([...guests, { id: crypto.randomUUID(), name: n }])) setName("");
+  };
+  const rename = async () => {
+    if (!editing) return;
+    const n = editing.name.trim();
+    if (!n) return;
+    if (await save(guests.map((g) => g.id === editing.id ? { ...g, name: n } : g))) setEditing(null);
+  };
+
+  return (
+    <div>
+      <h2 className="text-white font-bold mb-4 flex items-center gap-2">
+        <Crown className="w-4 h-4 text-fuchsia-400" /> Special Guests
+        <span className="text-zinc-600 text-xs font-normal">Shown at the top of the check-in page</span>
+      </h2>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
+        <form onSubmit={(e) => { e.preventDefault(); add(); }} className="flex gap-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Guest name" maxLength={100}
+            className="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-fuchsia-400/50" />
+          <button type="submit" disabled={busy || !name.trim()}
+            className="px-4 py-2 rounded-lg bg-fuchsia-500 text-white text-sm font-semibold disabled:opacity-50">Add</button>
+        </form>
+        {err && <p className="text-red-400 text-xs">{err}</p>}
+        {guests.length === 0 ? (
+          <p className="text-zinc-600 text-sm py-2">No special guests yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {guests.map((g) => (
+              <li key={g.id} className="flex items-center gap-2 rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2">
+                <Crown className="w-4 h-4 shrink-0 text-amber-300" />
+                {editing?.id === g.id ? (
+                  <>
+                    <input autoFocus value={editing.name} maxLength={100}
+                      onChange={(e) => setEditing({ id: g.id, name: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === "Enter") rename(); if (e.key === "Escape") setEditing(null); }}
+                      className="flex-1 min-w-0 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-sm text-white focus:outline-none" />
+                    <button disabled={busy} onClick={rename} title="Save" className="text-green-400"><Check className="w-4 h-4" /></button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 min-w-0 truncate text-sm text-white">{g.name}</span>
+                    <button onClick={() => setEditing({ id: g.id, name: g.name })} title="Edit" className="text-zinc-500 hover:text-amber-400"><Pencil className="w-3.5 h-3.5" /></button>
+                  </>
+                )}
+                <button disabled={busy} onClick={() => save(guests.filter((x) => x.id !== g.id))} title="Remove" className="text-zinc-500 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Metric card ──────────────────────────────────────────────────────────────
@@ -623,6 +713,8 @@ export default function Analytics() {
             </div>
           </div>
         )}
+
+        <SpecialGuests eventId={data.event.id} />
 
         {/* ── Pro: charts ── */}
         {isPro ? (
