@@ -7,7 +7,11 @@ import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 type Vip = { id: string; name: string };
-const vipsOf = (e: any): Vip[] => (Array.isArray(e.vipGuests) ? e.vipGuests : []);
+// storage._mapEvent drops unknown columns, so read the list straight from the table
+async function readVips(eventId: string): Promise<Vip[]> {
+  const [row] = await db.select({ v: events.vipGuests }).from(events).where(eq(events.id, eventId));
+  return Array.isArray(row?.v) ? (row.v as Vip[]) : [];
+}
 
 export function registerAnalyticsRoutes(app: Express) {
   async function authorizeEvent(req: any, res: any) {
@@ -29,7 +33,7 @@ export function registerAnalyticsRoutes(app: Express) {
       const orders = (await storage.getOrdersByEventId(event.id)).filter((o) => o.status === "confirmed");
       return res.json({
         event: { id: event.id, title: event.title, date: event.date, location: event.location },
-        vips: vipsOf(event),
+        vips: await readVips(event.id),
         tickets: orders.flatMap((o) => {
           const attendees = (o.attendeeDetails as { name?: string }[] | null) ?? [];
           const seats = (o.checkedInSeats as Record<string, string> | null) ?? {};
@@ -53,11 +57,11 @@ export function registerAnalyticsRoutes(app: Express) {
     }
   });
 
-  // ── VIP guests: GET list, PUT replace list ────────────────────────────────
+  // ── Special guests: GET list, PUT replace list ────────────────────────────────
   app.get("/api/events/:eventId/vips", requireAuth, async (req: any, res) => {
     const event = await authorizeEvent(req, res);
     if (!event) return res;
-    return res.json({ vips: vipsOf(event) });
+    return res.json({ vips: await readVips(event.id) });
   });
 
   app.put("/api/events/:eventId/vips", requireAuth, async (req: any, res) => {

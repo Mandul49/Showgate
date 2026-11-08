@@ -1106,7 +1106,7 @@ function VipButton({ eventId, title }: { eventId: string; title: string }) {
       setVips(json.vips);
       return true;
     } catch (err: any) {
-      toast({ title: "Could not save VIPs", description: err.message, variant: "destructive" });
+      toast({ title: "Could not save special guests", description: err.message, variant: "destructive" });
       return false;
     } finally { setBusy(false); }
   }
@@ -1129,24 +1129,24 @@ function VipButton({ eventId, title }: { eventId: string; title: string }) {
     <>
       <button
         onClick={openDialog}
-        title="Add VIP guests"
+        title="Special guests"
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold transition-colors hover:border-fuchsia-400/50 text-zinc-400 hover:text-fuchsia-400">
         <Crown className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">VIP</span>
+        <span className="hidden sm:inline">Special Guests</span>
       </button>
       {open && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <div className="w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 mb-1">
-              <h3 className="text-white font-bold flex items-center gap-2"><Crown className="w-4 h-4 text-fuchsia-400" /> VIP guests</h3>
+              <h3 className="text-white font-bold flex items-center gap-2"><Crown className="w-4 h-4 text-fuchsia-400" /> Special guests</h3>
               <button onClick={() => setOpen(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-zinc-500 text-xs mb-4 truncate">{title}. VIPs show at the top of the check-in page.</p>
+            <p className="text-zinc-500 text-xs mb-4 truncate">{title}. Special guests show at the top of the check-in page.</p>
             <form onSubmit={(e) => { e.preventDefault(); add(); }} className="flex gap-2 mb-4">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="VIP name"
+                placeholder="Guest name"
                 maxLength={100}
                 autoFocus
                 className="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-fuchsia-400/50"
@@ -1155,7 +1155,7 @@ function VipButton({ eventId, title }: { eventId: string; title: string }) {
                 className="px-3 py-2 rounded-lg bg-fuchsia-500 text-white text-sm font-semibold disabled:opacity-50">Add</button>
             </form>
             {vips.length === 0 ? (
-              <p className="text-zinc-600 text-sm text-center py-3">No VIPs yet.</p>
+              <p className="text-zinc-600 text-sm text-center py-3">No special guests yet.</p>
             ) : (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
                 {vips.map((v) => (

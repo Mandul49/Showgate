@@ -206,7 +206,7 @@ export default function CheckIn() {
               <li key={v.id} className="flex items-center gap-4 rounded-xl border border-fuchsia-400/60 bg-gradient-to-r from-fuchsia-500/20 to-amber-400/20 px-4 py-3">
                 <Crown className="w-6 h-6 shrink-0 text-amber-300" />
                 <span className="min-w-0 flex-1 font-bold text-white truncate">{v.name}</span>
-                <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded bg-fuchsia-500 text-white">VIP</span>
+                <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded bg-fuchsia-500 text-white">SPECIAL GUEST</span>
               </li>
             ))}
           </ul>
