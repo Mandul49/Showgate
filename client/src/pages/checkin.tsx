@@ -11,10 +11,10 @@ type Buyer = {
 type CheckInData = {
   event: { id: string; title: string; date: string; location: string };
   tickets: Buyer[];
-  vips?: { id: string; name: string }[];
+  vips?: { id: string; name: string; checkedInAt?: string | null }[];
 };
 
-type Pending = { id: string; seat: number; checkedIn: boolean };
+type Pending = { id: string; seat: number; checkedIn: boolean; vip?: boolean };
 const readJson = <T,>(k: string, fallback: T): T => {
   try { return JSON.parse(localStorage.getItem(k) ?? "") as T; } catch { return fallback; }
 };
@@ -44,8 +44,8 @@ export default function CheckIn() {
     setPending(list);
   };
 
-  const sendToggle = async ({ id, seat, checkedIn }: Pending) => {
-    const res = await fetch(`/api/analytics/${eventId}/checkin/${id}`, {
+  const sendToggle = async ({ id, seat, checkedIn, vip }: Pending) => {
+    const res = await fetch(vip ? `/api/analytics/${eventId}/vip-checkin/${id}` : `/api/analytics/${eventId}/checkin/${id}`, {
       method: "PATCH",
       headers: { ...authHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ seat, checkedIn }),
@@ -113,17 +113,18 @@ export default function CheckIn() {
       } catch (e) {
         if (!(e instanceof TypeError)) throw e;
         // Offline: queue it (latest action per seat wins) and keep the optimistic state
-        savePending([...readJson<Pending[]>(queueKey, []).filter((q) => !(q.id === p.id && q.seat === p.seat)), p]);
+        savePending([...readJson<Pending[]>(queueKey, []).filter((q) => !(q.id === p.id && q.seat === p.seat && !q.vip === !p.vip)), p]);
         return null;
       }
     },
-    onMutate: async ({ id, seat, checkedIn }) => {
+    onMutate: async ({ id, seat, checkedIn, vip }) => {
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<CheckInData>(key);
       if (prev) {
         const next = {
           ...prev,
-          tickets: prev.tickets.map((b) => b.orderId === id && b.seat === seat ? { ...b, checkedInAt: checkedIn ? new Date().toISOString() : null } : b),
+          vips: (prev.vips ?? []).map((v) => vip && v.id === id ? { ...v, checkedInAt: checkedIn ? new Date().toISOString() : null } : v),
+          tickets: vip ? prev.tickets : prev.tickets.map((b) => b.orderId === id && b.seat === seat ? { ...b, checkedInAt: checkedIn ? new Date().toISOString() : null } : b),
         };
         qc.setQueryData<CheckInData>(key, next);
         localStorage.setItem(cacheKey, JSON.stringify(next));
@@ -146,8 +147,8 @@ export default function CheckIn() {
   }, [data, search]);
 
   const vips = data?.vips ?? [];
-  const totalTickets = (data?.tickets ?? []).length;
-  const inTickets = (data?.tickets ?? []).filter((b) => b.checkedInAt).length;
+  const totalTickets = (data?.tickets ?? []).length + vips.length;
+  const inTickets = (data?.tickets ?? []).filter((b) => b.checkedInAt).length + vips.filter((v) => v.checkedInAt).length;
 
   if (isLoading) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Loading check-in…</div>
@@ -202,13 +203,27 @@ export default function CheckIn() {
 
         {vips.length > 0 && (
           <ul className="space-y-2">
-            {vips.map((v) => (
-              <li key={v.id} className="flex items-center gap-4 rounded-xl border border-fuchsia-400/60 bg-gradient-to-r from-fuchsia-500/20 to-amber-400/20 px-4 py-3">
-                <Crown className="w-6 h-6 shrink-0 text-amber-300" />
-                <span className="min-w-0 flex-1 font-bold text-white truncate">{v.name}</span>
-                <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded bg-fuchsia-500 text-white">SPECIAL GUEST</span>
-              </li>
-            ))}
+            {vips.map((v) => {
+              const done = !!v.checkedInAt;
+              return (
+                <li key={v.id}>
+                  <button
+                    onClick={() => toggle.mutate({ id: v.id, seat: 0, checkedIn: !done, vip: true })}
+                    aria-pressed={done}
+                    className={`w-full flex items-center gap-4 text-left rounded-xl border px-4 py-3 transition-all ${
+                      done ? "bg-zinc-900/40 border-amber-400/30 opacity-50" : "bg-zinc-900 border-amber-400/70 hover:border-amber-400"
+                    }`}>
+                    <span className={`w-7 h-7 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                      done ? "bg-green-500 border-green-500" : "border-zinc-600"
+                    }`}>
+                      {done && <Check className="w-4 h-4 text-zinc-950" strokeWidth={3} />}
+                    </span>
+                    <span className={`min-w-0 flex-1 font-semibold truncate ${done ? "line-through text-zinc-500" : "text-white"}`}>{v.name}</span>
+                    <Crown className="w-6 h-6 shrink-0 text-amber-400" />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
 
