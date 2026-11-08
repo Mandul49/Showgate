@@ -1,6 +1,13 @@
 import type { Express } from "express";
 import { requireAuth, isAdminUser, type AuthRequest } from "./auth";
 import { storage } from "./storage";
+import { db } from "./db";
+import { events } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { randomUUID } from "crypto";
+
+type Vip = { id: string; name: string };
+const vipsOf = (e: any): Vip[] => (Array.isArray(e.vipGuests) ? e.vipGuests : []);
 
 export function registerAnalyticsRoutes(app: Express) {
   async function authorizeEvent(req: any, res: any) {
@@ -22,6 +29,7 @@ export function registerAnalyticsRoutes(app: Express) {
       const orders = (await storage.getOrdersByEventId(event.id)).filter((o) => o.status === "confirmed");
       return res.json({
         event: { id: event.id, title: event.title, date: event.date, location: event.location },
+        vips: vipsOf(event),
         tickets: orders.flatMap((o) => {
           const attendees = (o.attendeeDetails as { name?: string }[] | null) ?? [];
           const seats = (o.checkedInSeats as Record<string, string> | null) ?? {};
@@ -40,6 +48,30 @@ export function registerAnalyticsRoutes(app: Express) {
           }));
         }),
       });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── VIP guests: GET list, PUT replace list ────────────────────────────────
+  app.get("/api/events/:eventId/vips", requireAuth, async (req: any, res) => {
+    const event = await authorizeEvent(req, res);
+    if (!event) return res;
+    return res.json({ vips: vipsOf(event) });
+  });
+
+  app.put("/api/events/:eventId/vips", requireAuth, async (req: any, res) => {
+    try {
+      const event = await authorizeEvent(req, res);
+      if (!event) return res;
+      const input = Array.isArray(req.body?.vips) ? req.body.vips : null;
+      if (!input) return res.status(400).json({ message: "vips must be a list" });
+      const vips: Vip[] = input
+        .map((v: any) => ({ id: String(v?.id || randomUUID()), name: String(v?.name ?? "").trim().slice(0, 100) }))
+        .filter((v: Vip) => v.name)
+        .slice(0, 200);
+      await db.update(events).set({ vipGuests: vips }).where(eq(events.id, event.id));
+      return res.json({ vips });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
