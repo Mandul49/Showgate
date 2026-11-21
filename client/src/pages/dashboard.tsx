@@ -43,6 +43,7 @@ interface EventData {
   paymentMethod: string;
   isActive: boolean;
   archivedAt: string | null;
+  deleteRequestedAt: string | null;
   description: string | null;
   coverImageUrl: string | null;
   coverImagePositionY: number | null;
@@ -1393,6 +1394,7 @@ function EventCard({
   const [linkCopied, setLinkCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
   const [isArchiving, setIsArchiving] = useState(false);
   const [editingTicketTypeId, setEditingTicketTypeId] = useState<string | null>(null);
   const [editingCapacity, setEditingCapacity] = useState(false);
@@ -1437,14 +1439,34 @@ function EventCard({
     }
   }
 
+  async function handleDeleteRequest(cancel: boolean) {
+    if (!cancel && !deleteReason.trim()) {
+      toast({ title: "Reason required", description: "Tell us why you want to delete this event.", variant: "destructive" });
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const res = await apiRequest("POST", `/api/events/${event.id}/delete-request${cancel ? "/cancel" : ""}`, cancel ? {} : { reason: deleteReason.trim() });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || "Request failed");
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: cancel ? "Request cancelled" : "Deletion requested", description: cancel ? "The event stays as it was." : "An admin will review your request." });
+      setConfirmDelete(false);
+      setDeleteReason("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   async function handleDelete() {
     setIsDeleting(true);
     try {
       const res = await apiRequest("DELETE", `/api/events/${event.id}`);
       if (res.status === 409) {
-        const body = await res.json();
-        toast({ title: "Cannot delete event", description: body.message, variant: "destructive" });
-        setConfirmDelete(false);
+        // Tickets were sold since the page loaded: switch to the request flow
+        qc.invalidateQueries({ queryKey: ["/api/events"] });
+        toast({ title: "Event has sold tickets", description: "Submit a deletion request for admin review.", variant: "destructive" });
         return;
       }
       if (!res.ok) {
@@ -1473,6 +1495,7 @@ function EventCard({
 
   const totalAvailable = event.ticketTypes.reduce((s, t) => s + t.quantityAvailable, 0);
   const totalSold = event.ticketTypes.reduce((s, t) => s + t.quantitySold, 0);
+  const hasSales = totalSold > 0;
   const usedCapacity = totalAvailable;
 
   return (
@@ -1551,7 +1574,7 @@ function EventCard({
             </button>
             <button
               onClick={() => setConfirmDelete(true)}
-              title="Delete event"
+              title={event.deleteRequestedAt ? "Deletion requested" : hasSales ? "Request deletion" : "Delete event"}
               className="p-1.5 rounded-lg text-zinc-700 hover:text-red-400 hover:bg-red-400/10 transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
@@ -1700,27 +1723,54 @@ function EventCard({
                 <Trash2 className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="text-white font-bold text-base">Delete this event?</h3>
-                <p className="text-zinc-500 text-xs mt-0.5">This cannot be undone. All ticket data will be lost.</p>
+                {event.deleteRequestedAt ? (
+                  <>
+                    <h3 className="text-white font-bold text-base">Deletion requested</h3>
+                    <p className="text-zinc-500 text-xs mt-0.5">Waiting for admin approval.</p>
+                  </>
+                ) : hasSales ? (
+                  <>
+                    <h3 className="text-white font-bold text-base">Request deletion?</h3>
+                    <p className="text-zinc-500 text-xs mt-0.5">This event has sold tickets, so an admin must approve the deletion.</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-white font-bold text-base">Delete this event?</h3>
+                    <p className="text-zinc-500 text-xs mt-0.5">This cannot be undone. All ticket data will be lost.</p>
+                  </>
+                )}
               </div>
             </div>
-            <p className="text-zinc-400 text-sm mb-5 bg-zinc-800 rounded-lg px-3 py-2 truncate">
+            <p className="text-zinc-400 text-sm mb-4 bg-zinc-800 rounded-lg px-3 py-2 truncate">
               {event.title}
             </p>
+            {hasSales && !event.deleteRequestedAt && (
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                maxLength={1000}
+                rows={3}
+                placeholder="Why do you want to delete this event?"
+                className="w-full mb-4 bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-400 transition-colors resize-none" />
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmDelete(false)}
                 disabled={isDeleting}
                 className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-sm font-semibold transition-colors disabled:opacity-50">
-                Cancel
+                {event.deleteRequestedAt ? "Close" : "Cancel"}
               </button>
               <button
-                onClick={handleDelete}
+                onClick={() => event.deleteRequestedAt ? handleDeleteRequest(true) : hasSales ? handleDeleteRequest(false) : handleDelete()}
                 disabled={isDeleting}
                 className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                 {isDeleting
-                  ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Deleting...</>
-                  : <><Trash2 className="w-4 h-4" /> Confirm Delete</>
+                  ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Working...</>
+                  : event.deleteRequestedAt
+                    ? <>Cancel Request</>
+                    : hasSales
+                      ? <><Trash2 className="w-4 h-4" /> Send Request</>
+                      : <><Trash2 className="w-4 h-4" /> Confirm Delete</>
                 }
               </button>
             </div>

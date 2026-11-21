@@ -200,6 +200,8 @@ export interface AdminEventRow {
   status: string;
   isActive: boolean;
   suspendedByAdmin: boolean;
+  deleteRequestedAt: Date | null;
+  deleteRequestReason: string | null;
   paymentMethod: string;
   maxTickets: number;
   createdAt: Date;
@@ -721,6 +723,8 @@ export class DbStorage implements IStorage {
       isActive: row.isActive,
       suspendedByAdmin: row.suspendedByAdmin,
       archivedAt: row.archivedAt ?? null,
+      deleteRequestedAt: row.deleteRequestedAt ?? null,
+      deleteRequestReason: row.deleteRequestReason ?? null,
       description: row.description ?? null,
       coverImageUrl: row.coverImageUrl ?? null,
       coverImagePositionY: row.coverImagePositionY ?? 50,
@@ -1433,6 +1437,8 @@ export class DbStorage implements IStorage {
         status: events.status,
         isActive: events.isActive,
         suspendedByAdmin: events.suspendedByAdmin,
+        deleteRequestedAt: events.deleteRequestedAt,
+        deleteRequestReason: events.deleteRequestReason,
         paymentMethod: events.paymentMethod,
         maxTickets: events.maxTickets,
         createdAt: events.createdAt,
@@ -1468,6 +1474,8 @@ export class DbStorage implements IStorage {
       status: r.status,
       isActive: r.isActive,
       suspendedByAdmin: r.suspendedByAdmin,
+      deleteRequestedAt: r.deleteRequestedAt ?? null,
+      deleteRequestReason: r.deleteRequestReason ?? null,
       paymentMethod: r.paymentMethod,
       maxTickets: r.maxTickets,
       createdAt: r.createdAt,

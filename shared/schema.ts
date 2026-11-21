@@ -213,6 +213,8 @@ export const events = pgTable("events", {
   isActive: boolean("is_active").notNull().default(true),
   suspendedByAdmin: boolean("suspended_by_admin").notNull().default(false),
   archivedAt: timestamp("archived_at"),
+  deleteRequestedAt: timestamp("delete_requested_at"),
+  deleteRequestReason: text("delete_request_reason"),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
   coverImagePositionY: integer("cover_image_position_y").default(50),
@@ -237,6 +239,8 @@ export type Event = {
   isActive: boolean;
   suspendedByAdmin: boolean;
   archivedAt: Date | null;
+  deleteRequestedAt: Date | null;
+  deleteRequestReason: string | null;
   description: string | null;
   coverImageUrl: string | null;
   coverImagePositionY: number | null;
@@ -278,6 +282,8 @@ export interface UpdateEventData {
   paymentMethod?: PaymentMethod;
   isActive?: boolean;
   archivedAt?: Date | null;
+  deleteRequestedAt?: Date | null;
+  deleteRequestReason?: string | null;
   description?: string | null;
   coverImageUrl?: string | null;
   coverImagePositionY?: number | null;

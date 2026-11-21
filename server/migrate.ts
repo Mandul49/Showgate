@@ -22,6 +22,8 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS checked_in_seats jsonb`);
     await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS vip_guests jsonb`);
     await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS archived_at timestamp`);
+    await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS delete_requested_at timestamp`);
+    await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS delete_request_reason text`);
     console.log("[migrations] cover_image_position_y column ready");
   } catch (err: any) {
     console.error("[migrations] startup migration error (non-fatal):", err?.message ?? err);
