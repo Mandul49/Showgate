@@ -58,11 +58,14 @@ interface AdminEventRow {
   revenue: number;
   deleteRequestedAt: string | null;
   deleteRequestReason: string | null;
+  deletedAt: string | null;
 }
 
-type StatusFilter = "all" | "active" | "inactive" | "suspended" | "past";
+type StatusFilter = "all" | "active" | "inactive" | "suspended" | "past" | "deleted";
+type DerivedStatus = "active" | "inactive" | "past" | "suspended" | "deleted";
 
-function derivedStatus(ev: AdminEventRow): "active" | "inactive" | "past" | "suspended" {
+function derivedStatus(ev: AdminEventRow): DerivedStatus {
+  if (ev.deletedAt) return "deleted";
   if (ev.suspendedByAdmin) return "suspended";
   const today = new Date().toISOString().split("T")[0];
   if (ev.date < today) return "past";
@@ -70,7 +73,9 @@ function derivedStatus(ev: AdminEventRow): "active" | "inactive" | "past" | "sus
   return "active";
 }
 
-function StatusBadge({ status }: { status: "active" | "inactive" | "past" | "suspended" }) {
+function StatusBadge({ status }: { status: DerivedStatus }) {
+  if (status === "deleted")
+    return <Badge className="bg-zinc-900 text-red-300 border border-red-900 text-[10px] font-medium">Deleted</Badge>;
   if (status === "active")
     return <Badge className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-medium">Active</Badge>;
   if (status === "inactive")
@@ -137,6 +142,7 @@ export default function AdminEvents() {
     inactive: events.filter(e => derivedStatus(e) === "inactive").length,
     suspended: events.filter(e => derivedStatus(e) === "suspended").length,
     past: events.filter(e => derivedStatus(e) === "past").length,
+    deleted: events.filter(e => derivedStatus(e) === "deleted").length,
   };
 
   if (meLoading) {
@@ -153,6 +159,7 @@ export default function AdminEvents() {
     { key: "inactive", label: "Inactive" },
     { key: "suspended", label: "Suspended" },
     { key: "past", label: "Past" },
+    { key: "deleted", label: "Deleted" },
   ];
 
   return (
@@ -285,6 +292,7 @@ export default function AdminEvents() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-700 text-zinc-100 w-48">
+                              {!ev.deletedAt && (
                               <DropdownMenuItem
                                 className="gap-2 text-xs cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800"
                                 onClick={() => window.open(`/e/${ev.slug ?? ev.id}`, "_blank")}
@@ -292,6 +300,7 @@ export default function AdminEvents() {
                                 <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
                                 View public page
                               </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 className="gap-2 text-xs cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800"
                                 onClick={() => window.open(`/analytics/${ev.slug ?? ev.id}`, "_blank")}
@@ -299,8 +308,8 @@ export default function AdminEvents() {
                                 <BarChart2 className="w-3.5 h-3.5 text-zinc-400" />
                                 View analytics
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator className="bg-zinc-800" />
-                              {ev.suspendedByAdmin ? (
+                              {!ev.deletedAt && <DropdownMenuSeparator className="bg-zinc-800" />}
+                              {ev.deletedAt ? null : ev.suspendedByAdmin ? (
                                 <DropdownMenuItem
                                   className="gap-2 text-xs cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800 text-emerald-400"
                                   onClick={() => setConfirmSuspend({ ev, suspend: false })}
@@ -317,13 +326,13 @@ export default function AdminEvents() {
                                   Suspend event
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem
+                              {!ev.deletedAt && <DropdownMenuItem
                                 className="gap-2 text-xs cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800 text-red-400"
                                 onClick={() => setConfirmDelete(ev)}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                                 Delete event
-                              </DropdownMenuItem>
+                              </DropdownMenuItem>}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -376,7 +385,7 @@ export default function AdminEvents() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-zinc-50">Delete event?</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              This will permanently delete <span className="text-zinc-200 font-medium">"{confirmDelete?.title}"</span> and all its ticket types. Existing purchase records are preserved. This cannot be undone.
+              This will delete <span className="text-zinc-200 font-medium">"{confirmDelete?.title}"</span> and remove it from the public site and the organizer. Its sales and stats stay in the admin dashboard under Deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

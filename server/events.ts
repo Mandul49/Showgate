@@ -319,7 +319,7 @@ export function registerEventsRoutes(app: Express) {
         ? await storage.getEventById(param)
         : (await storage.getEventBySlug(param)) ?? (await storage.getEventById(param));
       if (!event) return res.status(404).json({ message: "Event not found" });
-      if (event.suspendedByAdmin || event.archivedAt) return res.status(404).json({ message: "Event is not available" });
+      if (event.suspendedByAdmin || event.archivedAt || event.deletedAt) return res.status(404).json({ message: "Event is not available" });
       if (!event.isActive) {
         // Allow inactive past events only if they have at least one purchase
         const today = new Date().toISOString().split("T")[0];
