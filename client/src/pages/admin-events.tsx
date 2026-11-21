@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminLayout } from "@/components/admin-layout";
+import { DeleteRequests } from "@/components/admin-delete-requests";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -55,6 +56,8 @@ interface AdminEventRow {
   organizerEmail: string;
   ticketsSold: number;
   revenue: number;
+  deleteRequestedAt: string | null;
+  deleteRequestReason: string | null;
 }
 
 type StatusFilter = "all" | "active" | "inactive" | "suspended" | "past";
@@ -169,6 +172,8 @@ export default function AdminEvents() {
             <div className="text-xs text-zinc-500">total events</div>
           </div>
         </div>
+
+        <DeleteRequests events={events} />
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
