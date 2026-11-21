@@ -342,74 +342,6 @@ export function registerEventsRoutes(app: Express) {
   });
 
 
-  // ── POST /api/public/events/:id/purchase/bank ─────────────────────────────
-  app.post("/api/public/events/:id/purchase/bank", async (req, res) => {
-    try {
-      const event = await storage.getEventById(req.params.id);
-      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
-      if (isEventSalesClosed(event.date, event.startTime)) return res.status(410).json({ message: "Ticket sales for this event are closed" });
-
-      const { ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
-      const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
-
-      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
-      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
-
-      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
-      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
-
-      const parsed = insertOrderSchema.safeParse({
-        eventId: event.id,
-        ticketTypeId: ticketType.id,
-        customerName,
-        customerEmail,
-        customerPhone,
-        instagramHandle: instagramHandle || null,
-        ticketType: ticketType.name,
-        quantity: qty,
-        totalAmount: chargedAmount,
-        discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
-        discountAmount: discount.discountAmount,
-        attendeeDetails: attendeeDetails || null,
-        gender: gender || null,
-        ageRange: ageRange || null,
-        heardFrom: heardFrom || null,
-      });
-      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-
-      const order = await storage.createOrder(parsed.data, "awaiting_transfer");
-      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
-      if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
-
-      const organizer = await storage.getOrganizerById(event.organizerId);
-      const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
-      sendConfirmationEmail({
-        to: toEmail,
-        buyerName: customerName,
-        organizerId: event.organizerId,
-        eventTitle: event.title,
-        eventDate: event.date,
-        eventLocation: event.location,
-        ticketTypeName: ticketType.name,
-        quantity: qty,
-        amount: totalAmount,
-        reference: order.id,
-        brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
-        brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
-        isPro,
-        isBankTransfer: true,
-        bankName: organizer?.bankName,
-        accountNumber: organizer?.accountNumber,
-        accountName: organizer?.businessName,
-      }).catch(console.error);
-
-      return res.status(201).json(order);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
   // ── POST /api/public/events/:id/purchase/free ────────────────────────────
   app.post("/api/public/events/:id/purchase/free", async (req, res) => {
     try {
@@ -572,55 +504,6 @@ export function registerEventsRoutes(app: Express) {
     }
   });
 
-  // ── GET /api/orders/pending-transfers ─────────────────────────────────────
-  app.get("/api/orders/pending-transfers", requireAuth, async (req: AuthRequest, res) => {
-    try {
-      const organizer = await storage.getOrganizerByUserId(req.userId!);
-      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
-
-      const orgEvents = await storage.getEventsByOrganizerId(organizer.id);
-      const eventIds = new Set(orgEvents.map((e) => e.id));
-
-      const allOrders = await storage.getAllOrders();
-      const pending = allOrders
-        .filter((o) => o.status === "awaiting_transfer" && o.eventId && eventIds.has(o.eventId))
-        .map((o) => ({
-          ...o,
-          eventTitle: orgEvents.find((e) => e.id === o.eventId)?.title ?? "Unknown event",
-        }))
-        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
-
-      return res.json(pending);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
-  // ── PATCH /api/orders/:orderId/confirm-transfer ────────────────────────────
-  app.patch("/api/orders/:orderId/confirm-transfer", requireAuth, async (req: AuthRequest, res) => {
-    try {
-      const organizer = await storage.getOrganizerByUserId(req.userId!);
-      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
-
-      const order = await storage.getOrder(req.params.orderId);
-      if (!order) return res.status(404).json({ message: "Order not found" });
-      if (!order.eventId) return res.status(400).json({ message: "Order has no associated event" });
-
-      const event = await storage.getEventById(order.eventId);
-      if (!event || event.organizerId !== organizer.id) {
-        return res.status(403).json({ message: "Not authorized" });
-      }
-      if (order.status !== "awaiting_transfer") {
-        return res.status(400).json({ message: "Order is not awaiting transfer" });
-      }
-
-      await storage.updateOrderStatus(order.id, "confirmed");
-      return res.json({ message: "Transfer confirmed" });
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
   // ── GET /api/events/:id/orders ────────────────────────────────────────────
   app.get("/api/events/:id/orders", requireAuth, async (req: AuthRequest, res) => {
     try {
@@ -633,30 +516,6 @@ export function registerEventsRoutes(app: Express) {
 
       const eventOrders = await storage.getOrdersByEventId(event.id);
       return res.json(eventOrders);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
-  // ── PATCH /api/events/:id/orders/:orderId/confirm ─────────────────────────
-  app.patch("/api/events/:id/orders/:orderId/confirm", requireAuth, async (req: AuthRequest, res) => {
-    try {
-      const organizer = await storage.getOrganizerByUserId(req.userId!);
-      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
-
-      const event = await storage.getEventById(req.params.id);
-      if (!event) return res.status(404).json({ message: "Event not found" });
-      if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
-
-      const order = await storage.getOrder(req.params.orderId);
-      if (!order) return res.status(404).json({ message: "Order not found" });
-      if (order.eventId !== event.id) return res.status(403).json({ message: "Order does not belong to this event" });
-      if (order.status !== "awaiting_transfer") {
-        return res.status(400).json({ message: "Order is not awaiting transfer confirmation" });
-      }
-
-      const updated = await storage.updateOrderStatus(order.id, "confirmed");
-      return res.json(updated);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }

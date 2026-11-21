@@ -291,7 +291,7 @@ export const createEventSchema = z.object({
   startTime: z.string().optional().nullable(),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.number().min(1, "Must have at least 1 ticket"),
-  paymentMethod: z.enum(["paystack", "bank_transfer", "flutterwave"]),
+  paymentMethod: z.enum(["paystack", "flutterwave"]),
   isActive: z.boolean().default(true),
   description: z.string().optional().nullable(),
   coverImageUrl: z.string().optional().nullable(),

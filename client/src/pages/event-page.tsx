@@ -300,7 +300,7 @@ function DarkInput({ icon: Icon, field, placeholder, type = "text", borderColor 
 
 // ─── Purchase form ────────────────────────────────────────────────────────────
 
-type PaymentPhase = "form" | "stripe" | "bank";
+type PaymentPhase = "form" | "stripe";
 
 function PurchaseForm({
   ticket, event, onSuccess,
@@ -332,7 +332,8 @@ function PurchaseForm({
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientEmailError, setRecipientEmailError] = useState("");
 
-  const paymentMethod = event.paymentMethod;
+  // Bank transfer was retired; legacy events fall back to Paystack
+  const paymentMethod = event.paymentMethod === "bank_transfer" ? "paystack" : event.paymentMethod;
   const primary = event.branding?.brandTheme?.primary ?? "#F59E0B";
   const btForm = event.branding?.brandTheme;
   const onPrimaryForm = btForm?.onPrimary ?? "#000000";
@@ -473,35 +474,6 @@ function PurchaseForm({
       }
     } catch (err: any) {
       toast({ title: "Payment failed", description: err.message, variant: "destructive" });
-    } finally {
-      setProcessing(false);
-    }
-  }
-
-  async function confirmBankTransfer() {
-    if (!formData) return;
-    setProcessing(true);
-    try {
-      const res = await apiRequest("POST", `/api/public/events/${event.id}/purchase/bank`, {
-        ticketTypeId: ticket.id,
-        quantity: formData.quantity,
-        customerName: formData.customerName,
-        customerEmail: formData.customerEmail,
-        customerPhone: formData.customerPhone,
-        instagramHandle: formData.instagramHandle || null,
-        gender: formData.gender || null,
-        ageRange: formData.ageRange || null,
-        heardFrom: formData.heardFrom || null,
-        discountCode: discountResult?.code || undefined,
-        recipientEmail: sendToOther && recipientEmail.trim() ? recipientEmail.trim() : undefined,
-        attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || formData.customerName, email: i === 0 ? formData.customerEmail : "" })) : undefined,
-      });
-      const order = await res.json();
-      if (!res.ok) throw new Error(order.message);
-      qc.invalidateQueries({ queryKey: [`/api/public/events/${event.id}`] });
-      onSuccess(order.id, formData.customerName, total, formData.quantity, "awaiting_transfer");
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setProcessing(false);
     }
@@ -757,7 +729,6 @@ function PurchaseForm({
     }
 
     if (paymentMethod === "stripe") { setPhase("stripe"); return; }
-    if (paymentMethod === "bank_transfer") { setPhase("bank"); return; }
   }
 
   const BackBtn = () => (
@@ -1079,42 +1050,6 @@ function PurchaseForm({
               : <><ShieldCheck className="w-4 h-4" /> Confirm Payment · {formatPrice(total)}</>
             }
           </button>
-        </div>
-      )}
-
-      {phase === "bank" && (
-        <div>
-          <BackBtn />
-          <Summary />
-          <div className="rounded-xl p-5 mb-5 space-y-3" style={{ backgroundColor: `${primary}15`, border: `1px solid ${primary}35` }}>
-            <div className="flex items-center gap-2 mb-4">
-              <Building2 className="w-4 h-4" style={{ color: primary }} />
-              <span className="text-white font-bold text-sm">Bank Transfer Details</span>
-            </div>
-            {[
-              { label: "Business Name", value: event.organizer?.businessName },
-              { label: "Bank Name", value: event.organizer?.bankName },
-              { label: "Account Number", value: event.organizer?.accountNumber },
-            ].filter((r) => r.value).map((row) => (
-              <div key={row.label} className="flex items-start justify-between gap-4 border-b border-zinc-800 pb-2 last:border-0 last:pb-0">
-                <span className="text-zinc-500 text-xs uppercase tracking-widest">{row.label}</span>
-                <span className="text-white font-mono font-bold text-sm text-right">{row.value || "—"}</span>
-              </div>
-            ))}
-            <div className="flex items-start justify-between gap-4 border-b border-zinc-800 pb-2">
-              <span className="text-zinc-500 text-xs uppercase tracking-widest">Amount</span>
-              <span className="font-black text-base text-right" style={{ color: primary }}>{formatPrice(total)}</span>
-            </div>
-          </div>
-          <button onClick={confirmBankTransfer} disabled={processing}
-            className="w-full py-4 rounded-lg font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
-            style={{ backgroundColor: primary, color: "#000" }}>
-            {processing
-              ? <><span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> Reserving...</>
-              : <><Ticket className="w-4 h-4" /> Reserve My Spot</>
-            }
-          </button>
-          <p className="text-center text-zinc-600 text-xs mt-3">Click to reserve, then complete the bank transfer to confirm your spot.</p>
         </div>
       )}
     </div>
