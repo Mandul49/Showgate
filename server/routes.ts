@@ -232,48 +232,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return app._router.handle(req, res, () => {});
   });
 
-  // ─── Bank Transfer ────────────────────────────────────────────────────────
-
-  app.post("/api/payments/bank-transfer", async (req, res) => {
-    try {
-      const { orderData } = req.body;
-      if (!orderData) return res.status(400).json({ message: "Missing order data" });
-
-      const config = await storage.getEventConfig();
-      const sold = await storage.getTotalTicketsSold();
-      if (sold + orderData.quantity > config.totalTickets)
-        return res.status(400).json({ message: "Not enough tickets remaining" });
-
-      const parsed = insertOrderSchema.safeParse(orderData);
-      if (!parsed.success) return res.status(400).json({ message: "Invalid order data" });
-
-      const order = await storage.createOrder(parsed.data, "awaiting_transfer");
-
-      if (order.customerEmail) {
-        const event = order.eventId ? await storage.getEventById(order.eventId) : null;
-        sendConfirmationEmail({
-          to: order.customerEmail,
-          buyerName: order.customerName,
-          eventTitle: event?.title ?? config.eventName ?? "Your Event",
-          eventDate: event?.date ?? config.eventDate,
-          eventLocation: event?.location ?? config.eventVenue,
-          ticketTypeName: order.ticketType,
-          quantity: order.quantity,
-          amount: order.totalAmount,
-          reference: order.id,
-          isBankTransfer: true,
-          bankName: config.bankName,
-          accountNumber: config.bankAccountNumber,
-          accountName: config.bankAccountName,
-        }).catch(console.error);
-      }
-
-      return res.status(201).json(order);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
   // ─── Orders ───────────────────────────────────────────────────────────────
 
   app.get("/api/orders/:id", async (req, res) => {
