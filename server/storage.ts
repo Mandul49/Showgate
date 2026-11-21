@@ -720,6 +720,7 @@ export class DbStorage implements IStorage {
       paymentMethod: row.paymentMethod as PaymentMethod,
       isActive: row.isActive,
       suspendedByAdmin: row.suspendedByAdmin,
+      archivedAt: row.archivedAt ?? null,
       description: row.description ?? null,
       coverImageUrl: row.coverImageUrl ?? null,
       coverImagePositionY: row.coverImagePositionY ?? 50,
@@ -967,6 +968,7 @@ export class DbStorage implements IStorage {
       .where(and(
         eq(events.status, "active"),
         eq(events.suspendedByAdmin, false),
+        sql`${events.archivedAt} IS NULL`,
         sql`${events.date} >= ${today}`
       ))
       .orderBy(desc(events.createdAt));
@@ -990,6 +992,7 @@ export class DbStorage implements IStorage {
         and(
           eq(events.status, "active"),
           eq(events.suspendedByAdmin, false),
+          sql`${events.archivedAt} IS NULL`,
           sql`${events.date} < ${today}`
         )
       )
@@ -1003,6 +1006,7 @@ export class DbStorage implements IStorage {
         and(
           sql`${events.status} != 'active'`,
           eq(events.suspendedByAdmin, false),
+          sql`${events.archivedAt} IS NULL`,
           sql`${events.date} < ${today}`,
           sql`EXISTS (SELECT 1 FROM orders WHERE orders.event_id = ${events.id})`
         )
