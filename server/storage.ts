@@ -202,6 +202,7 @@ export interface AdminEventRow {
   suspendedByAdmin: boolean;
   deleteRequestedAt: Date | null;
   deleteRequestReason: string | null;
+  deletedAt: Date | null;
   paymentMethod: string;
   maxTickets: number;
   createdAt: Date;
@@ -679,7 +680,7 @@ export class DbStorage implements IStorage {
 
   async getEventsByOrganizerId(organizerId: string): Promise<Event[]> {
     const rows = await db.select().from(events)
-      .where(eq(events.organizerId, organizerId))
+      .where(and(eq(events.organizerId, organizerId), sql`${events.deletedAt} IS NULL`))
       .orderBy(sql`${events.createdAt} DESC`);
     return rows.map(this._mapEvent);
   }
@@ -724,6 +725,7 @@ export class DbStorage implements IStorage {
       suspendedByAdmin: row.suspendedByAdmin,
       archivedAt: row.archivedAt ?? null,
       deleteRequestedAt: row.deleteRequestedAt ?? null,
+      deletedAt: row.deletedAt ?? null,
       deleteRequestReason: row.deleteRequestReason ?? null,
       description: row.description ?? null,
       coverImageUrl: row.coverImageUrl ?? null,
@@ -973,6 +975,7 @@ export class DbStorage implements IStorage {
         eq(events.status, "active"),
         eq(events.suspendedByAdmin, false),
         sql`${events.archivedAt} IS NULL`,
+        sql`${events.deletedAt} IS NULL`,
         sql`${events.date} >= ${today}`
       ))
       .orderBy(desc(events.createdAt));
@@ -997,6 +1000,7 @@ export class DbStorage implements IStorage {
           eq(events.status, "active"),
           eq(events.suspendedByAdmin, false),
           sql`${events.archivedAt} IS NULL`,
+          sql`${events.deletedAt} IS NULL`,
           sql`${events.date} < ${today}`
         )
       )
@@ -1011,6 +1015,7 @@ export class DbStorage implements IStorage {
           sql`${events.status} != 'active'`,
           eq(events.suspendedByAdmin, false),
           sql`${events.archivedAt} IS NULL`,
+          sql`${events.deletedAt} IS NULL`,
           sql`${events.date} < ${today}`,
           sql`EXISTS (SELECT 1 FROM orders WHERE orders.event_id = ${events.id})`
         )
@@ -1439,6 +1444,7 @@ export class DbStorage implements IStorage {
         suspendedByAdmin: events.suspendedByAdmin,
         deleteRequestedAt: events.deleteRequestedAt,
         deleteRequestReason: events.deleteRequestReason,
+        deletedAt: events.deletedAt,
         paymentMethod: events.paymentMethod,
         maxTickets: events.maxTickets,
         createdAt: events.createdAt,
@@ -1476,6 +1482,7 @@ export class DbStorage implements IStorage {
       suspendedByAdmin: r.suspendedByAdmin,
       deleteRequestedAt: r.deleteRequestedAt ?? null,
       deleteRequestReason: r.deleteRequestReason ?? null,
+      deletedAt: r.deletedAt ?? null,
       paymentMethod: r.paymentMethod,
       maxTickets: r.maxTickets,
       createdAt: r.createdAt,
@@ -1692,9 +1699,13 @@ export class DbStorage implements IStorage {
     return this._mapEvent(row);
   }
 
+  // Soft delete: the row, ticket types and orders stay so admin stats and revenue
+  // history survive. The event disappears from public pages and the organizer's
+  // dashboard; the slug is released for reuse.
   async adminDeleteEvent(eventId: string): Promise<void> {
-    await db.delete(ticketTypes).where(eq(ticketTypes.eventId, eventId));
-    await db.delete(events).where(eq(events.id, eventId));
+    await db.update(events)
+      .set({ deletedAt: new Date(), isActive: false, slug: null, deleteRequestedAt: null })
+      .where(eq(events.id, eventId));
   }
 
   async setUserRole(userId: string, role: string): Promise<User> {
