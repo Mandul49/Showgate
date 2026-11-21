@@ -210,6 +210,42 @@ export function registerEventsRoutes(app: Express) {
     });
   }
 
+  // ── POST /api/events/:id/delete-request (+ /cancel) ───────────────────────
+  // Events with sold tickets can't be deleted directly. The organizer files a
+  // request and an admin approves (deletes) or rejects it from the admin panel.
+  app.post("/api/events/:id/delete-request", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
+      if (event.deleteRequestedAt) return res.status(409).json({ message: "Deletion already requested" });
+
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 1000) : "";
+      if (!reason) return res.status(400).json({ message: "Please tell us why you want to delete this event" });
+
+      const updated = await storage.updateEvent(event.id, { deleteRequestedAt: new Date(), deleteRequestReason: reason });
+      return res.json(updated);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/events/:id/delete-request/cancel", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
+      const updated = await storage.updateEvent(event.id, { deleteRequestedAt: null, deleteRequestReason: null });
+      return res.json(updated);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   app.delete("/api/events/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
       const organizer = await storage.getOrganizerByUserId(req.userId!);
@@ -223,7 +259,7 @@ export function registerEventsRoutes(app: Express) {
       const totalSold = ticketTypeList.reduce((sum, t) => sum + t.quantitySold, 0);
       if (totalSold > 0) {
         return res.status(409).json({
-          message: "Cannot delete an event with purchased tickets. Archive it instead.",
+          message: "This event has purchased tickets. Request deletion and an admin will review it.",
           code: "TICKETS_SOLD",
         });
       }

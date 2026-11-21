@@ -142,6 +142,29 @@ export function registerAdminRoutes(app: Express) {
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
+  // Organizer-requested deletions of events with sold tickets
+  app.post("/api/admin/events/:id/delete-request/approve", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (!event.deleteRequestedAt) return res.status(400).json({ message: "No deletion request for this event" });
+      await storage.adminDeleteEvent(event.id);
+      audit(req, "approve_event_delete_request", "event", event.id, { title: event.title, reason: event.deleteRequestReason });
+      return res.json({ message: "Event deleted" });
+    } catch (err: any) { return res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/admin/events/:id/delete-request/reject", requireAdmin, requireAdminRole(["super_admin", "admin"]), async (req: AuthRequest, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (!event.deleteRequestedAt) return res.status(400).json({ message: "No deletion request for this event" });
+      await storage.updateEvent(event.id, { deleteRequestedAt: null, deleteRequestReason: null });
+      audit(req, "reject_event_delete_request", "event", event.id, { title: event.title });
+      return res.json({ message: "Request rejected" });
+    } catch (err: any) { return res.status(500).json({ message: err.message }); }
+  });
+
   app.delete("/api/admin/events/:id", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
     try {
       await storage.adminDeleteEvent(req.params.id);
