@@ -214,6 +214,7 @@ export const events = pgTable("events", {
   suspendedByAdmin: boolean("suspended_by_admin").notNull().default(false),
   archivedAt: timestamp("archived_at"),
   deleteRequestedAt: timestamp("delete_requested_at"),
+  deletedAt: timestamp("deleted_at"),
   deleteRequestReason: text("delete_request_reason"),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
@@ -240,6 +241,7 @@ export type Event = {
   suspendedByAdmin: boolean;
   archivedAt: Date | null;
   deleteRequestedAt: Date | null;
+  deletedAt: Date | null;
   deleteRequestReason: string | null;
   description: string | null;
   coverImageUrl: string | null;

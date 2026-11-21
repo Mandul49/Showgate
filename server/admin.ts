@@ -147,6 +147,7 @@ export function registerAdminRoutes(app: Express) {
     try {
       const event = await storage.getEventById(req.params.id);
       if (!event) return res.status(404).json({ message: "Event not found" });
+      if (event.deletedAt) return res.status(400).json({ message: "Event is already deleted" });
       if (!event.deleteRequestedAt) return res.status(400).json({ message: "No deletion request for this event" });
       await storage.adminDeleteEvent(event.id);
       audit(req, "approve_event_delete_request", "event", event.id, { title: event.title, reason: event.deleteRequestReason });
