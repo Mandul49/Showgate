@@ -59,6 +59,35 @@ function injectOgTags(html: string, tags: string): string {
 }
 
 export function registerOgRoutes(app: Express): void {
+  // Crawler-only endpoint. The frontend is a static SPA on Vercel, so link
+  // preview bots never reach the /e/:id handler below. vercel.json rewrites
+  // bot requests for /e/:id here; this returns a minimal HTML page with the
+  // event's own OG tags (cover image included).
+  app.get("/og/e/:id", async (req: Request, res: Response) => {
+    const send = (html: string, status = 200) =>
+      res.status(status).set({ "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" }).end(html);
+    try {
+      const param = req.params.id;
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(param);
+      const event = isUUID
+        ? await storage.getEventById(param)
+        : (await storage.getEventBySlug(param)) ?? (await storage.getEventById(param));
+      if (!event || event.suspendedByAdmin) {
+        return send("<!doctype html><html><head><title>Showgate</title></head><body></body></html>", 404);
+      }
+      const base = (process.env.APP_URL || "").replace(/\/$/, "");
+      const tags = buildOgTags({
+        title: `${event.title} — Tickets`,
+        description: event.description?.trim() || "Get your tickets now",
+        imageUrl: event.coverImageUrl ?? null,
+        pageUrl: base ? `${base}/e/${param}` : "",
+      }).replace(/<meta property="og:url" content="" \/>\s*/, "");
+      return send(`<!doctype html><html><head><meta charset="utf-8" />\n    ${tags}\n  </head><body></body></html>`);
+    } catch {
+      return send("<!doctype html><html><head><title>Showgate</title></head><body></body></html>", 500);
+    }
+  });
+
   app.get("/e/:eventId", async (req: Request, res: Response, next) => {
     // In development Vite's middleware must transform index.html (HMR injection,
     // module path transforms, etc.). Skip OG injection here and let Vite's
