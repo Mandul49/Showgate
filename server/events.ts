@@ -155,6 +155,10 @@ export function registerEventsRoutes(app: Express) {
 
       const updates = parsed.data;
 
+      if (event.archivedAt && updates.isActive === true) {
+        return res.status(400).json({ message: "Unarchive this event before activating it" });
+      }
+
       const tierCheck = await checkEventTierLimits(organizer, {
         paymentMethod: updates.paymentMethod,
         activating: updates.isActive === true && !event.isActive,
@@ -182,6 +186,30 @@ export function registerEventsRoutes(app: Express) {
   });
 
   // ── DELETE /api/events/:id ────────────────────────────────────────────────
+  // ── POST /api/events/:id/archive | /unarchive ─────────────────────────────
+  // Archiving hides the event from the public site and stops sales (isActive=false,
+  // which also frees a free-plan active-event slot). Orders and data are kept.
+  // Unarchiving restores it as inactive; the organizer re-activates it manually.
+  for (const action of ["archive", "unarchive"] as const) {
+    app.post(`/api/events/:id/${action}`, requireAuth, async (req: AuthRequest, res) => {
+      try {
+        const organizer = await storage.getOrganizerByUserId(req.userId!);
+        if (!organizer) return res.status(403).json({ message: "Complete onboarding first" });
+
+        const event = await storage.getEventById(req.params.id);
+        if (!event) return res.status(404).json({ message: "Event not found" });
+        if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
+
+        const updated = action === "archive"
+          ? await storage.updateEvent(event.id, { archivedAt: new Date(), isActive: false })
+          : await storage.updateEvent(event.id, { archivedAt: null });
+        return res.json(updated);
+      } catch (err: any) {
+        return res.status(500).json({ message: err.message });
+      }
+    });
+  }
+
   app.delete("/api/events/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
       const organizer = await storage.getOrganizerByUserId(req.userId!);
@@ -255,7 +283,7 @@ export function registerEventsRoutes(app: Express) {
         ? await storage.getEventById(param)
         : (await storage.getEventBySlug(param)) ?? (await storage.getEventById(param));
       if (!event) return res.status(404).json({ message: "Event not found" });
-      if (event.suspendedByAdmin) return res.status(404).json({ message: "Event is not available" });
+      if (event.suspendedByAdmin || event.archivedAt) return res.status(404).json({ message: "Event is not available" });
       if (!event.isActive) {
         // Allow inactive past events only if they have at least one purchase
         const today = new Date().toISOString().split("T")[0];

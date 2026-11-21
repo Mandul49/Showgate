@@ -720,6 +720,7 @@ export class DbStorage implements IStorage {
       paymentMethod: row.paymentMethod as PaymentMethod,
       isActive: row.isActive,
       suspendedByAdmin: row.suspendedByAdmin,
+      archivedAt: row.archivedAt ?? null,
       description: row.description ?? null,
       coverImageUrl: row.coverImageUrl ?? null,
       coverImagePositionY: row.coverImagePositionY ?? 50,

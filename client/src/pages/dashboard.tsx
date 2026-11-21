@@ -14,7 +14,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Lock, Users,
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
-  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2,
+  Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2, Archive, ArchiveRestore,
   Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2, Twitter,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
@@ -42,6 +42,7 @@ interface EventData {
   maxTickets: number;
   paymentMethod: string;
   isActive: boolean;
+  archivedAt: string | null;
   description: string | null;
   coverImageUrl: string | null;
   coverImagePositionY: number | null;
@@ -1392,6 +1393,7 @@ function EventCard({
   const [linkCopied, setLinkCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [editingTicketTypeId, setEditingTicketTypeId] = useState<string | null>(null);
   const [editingCapacity, setEditingCapacity] = useState(false);
   const [capInput, setCapInput] = useState("");
@@ -1399,6 +1401,22 @@ function EventCard({
   const [savingCapacity, setSavingCapacity] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
+
+  async function archiveToggle() {
+    const action = event.archivedAt ? "unarchive" : "archive";
+    if (action === "archive" && !window.confirm("Archive this event? It will be hidden from the public and ticket sales will stop. Orders and data are kept, and you can unarchive it later.")) return;
+    setIsArchiving(true);
+    try {
+      const res = await apiRequest("POST", `/api/events/${event.id}/${action}`, {});
+      if (!res.ok) throw new Error((await res.json()).message || "Request failed");
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: action === "archive" ? "Event archived" : "Event unarchived", description: action === "archive" ? "Find it under Archived events." : "It is inactive until you activate it." });
+    } catch (err: any) {
+      toast({ title: "Could not update event", description: err.message, variant: "destructive" });
+    } finally {
+      setIsArchiving(false);
+    }
+  }
 
   async function saveCapacity() {
     const newVal = parseInt(capInput, 10);
@@ -1523,6 +1541,13 @@ function EventCard({
                   : <ToggleLeft className="w-4 h-4" />
               }
               <span className="hidden sm:inline">{event.isActive ? "Active" : "Activate"}</span>
+            </button>
+            <button
+              onClick={archiveToggle}
+              disabled={isArchiving}
+              title={event.archivedAt ? "Unarchive event" : "Archive event"}
+              className="p-1.5 rounded-lg text-zinc-600 hover:text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50">
+              {isArchiving ? <Loader2 className="w-4 h-4 animate-spin" /> : event.archivedAt ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
             </button>
             <button
               onClick={() => setConfirmDelete(true)}
@@ -2723,7 +2748,10 @@ export default function Dashboard() {
     navigate("/login");
   }
 
-  const events = data?.events ?? [];
+  const allEvents = data?.events ?? [];
+  const events = allEvents.filter((e) => !e.archivedAt);
+  const archivedEvents = allEvents.filter((e) => !!e.archivedAt);
+  const [showArchived, setShowArchived] = useState(false);
   const paystackMode = data?.paystackMode ?? "live";
   const organizerInfo = data?.organizer ?? null;
 
@@ -2735,7 +2763,7 @@ export default function Dashboard() {
   const limits = data?.limits ?? { maxActiveEvents: FREE_MAX_ACTIVE_EVENTS, maxMonthlyTickets: 500, allowedPaymentMethods: ["paystack"] };
   const activeCount = events.filter((e) => e.isActive).length;
   const atEventLimit = isFreeConfirmed && activeCount >= FREE_MAX_ACTIVE_EVENTS;
-  const totalSold = events.reduce((s, e) => s + e.ticketTypes.reduce((ss, t) => ss + t.quantitySold, 0), 0);
+  const totalSold = allEvents.reduce((s, e) => s + e.ticketTypes.reduce((ss, t) => ss + t.quantitySold, 0), 0);
 
   const setupTestSubaccountMutation = useMutation({
     mutationFn: async () => {
@@ -3212,7 +3240,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-center py-20 text-zinc-600">
             <Loader2 className="w-6 h-6 animate-spin mr-3" /> Loading events...
           </div>
-        ) : events.length === 0 ? (
+        ) : allEvents.length === 0 ? (
           <div className="border border-dashed border-zinc-800 rounded-2xl p-12 text-center">
             <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4">
               <Calendar className="w-8 h-8 text-zinc-700" />
@@ -3235,6 +3263,24 @@ export default function Dashboard() {
                 isToggling={togglingId === event.id}
               />
             ))}
+          </div>
+        )}
+
+        {archivedEvents.length > 0 && (
+          <div className="mt-8">
+            <button onClick={() => setShowArchived((v) => !v)}
+              className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm font-semibold mb-4 transition-colors">
+              <Archive className="w-4 h-4" /> Archived events ({archivedEvents.length})
+              {showArchived ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {showArchived && (
+              <div className="space-y-4 opacity-75">
+                {archivedEvents.map((event) => (
+                  <EventCard key={event.id} event={event} tier={tier}
+                    onToggle={handleToggle} isToggling={togglingId === event.id} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
