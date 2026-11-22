@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveBranding } from "./resolveBranding";
 import { storage } from "./storage";
 import { insertOrderSchema } from "@shared/schema";
 import { checkMonthlyTicketLimit } from "./tierLimits";
@@ -146,7 +147,8 @@ export async function fulfillPaystackOrder(
   await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
   if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
-  const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
+  const rb = resolveBranding(organizer, event);
+  const isPro = rb.active; // email branding only
   sendConfirmationEmail({
     to: toEmail,
     buyerName: customerName,
@@ -158,8 +160,8 @@ export async function fulfillPaystackOrder(
     quantity: qty,
     amount: totalAmount,
     reference: order.id,
-    brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
-    brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+    brandName: (isPro && rb.customBrandName) ? rb.customBrandName : undefined,
+    brandLogoUrl: (isPro && rb.customLogoUrl) ? rb.customLogoUrl : null,
     isPro,
   }).catch(console.error);
 

@@ -280,6 +280,7 @@ export interface IStorage {
   updateOrganizerTier(organizerId: string, tier: UserTier): Promise<Organizer>;
   updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer>;
   updateOrganizerBrandingEnabled(organizerId: string, enabled: boolean): Promise<Organizer>;
+  updateEventBrandingOverride(eventId: string, override: import("@shared/schema").EventBrandingOverride | null): Promise<Event>;
   updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer>;
   updateOrganizerTestSubaccount(organizerId: string, testSubaccountCode: string): Promise<Organizer>;
   updateOrganizerBankAccount(organizerId: string, data: { bankName: string; bankCode: string; accountNumber: string }): Promise<Organizer>;
@@ -652,6 +653,15 @@ export class DbStorage implements IStorage {
     return this._mapOrganizer(row);
   }
 
+  async updateEventBrandingOverride(eventId: string, override: import("@shared/schema").EventBrandingOverride | null): Promise<Event> {
+    const [row] = await db.update(events)
+      .set({ brandingOverride: override })
+      .where(eq(events.id, eventId))
+      .returning();
+    if (!row) throw new Error("Event not found");
+    return this._mapEvent(row);
+  }
+
   async updateOrganizerBrandingEnabled(organizerId: string, enabled: boolean): Promise<Organizer> {
     const [row] = await db.update(organizers)
       .set({ brandingEnabled: enabled })
@@ -735,6 +745,7 @@ export class DbStorage implements IStorage {
       facebookUrl: row.facebookUrl ?? null,
       twitterUrl: row.twitterUrl ?? null,
       tiktokUrl: row.tiktokUrl ?? null,
+      brandingOverride: (row.brandingOverride as import("@shared/schema").EventBrandingOverride | null) ?? null,
       createdAt: row.createdAt,
     };
   }
