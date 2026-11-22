@@ -129,6 +129,12 @@ export interface BrandTheme {
   hideLogo?: boolean;
 }
 
+export interface EventBrandingOverride {
+  customBrandName: string | null;
+  customLogoUrl: string | null;
+  brandTheme: BrandTheme | null;
+}
+
 // ─── Organizers ───────────────────────────────────────────────────────────────
 
 export const organizers = pgTable("organizers", {
@@ -224,6 +230,7 @@ export const events = pgTable("events", {
   facebookUrl: text("facebook_url"),
   twitterUrl: text("twitter_url"),
   tiktokUrl: text("tiktok_url"),
+  brandingOverride: jsonb("branding_override"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -251,6 +258,7 @@ export type Event = {
   facebookUrl: string | null;
   twitterUrl: string | null;
   tiktokUrl: string | null;
+  brandingOverride: EventBrandingOverride | null;
   createdAt: Date;
 };
 

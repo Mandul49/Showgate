@@ -2246,7 +2246,7 @@ interface BrandingSettings {
   brandingEnabled?: boolean;
 }
 
-function BrandingSection({ tier }: { tier: "free" | "pro" }) {
+function BrandingSection({ tier, events }: { tier: "free" | "pro"; events: { id: string; title: string }[] }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -2262,11 +2262,39 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
   const token = getToken();
+  // "" = organizer default (all events); otherwise an event id
+  const [scope, setScope] = useState("");
+  const qs = scope ? `?eventId=${encodeURIComponent(scope)}` : "";
+  const settingsKey = `/api/branding/settings${qs}`;
 
-  const { data: branding, isLoading } = useQuery<BrandingSettings>({
-    queryKey: ["/api/branding/settings"],
+  const { data: branding, isLoading } = useQuery<BrandingSettings & { hasOverride?: boolean }>({
+    queryKey: [settingsKey],
     enabled: tier === "pro",
   });
+
+  const changeScope = (next: string) => {
+    setScope(next);
+    setTheme(null);
+    setLogoFile(null);
+    setLogoPreviewUrl(null);
+    setHideLogoOnPage(false);
+    setExtractedPalette([]);
+    setColorEditorOpen(false);
+    form.reset({ customBrandName: "" });
+  };
+
+  const resetEventOverride = async () => {
+    setSaving(true);
+    try {
+      const res = await apiRequest("DELETE", settingsKey);
+      if (!res.ok) throw new Error((await res.json()).message || "Reset failed");
+      qc.invalidateQueries({ queryKey: [settingsKey] });
+      changeScope(scope);
+      toast({ title: "Reset", description: "This event now uses your default branding." });
+    } catch (err: any) {
+      toast({ title: "Reset failed", description: err.message, variant: "destructive" });
+    } finally { setSaving(false); }
+  };
 
   const brandingEnabled = branding?.brandingEnabled ?? true;
 
@@ -2322,7 +2350,7 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
       if (logoFile) {
         const formData = new FormData();
         formData.append("logo", logoFile);
-        const uploadRes = await fetch("/api/branding/logo-upload", {
+        const uploadRes = await fetch(`/api/branding/logo-upload${qs}`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
@@ -2339,14 +2367,14 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
         ? { ...theme, hideLogo: hideLogoOnPage || undefined }
         : hideLogoOnPage ? { hideLogo: true } : null;
 
-      const res = await apiRequest("PUT", "/api/branding/settings", {
+      const res = await apiRequest("PUT", settingsKey, {
         customBrandName: values.customBrandName || null,
         customLogoUrl: logoUrl,
         brandTheme: brandThemeToSend,
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Save failed");
-      qc.invalidateQueries({ queryKey: ["/api/branding/settings"] });
+      qc.invalidateQueries({ queryKey: [settingsKey] });
       toast({
         title: "Branding saved",
         description: branding?.brandingEnabled === false
@@ -2423,6 +2451,27 @@ function BrandingSection({ tier }: { tier: "free" | "pro" }) {
                 White-label branding is off. These saved settings are not applied to your public pages or emails until you turn it back on.
               </div>
             )}
+
+            {/* Scope: all events or one event */}
+            <div>
+              <label className="text-xs text-zinc-400 mb-1.5 block">Apply branding to</label>
+              <select value={scope} onChange={(e) => changeScope(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="">All events (default)</option>
+                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+              </select>
+              {scope && (
+                <p className="text-zinc-500 text-xs mt-1.5">
+                  {branding?.hasOverride
+                    ? "This event has its own branding. Empty fields fall back to your default."
+                    : "This event uses your default branding. Save to give it its own."}
+                  {branding?.hasOverride && (
+                    <button type="button" onClick={resetEventOverride} disabled={saving}
+                      className="ml-2 underline text-zinc-300 hover:text-white">Reset to default</button>
+                  )}
+                </p>
+              )}
+            </div>
 
             {/* Brand Name */}
             <div>
@@ -2957,7 +3006,7 @@ export default function Dashboard() {
         </div>
 
         {/* Branding */}
-        {tier !== null && showTierSections && <BrandingSection tier={tier} />}
+        {tier !== null && showTierSections && <BrandingSection tier={tier} events={(data?.events ?? []).map((e) => ({ id: e.id, title: e.title }))} />}
 
         {/* Live subaccount missing — warn organizer */}
         {!isLoading && !!data && paystackMode === "live" && organizerInfo !== null && organizerInfo.hasLiveSubaccount === false && (

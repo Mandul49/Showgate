@@ -64,6 +64,16 @@ async function uploadToSupabase(buffer: Buffer, mimeType: string, filename: stri
   return publicUrl;
 }
 
+// Loads an event the organizer owns, or sends the error response and returns null.
+async function loadOwnedEvent(eventId: string, organizerId: string, res: any) {
+  const event = await storage.getEventById(eventId);
+  if (!event || event.organizerId !== organizerId || event.deletedAt) {
+    res.status(404).json({ message: "Event not found" });
+    return null;
+  }
+  return event;
+}
+
 export function registerBrandingRoutes(app: Express) {
   // ── GET /api/branding/settings ──────────────────────────────────────────
   app.get("/api/branding/settings", requireAuth, async (req: AuthRequest, res) => {
@@ -71,6 +81,21 @@ export function registerBrandingRoutes(app: Express) {
       console.log("[branding] GET settings for userId:", req.userId);
       const organizer = await storage.getOrganizerByUserId(req.userId!);
       if (!organizer) return res.status(404).json({ message: "Organizer not found" });
+      const eventId = typeof req.query.eventId === "string" ? req.query.eventId : null;
+      if (eventId) {
+        const event = await loadOwnedEvent(eventId, organizer.id, res);
+        if (!event) return;
+        const o = event.brandingOverride;
+        return res.json({
+          eventId,
+          hasOverride: !!o,
+          customBrandName: o?.customBrandName ?? null,
+          customLogoUrl: o?.customLogoUrl ?? null,
+          brandTheme: o?.brandTheme ?? null,
+          tier: organizer.tier,
+          brandingEnabled: organizer.brandingEnabled,
+        });
+      }
       return res.json({
         customBrandName: organizer.customBrandName,
         customLogoUrl: organizer.customLogoUrl,
@@ -123,6 +148,27 @@ export function registerBrandingRoutes(app: Express) {
         return res.status(400).json({ message: parsed.error.errors[0].message });
       }
 
+      const eventId = typeof req.query.eventId === "string" ? req.query.eventId : null;
+      if (eventId) {
+        const event = await loadOwnedEvent(eventId, organizer.id, res);
+        if (!event) return;
+        const saved = await storage.updateEventBrandingOverride(eventId, {
+          customBrandName: parsed.data.customBrandName ?? null,
+          customLogoUrl: parsed.data.customLogoUrl ?? null,
+          brandTheme: (parsed.data.brandTheme as any) ?? null,
+        });
+        const o = saved.brandingOverride;
+        return res.json({
+          eventId,
+          hasOverride: !!o,
+          customBrandName: o?.customBrandName ?? null,
+          customLogoUrl: o?.customLogoUrl ?? null,
+          brandTheme: o?.brandTheme ?? null,
+          tier: organizer.tier,
+          brandingEnabled: organizer.brandingEnabled,
+        });
+      }
+
       const updated = await storage.updateOrganizerBranding(organizer.id, {
         customBrandName: parsed.data.customBrandName ?? null,
         customLogoUrl: parsed.data.customLogoUrl ?? null,
@@ -138,6 +184,27 @@ export function registerBrandingRoutes(app: Express) {
       });
     } catch (err: any) {
       console.error("[branding] PUT settings error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── DELETE /api/branding/settings?eventId=… (Pro only) ──────────────────
+  // Removes an event's override so it goes back to the organizer default.
+  app.delete("/api/branding/settings", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const organizer = await storage.getOrganizerByUserId(req.userId!);
+      if (!organizer) return res.status(404).json({ message: "Organizer not found" });
+      if (organizer.tier !== "pro") {
+        return res.status(403).json({ message: "Upgrade to Pro to use custom branding" });
+      }
+      const eventId = typeof req.query.eventId === "string" ? req.query.eventId : null;
+      if (!eventId) return res.status(400).json({ message: "eventId required" });
+      const event = await loadOwnedEvent(eventId, organizer.id, res);
+      if (!event) return;
+      await storage.updateEventBrandingOverride(eventId, null);
+      return res.json({ eventId, hasOverride: false });
+    } catch (err: any) {
+      console.error("[branding] DELETE settings error:", err);
       return res.status(500).json({ message: err.message });
     }
   });
@@ -165,11 +232,14 @@ export function registerBrandingRoutes(app: Express) {
         const filename = `logos/${organizer.id}/${randomUUID()}.${ext}`;
         const logoUrl = await uploadToSupabase(file.buffer, file.mimetype, filename);
 
-        await storage.updateOrganizerBranding(organizer.id, {
-          customBrandName: organizer.customBrandName ?? null,
-          customLogoUrl: logoUrl,
-          brandTheme: organizer.brandTheme ?? null,
-        });
+        // Event-scoped uploads are persisted by the PUT that follows, not here.
+        if (!req.query.eventId) {
+          await storage.updateOrganizerBranding(organizer.id, {
+            customBrandName: organizer.customBrandName ?? null,
+            customLogoUrl: logoUrl,
+            brandTheme: organizer.brandTheme ?? null,
+          });
+        }
 
         return res.json({ logoUrl });
       } catch (err: any) {

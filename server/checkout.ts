@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import crypto from "crypto";
+import { resolveBranding } from "./resolveBranding";
 import { storage } from "./storage";
 import { checkoutSchema } from "@shared/schema";
 import { fulfillPaystackOrder } from "./paystackFulfillment";
@@ -265,9 +266,10 @@ export function registerCheckoutRoutes(app: Express) {
       const organizer = await storage.getOrganizerById(eventRecord.organizerId);
       // In the email, `isPro` only drives branding (logo / "Powered by" footer),
       // so it is true only when the organizer is Pro AND white-label branding is on.
-      const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false;
-      const brandName = (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined;
-      const brandLogoUrl = (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null;
+      const rb = resolveBranding(organizer, eventRecord);
+      const isPro = rb.active;
+      const brandName = (isPro && rb.customBrandName) ? rb.customBrandName : undefined;
+      const brandLogoUrl = (isPro && rb.customLogoUrl) ? rb.customLogoUrl : null;
 
       // Fire-and-forget confirmation email
       sendConfirmationEmail({

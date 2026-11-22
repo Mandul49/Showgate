@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { requireAuth, effectiveTier, type AuthRequest } from "./auth";
+import { resolveBranding } from "./resolveBranding";
 import { storage, generateUniqueSlug } from "./storage";
 import {
   createEventSchema, updateEventSchema,
@@ -331,7 +332,8 @@ export function registerEventsRoutes(app: Express) {
 
       const ticketTypes = await storage.getTicketTypesByEventId(event.id);
       const organizer = await storage.getOrganizerById(event.organizerId);
-      const brandingActive = organizer?.tier === "pro" && organizer.brandingEnabled !== false;
+      const rb = resolveBranding(organizer, event);
+      const brandingActive = rb.active;
 
       return res.json({
         id: event.id,
@@ -376,13 +378,13 @@ export function registerEventsRoutes(app: Express) {
             }
           : null,
         branding: {
-          name: (brandingActive && organizer?.customBrandName) ? organizer.customBrandName : (organizer?.businessName ?? "Showgate"),
-          logoUrl: (brandingActive && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+          name: (brandingActive && rb.customBrandName) ? rb.customBrandName : (organizer?.businessName ?? "Showgate"),
+          logoUrl: (brandingActive && rb.customLogoUrl) ? rb.customLogoUrl : null,
           // isPro stays tier-based (not affected by the white-label toggle)
           isPro: organizer?.tier === "pro",
           // true only when Pro AND the white-label toggle is on
           brandingEnabled: brandingActive,
-          brandTheme: brandingActive ? (organizer?.brandTheme ?? null) : null,
+          brandTheme: brandingActive ? rb.brandTheme : null,
         },
         paystackPublicKey: getPaystackPublicKey(),
         paystackEnv: isTestMode() ? "test" : "live",
@@ -452,7 +454,8 @@ export function registerEventsRoutes(app: Express) {
       const order = await storage.createOrder(parsed.data, "confirmed");
       await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
 
-      const isPro = organizer?.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
+      const rb = resolveBranding(organizer, event);
+      const isPro = rb.active; // email branding only
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,
@@ -464,8 +467,8 @@ export function registerEventsRoutes(app: Express) {
         quantity: qty,
         amount: 0,
         reference: order.id,
-        brandName: (isPro && organizer?.customBrandName) ? organizer.customBrandName : undefined,
-        brandLogoUrl: (isPro && organizer?.customLogoUrl) ? organizer.customLogoUrl : null,
+        brandName: (isPro && rb.customBrandName) ? rb.customBrandName : undefined,
+        brandLogoUrl: (isPro && rb.customLogoUrl) ? rb.customLogoUrl : null,
         isPro,
       }).catch(console.error);
 
@@ -545,7 +548,8 @@ export function registerEventsRoutes(app: Express) {
       await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
       if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
 
-      const isPro = organizer.tier === "pro" && organizer.brandingEnabled !== false; // email branding only
+      const rb = resolveBranding(organizer, event);
+      const isPro = rb.active; // email branding only
       sendConfirmationEmail({
         to: toEmail,
         buyerName: customerName,
@@ -557,8 +561,8 @@ export function registerEventsRoutes(app: Express) {
         quantity: qty,
         amount: totalAmount,
         reference: order.id,
-        brandName: (isPro && organizer.customBrandName) ? organizer.customBrandName : undefined,
-        brandLogoUrl: (isPro && organizer.customLogoUrl) ? organizer.customLogoUrl : null,
+        brandName: (isPro && rb.customBrandName) ? rb.customBrandName : undefined,
+        brandLogoUrl: (isPro && rb.customLogoUrl) ? rb.customLogoUrl : null,
         isPro,
       }).catch(console.error);
 
