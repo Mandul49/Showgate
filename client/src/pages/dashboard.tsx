@@ -1045,6 +1045,7 @@ function EmailAttendeesButton({ eventId, title }: { eventId: string; title: stri
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<{ recipientCount: number; sendsRemaining: number; nextAvailableAt: string | null } | null>(null);
   const headers = () => ({ Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" });
@@ -1060,11 +1061,17 @@ function EmailAttendeesButton({ eventId, title }: { eventId: string; title: stri
   async function send() {
     setBusy(true);
     try {
-      const res = await fetch(`/api/events/${eventId}/email-attendees`, { method: "POST", headers: headers(), body: JSON.stringify({ subject, message }) });
+      const form = new FormData();
+      form.append("subject", subject);
+      form.append("message", message);
+      if (file) form.append("attachment", file);
+      const res = await fetch(`/api/events/${eventId}/email-attendees`, { method: "POST", headers: { Authorization: `Bearer ${getToken()}` }, body: form });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.message || "Could not send emails");
-      toast({ title: "Email sent", description: `Sent to ${json.sent} ticket buyer${json.sent === 1 ? "" : "s"}${json.failed ? `, ${json.failed} failed` : ""}.` });
-      setSubject(""); setMessage(""); setOpen(false);
+      toast(json.status === "sending"
+        ? { title: "Sending", description: `Your email with attachment is being delivered to ${json.recipients} ticket buyer${json.recipients === 1 ? "" : "s"}.` }
+        : { title: "Email sent", description: `Sent to ${json.sent} ticket buyer${json.sent === 1 ? "" : "s"}${json.failed ? `, ${json.failed} failed` : ""}.` });
+      setSubject(""); setMessage(""); setFile(null); setOpen(false);
     } catch (err: any) {
       toast({ title: "Could not send emails", description: err.message, variant: "destructive" });
       loadInfo();
@@ -1096,6 +1103,16 @@ function EmailAttendeesButton({ eventId, title }: { eventId: string; title: stri
             <div className="flex justify-between text-[11px] text-zinc-600 mt-1 mb-3">
               <span>{subject.length}/120 subject</span><span>{message.length}/3000</span>
             </div>
+            <label className="block mb-3">
+              <span className="text-zinc-400 text-xs">Attachment (optional, PDF, PNG, JPG or TXT, max 1 MB)</span>
+              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.txt"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  if (f && f.size > 1024 * 1024) { toast({ title: "Attachment too large", description: "The limit is 1 MB.", variant: "destructive" }); e.target.value = ""; setFile(null); return; }
+                  setFile(f);
+                }}
+                className="mt-1 block w-full text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-zinc-200" />
+            </label>
             {info && (
               <p className="text-zinc-400 text-xs mb-3">
                 {info.recipientCount} recipient{info.recipientCount === 1 ? "" : "s"} · {info.sendsRemaining} of 3 sends left in 24 hours

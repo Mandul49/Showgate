@@ -57,6 +57,8 @@ export const organizerEmailSends = pgTable("organizer_email_sends", {
   userId: varchar("user_id", { length: 36 }).notNull(),
   subject: text("subject").notNull(),
   message: text("message").notNull(),
+  attachmentName: text("attachment_name"),
+  attachmentSize: integer("attachment_size"),
   recipientCount: integer("recipient_count").notNull().default(0),
   sentCount: integer("sent_count").notNull().default(0),
   failedCount: integer("failed_count").notNull().default(0),

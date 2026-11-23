@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { Resend } from "resend";
+import multer from "multer";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
@@ -10,6 +11,16 @@ import { organizerEmailSends, organizerEmailUnsubscribes } from "@shared/schema"
 
 const MAX_SENDS_PER_24H = 3;
 const BATCH_SIZE = 100;
+const MAX_ATTACHMENT_BYTES = 1024 * 1024; // 1 MB
+const ALLOWED_ATTACHMENTS: Record<string, string[]> = {
+  pdf: ["application/pdf"],
+  png: ["image/png"],
+  jpg: ["image/jpeg"],
+  jpeg: ["image/jpeg"],
+  txt: ["text/plain"],
+};
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_ATTACHMENT_BYTES, files: 1 } });
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 
 const sendSchema = z.object({
@@ -127,7 +138,13 @@ export function registerOrganizerEmailRoutes(app: Express) {
     }
   });
 
-  app.post("/api/events/:id/email-attendees", requireAuth, async (req: AuthRequest, res) => {
+  app.post("/api/events/:id/email-attendees", requireAuth, (req, res, next) => {
+    upload.single("attachment")(req, res, (err: any) => {
+      if (!err) return next();
+      const msg = err.code === "LIMIT_FILE_SIZE" ? "Attachment must be 1 MB or smaller" : "Invalid attachment upload";
+      return res.status(400).json({ message: msg });
+    });
+  }, async (req: AuthRequest, res) => {
     try {
       const ctx = await authorize(req, res);
       if (!ctx) return res;
@@ -136,6 +153,20 @@ export function registerOrganizerEmailRoutes(app: Express) {
       const parsed = sendSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
       const { subject, message } = parsed.data;
+
+      // Optional attachment (max 1 MB, allow-listed types by extension and MIME type).
+      const file = (req as any).file as { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined;
+      let attachment: { filename: string; content: Buffer } | null = null;
+      if (file) {
+        const ext = (file.originalname.split(".").pop() ?? "").toLowerCase();
+        const okMime = ALLOWED_ATTACHMENTS[ext];
+        if (!okMime || !okMime.includes(file.mimetype)) {
+          return res.status(400).json({ message: "Attachment must be a PDF, PNG, JPG or TXT file" });
+        }
+        if (file.size > MAX_ATTACHMENT_BYTES) return res.status(400).json({ message: "Attachment must be 1 MB or smaller" });
+        const clean = file.originalname.replace(/[^\w.\- ]+/g, "_").replace(/^\.+/, "").slice(-100) || `attachment.${ext}`;
+        attachment = { filename: clean, content: file.buffer };
+      }
 
       const fromAddress = process.env.UPDATES_FROM_EMAIL?.trim();
       const base = baseUrl();
@@ -162,6 +193,7 @@ export function registerOrganizerEmailRoutes(app: Express) {
         await tx.insert(organizerEmailSends).values({
           id: sendId, eventId: event.id, organizerId: organizer.id, userId: req.userId!,
           subject, message, recipientCount: recipients.length, status: "sending",
+          attachmentName: attachment?.filename ?? null, attachmentSize: file?.size ?? null,
         });
         return true;
       });
@@ -172,41 +204,73 @@ export function registerOrganizerEmailRoutes(app: Express) {
       const orgName = safeDisplayName(organizer.businessName);
       const from = `${orgName} via Showgate <${fromAddress}>`;
       const resend = new Resend(process.env.RESEND_API_KEY);
-      let sent = 0;
-      let failed = 0;
+      const buildEmail = (to: string) => {
+        const link = unsubUrl(base, organizer.id, to);
+        return {
+          from,
+          to: [to],
+          replyTo: user.email,
+          subject,
+          html: renderHtml({ subject, message, organizerName: organizer.businessName, eventTitle: event.title, unsubscribeUrl: link }),
+          text: `${message}\n\n--\nSent via Showgate on behalf of ${organizer.businessName} for ${event.title}\nUnsubscribe: ${link}\n`,
+          headers: {
+            "List-Unsubscribe": `<${link}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          },
+        };
+      };
 
-      for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-        const chunk = recipients.slice(i, i + BATCH_SIZE);
-        const payload = chunk.map((to) => {
-          const link = unsubUrl(base, organizer.id, to);
-          return {
-            from,
-            to: [to],
-            replyTo: user.email,
-            subject,
-            html: renderHtml({ subject, message, organizerName: organizer.businessName, eventTitle: event.title, unsubscribeUrl: link }),
-            text: `${message}\n\n--\nSent via Showgate on behalf of ${organizer.businessName} for ${event.title}\nUnsubscribe: ${link}\n`,
-            headers: {
-              "List-Unsubscribe": `<${link}>`,
-              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-            },
-          };
-        });
-        try {
-          const { error } = await resend.batch.send(payload);
-          if (error) { failed += chunk.length; console.error("[organizer-email] batch failed:", error.message); }
-          else sent += chunk.length;
-        } catch (err: any) {
-          failed += chunk.length;
-          console.error("[organizer-email] batch error:", err?.message ?? err);
+      const deliver = async (): Promise<{ sent: number; failed: number; status: string }> => {
+        let sent = 0;
+        let failed = 0;
+        for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+          const chunk = recipients.slice(i, i + BATCH_SIZE);
+          if (!attachment) {
+            // Resend's batch endpoint: up to 100 emails per call.
+            try {
+              const { error } = await resend.batch.send(chunk.map(buildEmail));
+              if (error) { failed += chunk.length; console.error("[organizer-email] batch failed:", error.message); }
+              else sent += chunk.length;
+            } catch (err: any) {
+              failed += chunk.length;
+              console.error("[organizer-email] batch error:", err?.message ?? err);
+            }
+            continue;
+          }
+          // Resend's batch endpoint does not accept attachments, so each recipient is sent individually,
+          // in throttled groups to stay under Resend's request rate limit.
+          for (let g = 0; g < chunk.length; g += 4) {
+            const started = Date.now();
+            const results = await Promise.all(chunk.slice(g, g + 4).map(async (to) => {
+              for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                  const { error } = await resend.emails.send({ ...buildEmail(to), attachments: [attachment!] });
+                  if (!error) return true;
+                  if ((error as any).name !== "rate_limit_exceeded") return false;
+                } catch { return false; }
+                await sleep(1100);
+              }
+              return false;
+            }));
+            for (const ok of results) ok ? sent++ : failed++;
+            const wait = 1000 - (Date.now() - started);
+            if (wait > 0) await sleep(wait);
+          }
         }
+        const status = failed === 0 ? "sent" : sent === 0 ? "failed" : "partial";
+        await db.update(organizerEmailSends)
+          .set({ sentCount: sent, failedCount: failed, status, completedAt: new Date() })
+          .where(eq(organizerEmailSends.id, sendId));
+        return { sent, failed, status };
+      };
+
+      if (attachment) {
+        // Individual sends can take minutes for large lists: finish in the background, the log row tracks progress.
+        deliver().catch((err) => console.error("[organizer-email] background send error:", err?.message ?? err));
+        return res.status(202).json({ status: "sending", recipients: recipients.length });
       }
 
-      const status = failed === 0 ? "sent" : sent === 0 ? "failed" : "partial";
-      await db.update(organizerEmailSends)
-        .set({ sentCount: sent, failedCount: failed, status, completedAt: new Date() })
-        .where(eq(organizerEmailSends.id, sendId));
-
+      const { sent, failed, status } = await deliver();
       if (status === "failed") return res.status(502).json({ message: "Emails could not be sent. Please try again later." });
       return res.json({ status, sent, failed });
     } catch (err: any) {
