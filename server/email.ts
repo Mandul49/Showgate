@@ -330,7 +330,6 @@ async function sendOrganizerNotification(opts: ConfirmationEmailOptions): Promis
           <p style="margin:0 0 20px;color:#a1a1aa;"><strong style="color:#fff">${buyerName}</strong> ${pending ? "placed an order for" : "just bought tickets to"} <strong style="color:#fff">${eventTitle}</strong>.</p>
           <table style="width:100%;border-collapse:collapse;">
             ${row("Name", buyerName)}
-            ${row("Email", escapeHtml(opts.to))}
             ${row("Ticket", escapeHtml(opts.ticketTypeName))}
             ${row("Tickets purchased", String(opts.quantity))}
             ${row("Amount", `₦${opts.amount.toLocaleString()}`, false, "color:#f59e0b;font-weight:900;")}

@@ -583,7 +583,23 @@ export function registerEventsRoutes(app: Express) {
       if (event.organizerId !== organizer.id) return res.status(403).json({ message: "Not authorized" });
 
       const eventOrders = await storage.getOrdersByEventId(event.id);
-      return res.json(eventOrders);
+      // Organizers get name, ticket type, ticket code and check-in status only: no buyer email or phone.
+      const rows = eventOrders.flatMap((o) => {
+        const attendees = (o.attendeeDetails as { name?: string }[] | null) ?? [];
+        const seats = (o.checkedInSeats as Record<string, string> | null) ?? {};
+        const total = Math.max(1, o.quantity);
+        return Array.from({ length: total }, (_, i) => ({
+          key: `${o.id}:${i}`,
+          name: attendees[i]?.name?.trim() || o.customerName,
+          ticketType: o.ticketType,
+          ticketCode: o.id.toUpperCase(),
+          seat: i + 1,
+          of: total,
+          orderStatus: o.status,
+          checkedInAt: seats[String(i)] ?? null,
+        }));
+      });
+      return res.json(rows);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }

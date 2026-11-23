@@ -953,22 +953,15 @@ function EditEventPanel({
 
 // ─── Attendees Section ────────────────────────────────────────────────────────
 
-interface AttendeeOrder {
-  id: string;
-  eventId: string | null;
-  ticketTypeId: string | null;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  instagramHandle: string | null;
-  gender: string | null;
-  ageRange: string | null;
-  heardFrom: string | null;
+interface AttendeeRow {
+  key: string;
+  name: string;
   ticketType: string;
-  quantity: number;
-  totalAmount: number;
-  status: string;
-  createdAt: string | null;
+  ticketCode: string;
+  seat: number;
+  of: number;
+  orderStatus: string;
+  checkedInAt: string | null;
 }
 
 function AttendeesSection({ event }: { event: EventData }) {
@@ -977,7 +970,7 @@ function AttendeesSection({ event }: { event: EventData }) {
   const qc = useQueryClient();
   const token = getToken();
 
-  const { data: attendees = [], isLoading } = useQuery<AttendeeOrder[]>({
+  const { data: attendees = [], isLoading } = useQuery<AttendeeRow[]>({
     queryKey: ["/api/events", event.id, "orders"],
     enabled: open,
     queryFn: async () => {
@@ -988,12 +981,6 @@ function AttendeesSection({ event }: { event: EventData }) {
       return res.json();
     },
   });
-
-  const statusConfig: Record<string, { label: string; cls: string }> = {
-    confirmed: { label: "Confirmed", cls: "text-green-400 bg-green-400/10 border-green-400/20" },
-    awaiting_transfer: { label: "Awaiting Transfer", cls: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
-    failed: { label: "Failed", cls: "text-red-400 bg-red-400/10 border-red-400/20" },
-  };
 
   return (
     <div className="border-t border-zinc-800">
@@ -1025,34 +1012,21 @@ function AttendeesSection({ event }: { event: EventData }) {
           ) : (
             <div className="space-y-2">
               {attendees.map((a) => {
-                const sc = statusConfig[a.status] ?? { label: a.status, cls: "text-zinc-400 bg-zinc-800 border-zinc-700" };
+                const status = a.orderStatus !== "confirmed"
+                  ? { label: a.orderStatus === "awaiting_transfer" ? "Awaiting payment" : "Not paid", cls: "text-amber-400 bg-amber-400/10 border-amber-400/20" }
+                  : a.checkedInAt
+                    ? { label: "Checked in", cls: "text-green-400 bg-green-400/10 border-green-400/20" }
+                    : { label: "Not checked in", cls: "text-zinc-400 bg-zinc-800 border-zinc-700" };
                 return (
-                  <div key={a.id} className="flex items-start gap-3 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3">
+                  <div key={a.key} className="flex items-center gap-3 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3">
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-white font-semibold text-sm">{a.customerName}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${sc.cls}`}>
-                          {sc.label}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400">
-                          {a.quantity} × {a.ticketType}
-                        </span>
+                        <span className="text-white font-semibold text-sm">{a.name}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400">{a.ticketType}</span>
                       </div>
-                      <p className="text-zinc-500 text-xs">{a.customerEmail} · {a.customerPhone}</p>
-                      {(a.gender || a.ageRange || a.heardFrom) && (
-                        <p className="text-zinc-600 text-xs">{[a.gender, a.ageRange, a.heardFrom && `via ${a.heardFrom}`].filter(Boolean).join(" · ")}</p>
-                      )}
-                      <div className="flex items-center gap-3">
-                        <span className="text-amber-400 font-bold text-sm">
-                          ₦{new Intl.NumberFormat("en-NG").format(a.totalAmount)}
-                        </span>
-                        {a.createdAt && (
-                          <span className="text-zinc-700 text-xs">
-                            {new Date(a.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-zinc-500 text-xs font-mono">{a.ticketCode}{a.of > 1 ? ` · ${a.seat}/${a.of}` : ""}</p>
                     </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold whitespace-nowrap ${status.cls}`}>{status.label}</span>
                   </div>
                 );
               })}
