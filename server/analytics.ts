@@ -225,8 +225,9 @@ export function registerAnalyticsRoutes(app: Express) {
         "Group Size",
       ];
 
-      // Buyer and attendee emails are admin-only: drop "Buyer Email" (2) and "Attendee Email" (10).
-      const dropCols = new Set([2, 10]);
+      // Buyer and attendee emails are admin-only (and never for an organizer, even an admin who owns the event).
+      const showEmails = isAdmin && organizer?.id !== event.organizerId;
+      const dropCols = showEmails ? new Set<number>() : new Set([2, 10]);
       const keep = <T,>(r: T[]) => r.filter((_, i) => !dropCols.has(i));
       const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const csv = [header, ...rows].map((row) => keep(row).map(escape).join(",")).join("\n");
@@ -356,12 +357,15 @@ export function registerAnalyticsRoutes(app: Express) {
       }
       const repeatBuyers = Array.from(emailCount.values()).filter((v) => v > 1).length;
 
+      // Buyer emails reach the browser only for admins viewing someone else's event.
+      const showEmails = isAdmin && organizer?.id !== event.organizerId;
       const recentBuyers = confirmed
         .slice()
         .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
         .slice(0, 200)
         .map((o) => ({
           name: o.customerName,
+          ...(showEmails ? { email: o.customerEmail } : {}),
           phone: o.customerPhone,
           ticketType: o.ticketType,
           quantity: o.quantity,
@@ -369,7 +373,7 @@ export function registerAnalyticsRoutes(app: Express) {
           discountCode: o.discountCode ?? null,
           discountAmount: o.discountAmount ?? 0,
           attendeeDetails: ((o.attendeeDetails as { name: string; email?: string }[] | null) ?? [])
-            .map((a) => ({ name: a.name })),
+            .map((a) => (showEmails ? { name: a.name, email: a.email } : { name: a.name })),
           reference: o.id,
           date: new Date(o.createdAt!).toISOString(),
           status: o.status,
@@ -416,6 +420,7 @@ export function registerAnalyticsRoutes(app: Express) {
         uniqueBuyers,
         repeatBuyers,
         recentBuyers,
+        showBuyerEmails: showEmails,
         genderBreakdown,
         ageRangeBreakdown,
         heardFromBreakdown,

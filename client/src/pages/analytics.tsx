@@ -55,15 +55,17 @@ interface AnalyticsData {
   salesOverTime?: { date: string; count: number; revenue: number }[];
   uniqueBuyers?: number;
   repeatBuyers?: number;
+  showBuyerEmails?: boolean;
   recentBuyers?: {
     name: string;
+    email?: string;
     phone: string;
     ticketType: string;
     quantity: number;
     amount: number;
     discountCode: string | null;
     discountAmount: number;
-    attendeeDetails: { name: string }[];
+    attendeeDetails: { name: string; email?: string }[];
     reference: string;
     date: string;
     status: string;
@@ -420,11 +422,11 @@ function TypeDoughnut({ types }: { types: TicketTypeSummary[] }) {
 
 // ─── CSV export ───────────────────────────────────────────────────────────────
 
-function exportCSV(buyers: AnalyticsData["recentBuyers"], eventTitle: string) {
+function exportCSV(buyers: AnalyticsData["recentBuyers"], eventTitle: string, withEmail = false) {
   if (!buyers?.length) return;
-  const header = ["Name", "Phone", "Ticket Type", "Quantity", "Amount (₦)", "Reference", "Date", "Status"];
+  const header = ["Name", ...(withEmail ? ["Email"] : []), "Phone", "Ticket Type", "Quantity", "Amount (₦)", "Reference", "Date", "Status"];
   const rows = buyers.map((b) => [
-    b.name, b.phone, b.ticketType,
+    b.name, ...(withEmail ? [b.email ?? ""] : []), b.phone, b.ticketType,
     b.quantity, b.amount,
     b.reference,
     new Date(b.date).toLocaleString("en-GB"),
@@ -536,7 +538,7 @@ export default function Analytics() {
             </button>
             {isPro && data.recentBuyers && data.recentBuyers.length > 0 && (
               <button
-                onClick={() => exportCSV(data.recentBuyers, data.event.title)}
+                onClick={() => exportCSV(data.recentBuyers, data.event.title, !!data.showBuyerEmails)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors">
                 <Download className="w-3.5 h-3.5" /> Export CSV
               </button>
@@ -753,7 +755,7 @@ export default function Analytics() {
                         <div key={i} className="flex items-center justify-between px-4 py-3 gap-3">
                           <div className="min-w-0">
                             <p className="text-white text-sm font-semibold truncate">{b.name}</p>
-                            <p className="text-zinc-500 text-xs truncate">{b.phone}</p>
+                            <p className="text-zinc-500 text-xs truncate">{[data.showBuyerEmails && b.email, b.phone].filter(Boolean).join(" · ")}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-amber-400 text-xs font-bold">{fmtMoney(b.amount)}</p>
@@ -804,7 +806,7 @@ export default function Analytics() {
                     <span className="text-zinc-600 text-sm font-normal">({data.recentBuyers.length})</span>
                   </h2>
                   <button
-                    onClick={() => exportCSV(data.recentBuyers, data.event.title)}
+                    onClick={() => exportCSV(data.recentBuyers, data.event.title, !!data.showBuyerEmails)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-semibold text-zinc-300 transition-colors">
                     <Download className="w-3.5 h-3.5" /> Export CSV
                   </button>
@@ -814,7 +816,7 @@ export default function Analytics() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-zinc-800">
-                          {["Buyer", "Phone", "Ticket", "Qty", "Amount", "Date"].map((h) => (
+                          {[...(data.showBuyerEmails ? ["Buyer", "Email"] : ["Buyer"]), "Phone", "Ticket", "Qty", "Amount", "Date"].map((h) => (
                             <th key={h} className="text-left text-zinc-500 text-xs uppercase tracking-widest px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -823,6 +825,7 @@ export default function Analytics() {
                         {data.recentBuyers.map((b, i) => (
                           <tr key={i} className="hover:bg-zinc-800/30 transition-colors">
                             <td className="px-4 py-3 text-white font-medium whitespace-nowrap">{b.name}</td>
+                            {data.showBuyerEmails && <td className="px-4 py-3 text-zinc-400 text-xs">{b.email}</td>}
                             <td className="px-4 py-3 text-zinc-400 text-xs whitespace-nowrap">{b.phone || "—"}</td>
                             <td className="px-4 py-3 text-zinc-300 text-xs whitespace-nowrap">{b.ticketType}</td>
                             <td className="px-4 py-3 text-zinc-400 text-center">{b.quantity}</td>
