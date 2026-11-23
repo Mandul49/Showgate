@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminLayout } from "@/components/admin-layout";
+import { useToast } from "@/hooks/use-toast";
 import { DeleteRequests } from "@/components/admin-delete-requests";
 import { Input } from "@/components/ui/input";
 import {
@@ -73,7 +74,9 @@ function derivedStatus(ev: AdminEventRow): DerivedStatus {
   return "active";
 }
 
-function StatusBadge({ status }: { status: DerivedStatus }) {
+function StatusBadge({ status, deleteRequested }: { status: DerivedStatus; deleteRequested?: boolean }) {
+  if (deleteRequested && status !== "deleted")
+    return <Badge className="bg-red-500/15 text-red-300 border border-red-500/40 text-[10px] font-semibold animate-pulse">Deletion requested</Badge>;
   if (status === "deleted")
     return <Badge className="bg-zinc-900 text-red-300 border border-red-900 text-[10px] font-medium">Deleted</Badge>;
   if (status === "active")
@@ -98,6 +101,7 @@ function fmtDate(iso: string) {
 export default function AdminEvents() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const { data: me, isLoading: meLoading } = useQuery<{ id: string; role: string }>({
     queryKey: ["/api/auth/me"],
@@ -126,6 +130,16 @@ export default function AdminEvents() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/events/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/events"] }),
+  });
+
+  const [confirmPurge, setConfirmPurge] = useState<AdminEventRow | null>(null);
+  const purgeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await apiRequest("DELETE", `/api/admin/events/${id}/permanent`);
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || "Request failed");
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/events"] }); toast({ title: "Event permanently deleted" }); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
   const filtered = events.filter((ev) => {
@@ -269,7 +283,7 @@ export default function AdminEvents() {
 
                         {/* Status */}
                         <td className="px-4 py-3">
-                          <StatusBadge status={ds} />
+                          <StatusBadge status={ds} deleteRequested={!!ev.deleteRequestedAt} />
                         </td>
 
                         {/* Tickets */}
@@ -326,6 +340,13 @@ export default function AdminEvents() {
                                   Suspend event
                                 </DropdownMenuItem>
                               )}
+                              {ev.deletedAt && <DropdownMenuItem
+                                className="gap-2 text-xs cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800 text-red-400"
+                                onClick={() => setConfirmPurge(ev)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Delete permanently
+                              </DropdownMenuItem>}
                               {!ev.deletedAt && <DropdownMenuItem
                                 className="gap-2 text-xs cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800 text-red-400"
                                 onClick={() => setConfirmDelete(ev)}
@@ -399,6 +420,27 @@ export default function AdminEvents() {
                 deleteMutation.mutate(confirmDelete.id);
                 setConfirmDelete(null);
               }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent delete confirm */}
+      <AlertDialog open={!!confirmPurge} onOpenChange={() => setConfirmPurge(null)}>
+        <AlertDialogContent className="bg-zinc-950 border-zinc-800 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-zinc-50">Delete permanently?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              <span className="text-zinc-200 font-medium">"{confirmPurge?.title}"</span> will be erased from the database, including its ticket types and discount codes. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-700 hover:bg-red-600 text-white"
+              onClick={() => { if (confirmPurge) purgeMutation.mutate(confirmPurge.id); setConfirmPurge(null); }}
             >
               Delete permanently
             </AlertDialogAction>

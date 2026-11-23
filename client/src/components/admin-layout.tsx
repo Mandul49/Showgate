@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Users, CreditCard, Calendar, BarChart2,
   Settings, ArrowLeft, ShieldCheck, UsersRound, Menu, X, Mail,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { getUser } from "@/lib/auth";
 import sgLogo from "../assets/showgate-logo.png";
 
@@ -35,6 +36,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const adminRoles: AdminRole[] = Array.isArray(rawRoles)
     ? (rawRoles as AdminRole[])
     : rawRoles ? [(rawRoles as unknown) as AdminRole] : [];
+
+  const canSeeEvents = adminRoles.some(r => ["super_admin", "admin", "support"].includes(r));
+  const { data: adminEvents } = useQuery<{ deleteRequestedAt: string | null; deletedAt: string | null }[]>({
+    queryKey: ["/api/admin/events"],
+    enabled: canSeeEvents,
+    refetchInterval: 60000,
+  });
+  const pendingDeletes = (adminEvents ?? []).filter(e => e.deleteRequestedAt && !e.deletedAt).length;
 
   function isActive(href: string) {
     if (href === "/admin") return location === "/admin";
@@ -134,6 +143,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               >
                 <Icon className={`w-4 h-4 flex-shrink-0 ${active ? "text-amber-400" : "text-zinc-500"}`} />
                 {label}
+                {href === "/admin/events" && pendingDeletes > 0 && (
+                  <span title="Deletion requests waiting" className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                    {pendingDeletes}
+                  </span>
+                )}
               </Link>
             );
           })}

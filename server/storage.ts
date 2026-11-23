@@ -334,6 +334,7 @@ export interface IStorage {
   getAdminAnalytics(): Promise<AdminAnalyticsData>;
   adminSuspendEvent(eventId: string, suspended: boolean): Promise<Event>;
   adminDeleteEvent(eventId: string): Promise<void>;
+  adminPurgeEvent(eventId: string): Promise<void>;
   setUserRole(userId: string, role: string): Promise<User>;
   getAdminStats(): Promise<AdminStats>;
   getAdminChartData(): Promise<AdminChartData>;
@@ -1729,6 +1730,13 @@ export class DbStorage implements IStorage {
     await db.update(events)
       .set({ deletedAt: new Date(), isActive: false, slug: null, deleteRequestedAt: null })
       .where(eq(events.id, eventId));
+  }
+
+  // Irreversible removal. Purchases/orders are kept so revenue totals stay accurate.
+  async adminPurgeEvent(eventId: string): Promise<void> {
+    await db.delete(discountCodes).where(eq(discountCodes.eventId, eventId));
+    await db.delete(ticketTypes).where(eq(ticketTypes.eventId, eventId));
+    await db.delete(events).where(eq(events.id, eventId));
   }
 
   async setUserRole(userId: string, role: string): Promise<User> {
