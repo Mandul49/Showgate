@@ -7,6 +7,7 @@ import {
   RefreshCw, ExternalLink, Tag, UserCheck, Trash2, Pencil, Check
 } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth";
+import { VipButton } from "@/components/special-guests-button";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -524,6 +525,7 @@ export default function Analytics() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <VipButton eventId={data.event.id} title={data.event.title} />
             <a href={`/analytics/${eventId}/checkin`}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-400/30 text-xs font-semibold text-amber-400 hover:bg-amber-400/10 transition-colors">
               <UserCheck className="w-3.5 h-3.5" />
