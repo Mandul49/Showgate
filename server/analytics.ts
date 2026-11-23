@@ -45,7 +45,6 @@ export function registerAnalyticsRoutes(app: Express) {
             of: Math.max(1, o.quantity),
             name: attendees[i]?.name?.trim() || o.customerName,
             buyerName: o.customerName,
-            email: o.customerEmail,
             phone: o.customerPhone,
             ticketType: o.ticketType,
             createdAt: o.createdAt,
@@ -226,8 +225,11 @@ export function registerAnalyticsRoutes(app: Express) {
         "Group Size",
       ];
 
+      // Buyer and attendee emails are admin-only: drop "Buyer Email" (2) and "Attendee Email" (10).
+      const dropCols = new Set([2, 10]);
+      const keep = <T,>(r: T[]) => r.filter((_, i) => !dropCols.has(i));
       const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-      const csv = [header, ...rows].map((row) => row.map(escape).join(",")).join("\n");
+      const csv = [header, ...rows].map((row) => keep(row).map(escape).join(",")).join("\n");
 
       const filename = `${event.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_purchases.csv`;
       res.setHeader("Content-Type", "text/csv");
@@ -360,14 +362,14 @@ export function registerAnalyticsRoutes(app: Express) {
         .slice(0, 200)
         .map((o) => ({
           name: o.customerName,
-          email: o.customerEmail,
           phone: o.customerPhone,
           ticketType: o.ticketType,
           quantity: o.quantity,
           amount: o.totalAmount,
           discountCode: o.discountCode ?? null,
           discountAmount: o.discountAmount ?? 0,
-          attendeeDetails: (o.attendeeDetails as { name: string; email?: string }[] | null) ?? [],
+          attendeeDetails: ((o.attendeeDetails as { name: string; email?: string }[] | null) ?? [])
+            .map((a) => ({ name: a.name })),
           reference: o.id,
           date: new Date(o.createdAt!).toISOString(),
           status: o.status,

@@ -6,7 +6,7 @@ import { isAuthenticated } from "@/lib/auth";
 
 type Buyer = {
   key: string; orderId: string; seat: number; of: number; name: string; buyerName: string;
-  email: string; phone: string; ticketType: string; createdAt: string | null; checkedInAt: string | null; specialGuest?: boolean;
+  phone: string; ticketType: string; createdAt: string | null; checkedInAt: string | null; specialGuest?: boolean;
 };
 type CheckInData = {
   event: { id: string; title: string; date: string; location: string };
@@ -148,7 +148,7 @@ export default function CheckIn() {
   const buyers = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = (data?.tickets ?? []).filter((b) =>
-      !q || [b.name, b.buyerName, b.email, b.phone, b.ticketType, b.orderId].some((v) => v?.toLowerCase().includes(q)));
+      !q || [b.name, b.buyerName, b.phone, b.ticketType, b.orderId].some((v) => v?.toLowerCase().includes(q)));
     // Waiting first (original order), checked-in at the bottom (most recent last)
     const waiting = list.filter((b) => !b.checkedInAt).sort((a, b) => Number(!!b.specialGuest) - Number(!!a.specialGuest));
     const done = list.filter((b) => b.checkedInAt)
@@ -206,7 +206,7 @@ export default function CheckIn() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, email, phone or order ref"
+            placeholder="Search name, phone or order ref"
             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/50"
           />
         </div>
@@ -264,7 +264,7 @@ export default function CheckIn() {
                         {b.specialGuest && <span className="ml-2 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300">Special guest</span>}
                         {b.of > 1 && <span className="ml-2 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 no-underline">{b.seat + 1}/{b.of}</span>}
                       </span>
-                      <span className="block text-xs text-zinc-500 truncate">{b.name !== b.buyerName ? `Buyer: ${b.buyerName} · ` : ""}{b.email} · {b.phone}</span>
+                      <span className="block text-xs text-zinc-500 truncate">{b.name !== b.buyerName ? `Buyer: ${b.buyerName} · ` : ""}{b.phone}</span>
                     </span>
                     <span className="text-right shrink-0">
                       <span className="block text-xs font-semibold text-amber-400">{b.ticketType}</span>
