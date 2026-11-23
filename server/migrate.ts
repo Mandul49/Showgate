@@ -50,6 +50,7 @@ export async function runMigrations(): Promise<void> {
 )`);
     await db.execute(sql`ALTER TABLE organizer_email_sends ADD COLUMN IF NOT EXISTS attachment_name text`);
     await db.execute(sql`ALTER TABLE organizer_email_sends ADD COLUMN IF NOT EXISTS attachment_size integer`);
+    await db.execute(sql`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS can_send_emails boolean NOT NULL DEFAULT true`);
     console.log("[migrations] cover_image_position_y column ready");
   } catch (err: any) {
     console.error("[migrations] startup migration error (non-fatal):", err?.message ?? err);

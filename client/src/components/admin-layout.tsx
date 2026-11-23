@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import {
   LayoutDashboard, Users, CreditCard, Calendar, BarChart2,
-  Settings, ArrowLeft, ShieldCheck, UsersRound, Menu, X,
+  Settings, ArrowLeft, ShieldCheck, UsersRound, Menu, X, Mail,
 } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import sgLogo from "../assets/showgate-logo.png";
@@ -19,6 +19,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Overview",      icon: LayoutDashboard, href: "/admin",               roles: null },
   { label: "Organizers",    icon: Users,            href: "/admin/organizers",    roles: ["super_admin", "admin", "support"] },
+  { label: "Email sends",   icon: Mail,             href: "/admin/email-sends",   roles: ["super_admin", "admin", "support"] },
   { label: "Subscriptions", icon: CreditCard,       href: "/admin/subscriptions", roles: ["super_admin", "finance"] },
   { label: "Events",        icon: Calendar,         href: "/admin/events",        roles: ["super_admin", "admin", "support"] },
   { label: "Analytics",     icon: BarChart2,        href: "/admin/analytics",     roles: ["super_admin", "finance"] },

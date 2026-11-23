@@ -624,6 +624,7 @@ export class DbStorage implements IStorage {
       flutterwaveSecretKey: row.flutterwaveSecretKey ?? null,
       brandTheme: (row.brandTheme as import("@shared/schema").BrandTheme | null) ?? null,
       brandingEnabled: row.brandingEnabled ?? true,
+      canSendEmails: row.canSendEmails ?? true,
       createdAt: row.createdAt,
     };
   }
