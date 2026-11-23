@@ -29,6 +29,7 @@ import AdminEvents from "@/pages/admin-events";
 import AdminAnalytics from "@/pages/admin-analytics";
 import AdminSettings from "@/pages/admin-settings";
 import AdminTeam from "@/pages/admin-team";
+import AdminEmailSends from "@/pages/admin-email-sends";
 import About from "@/pages/about";
 import EventsPage from "@/pages/events";
 import Privacy from "@/pages/privacy";
@@ -77,6 +78,7 @@ function Router() {
         <Route path="/admin/analytics" component={AdminAnalytics} />
         <Route path="/admin/settings" component={AdminSettings} />
         <Route path="/admin/team" component={AdminTeam} />
+        <Route path="/admin/email-sends" component={AdminEmailSends} />
         <Route component={NotFound} />
       </Switch>
     </>

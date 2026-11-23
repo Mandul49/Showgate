@@ -181,6 +181,7 @@ export const organizers = pgTable("organizers", {
   flutterwaveSecretKey: text("flutterwave_secret_key"),
   brandTheme: jsonb("brand_theme"),
   brandingEnabled: boolean("branding_enabled").notNull().default(true),
+  canSendEmails: boolean("can_send_emails").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -201,6 +202,7 @@ export type Organizer = {
   flutterwaveSecretKey: string | null;
   brandTheme: BrandTheme | null;
   brandingEnabled: boolean;
+  canSendEmails: boolean;
   createdAt: Date;
 };
 

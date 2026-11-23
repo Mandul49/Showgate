@@ -2,7 +2,8 @@ import type { Express, Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { sql } from "drizzle-orm";
+import { sql, eq, desc } from "drizzle-orm";
+import { organizerEmailSends, organizers, users, events } from "@shared/schema";
 import { db } from "./db";
 import { storage } from "./storage";
 import { requireAdmin, requireAdminRole, type AuthRequest } from "./auth";
@@ -61,6 +62,51 @@ export function registerAdminRoutes(app: Express) {
         : await storage.getAdminOrganizerDetailBySlug(req.params.id);
       if (!data) return res.status(404).json({ message: "Organizer not found" });
       return res.json(data);
+    } catch (err: any) { return res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Organizer emails to attendees: audit log and kill switch ─────────────
+
+  app.get("/api/admin/email-sends", requireAdmin, SUPPORT_ACCESS, async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db
+        .select({
+          id: organizerEmailSends.id,
+          organizerId: organizerEmailSends.organizerId,
+          organizerName: organizers.businessName,
+          organizerEmail: users.email,
+          canSendEmails: organizers.canSendEmails,
+          eventId: organizerEmailSends.eventId,
+          eventTitle: events.title,
+          subject: organizerEmailSends.subject,
+          message: organizerEmailSends.message,
+          recipientCount: organizerEmailSends.recipientCount,
+          sentCount: organizerEmailSends.sentCount,
+          failedCount: organizerEmailSends.failedCount,
+          status: organizerEmailSends.status,
+          attachmentName: organizerEmailSends.attachmentName,
+          attachmentSize: organizerEmailSends.attachmentSize,
+          createdAt: organizerEmailSends.createdAt,
+        })
+        .from(organizerEmailSends)
+        .leftJoin(organizers, eq(organizers.id, organizerEmailSends.organizerId))
+        .leftJoin(users, eq(users.id, organizers.userId))
+        .leftJoin(events, eq(events.id, organizerEmailSends.eventId))
+        .orderBy(desc(organizerEmailSends.createdAt))
+        .limit(500);
+      return res.json(rows);
+    } catch (err: any) { return res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/admin/organizers/:id/email-sending", requireAdmin, requireAdminRole(["super_admin", "admin"]), async (req: AuthRequest, res) => {
+    try {
+      const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      const updated = await db.update(organizers).set({ canSendEmails: parsed.data.enabled })
+        .where(eq(organizers.id, req.params.id)).returning({ id: organizers.id });
+      if (updated.length === 0) return res.status(404).json({ message: "Organizer not found" });
+      audit(req, parsed.data.enabled ? "enable_organizer_emails" : "disable_organizer_emails", "organizer", req.params.id);
+      return res.json({ ok: true, canSendEmails: parsed.data.enabled });
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
