@@ -1,0 +1,218 @@
+import type { Express } from "express";
+import { z } from "zod";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
+import { Resend } from "resend";
+import { and, eq, gt, sql } from "drizzle-orm";
+import { requireAuth, type AuthRequest } from "./auth";
+import { storage } from "./storage";
+import { db } from "./db";
+import { organizerEmailSends, organizerEmailUnsubscribes } from "@shared/schema";
+
+const MAX_SENDS_PER_24H = 3;
+const BATCH_SIZE = 100;
+const SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+
+const sendSchema = z.object({
+  // plain text, single line
+  subject: z.string().trim().min(1, "Subject is required").max(120, "Subject must be 120 characters or fewer")
+    .refine((s) => !/[\r\n]/.test(s), "Subject must be a single line"),
+  message: z.string().trim().min(1, "Message is required").max(3000, "Message must be 3000 characters or fewer"),
+});
+
+function baseUrl(): string | null {
+  const b = process.env.APP_BASE_URL
+    || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}` : "")
+    || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : "");
+  return b ? b.replace(/\/$/, "") : null;
+}
+
+function unsubToken(organizerId: string, email: string): string {
+  return createHmac("sha256", SECRET).update(`unsub:${organizerId}:${email}`).digest("hex");
+}
+function validUnsubToken(organizerId: string, email: string, token: string): boolean {
+  const a = Buffer.from(unsubToken(organizerId, email));
+  const b = Buffer.from(token);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+function unsubUrl(base: string, organizerId: string, email: string): string {
+  const e = Buffer.from(email).toString("base64url");
+  return `${base}/api/email/unsubscribe?o=${encodeURIComponent(organizerId)}&e=${e}&t=${unsubToken(organizerId, email)}`;
+}
+
+// Display names go into a header: strip anything that could break out of it.
+function safeDisplayName(name: string): string {
+  return name.replace(/[\r\n"<>,;:\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Organizer";
+}
+
+/** Server-side only: confirmed buyers' emails for the event, minus this organizer's unsubscribes. */
+async function getRecipients(eventId: string, organizerId: string): Promise<string[]> {
+  const orders = (await storage.getOrdersByEventId(eventId)).filter((o) => o.status === "confirmed");
+  const unsub = await db.select({ email: organizerEmailUnsubscribes.email }).from(organizerEmailUnsubscribes)
+    .where(eq(organizerEmailUnsubscribes.organizerId, organizerId));
+  const blocked = new Set(unsub.map((u) => u.email));
+  const out = new Set<string>();
+  for (const o of orders) {
+    const e = o.customerEmail?.trim().toLowerCase();
+    if (e && !blocked.has(e)) out.add(e);
+  }
+  return Array.from(out);
+}
+
+async function recentSends(eventId: string) {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  return db.select({ createdAt: organizerEmailSends.createdAt }).from(organizerEmailSends)
+    .where(and(eq(organizerEmailSends.eventId, eventId), gt(organizerEmailSends.createdAt, since)))
+    .orderBy(organizerEmailSends.createdAt);
+}
+
+function page(title: string, body: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
+<body style="font-family:sans-serif;background:#09090b;color:#f5f5f5;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0">
+<div style="max-width:420px;padding:32px;text-align:center"><h1 style="font-size:20px">${title}</h1>${body}</div></body></html>`;
+}
+
+export function registerOrganizerEmailRoutes(app: Express) {
+  async function authorize(req: AuthRequest, res: any) {
+    const organizer = await storage.getOrganizerByUserId(req.userId!);
+    if (!organizer) { res.status(403).json({ message: "Complete onboarding first" }); return null; }
+    const event = await storage.getEventById(req.params.id);
+    if (!event) { res.status(404).json({ message: "Event not found" }); return null; }
+    if (event.organizerId !== organizer.id) { res.status(403).json({ message: "Not authorized" }); return null; }
+    return { organizer, event };
+  }
+
+  // Counts only. Addresses are never returned to the organizer.
+  app.get("/api/events/:id/email-attendees", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const ctx = await authorize(req, res);
+      if (!ctx) return res;
+      const sends = await recentSends(ctx.event.id);
+      const recipients = await getRecipients(ctx.event.id, ctx.organizer.id);
+      return res.json({
+        recipientCount: recipients.length,
+        sendsRemaining: Math.max(0, MAX_SENDS_PER_24H - sends.length),
+        nextAvailableAt: sends.length >= MAX_SENDS_PER_24H
+          ? new Date(sends[sends.length - MAX_SENDS_PER_24H].createdAt.getTime() + 24 * 60 * 60 * 1000).toISOString()
+          : null,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/events/:id/email-attendees", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const ctx = await authorize(req, res);
+      if (!ctx) return res;
+      const { organizer, event } = ctx;
+
+      const parsed = sendSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      const { subject, message } = parsed.data;
+
+      const fromAddress = process.env.UPDATES_FROM_EMAIL?.trim();
+      const base = baseUrl();
+      if (!process.env.RESEND_API_KEY || !fromAddress || !base) {
+        console.error("[organizer-email] missing RESEND_API_KEY, UPDATES_FROM_EMAIL or base URL");
+        return res.status(503).json({ message: "Email sending is not configured" });
+      }
+      if (/[\r\n<>]/.test(fromAddress)) return res.status(503).json({ message: "Email sending is not configured" });
+
+      const user = await storage.getUserById(req.userId!);
+      if (!user?.email) return res.status(400).json({ message: "Your account has no email address" });
+
+      const recipients = await getRecipients(event.id, organizer.id);
+      if (recipients.length === 0) return res.status(400).json({ message: "No ticket buyers to email" });
+
+      // Rate limit + log insert are atomic per event (advisory lock), so concurrent requests can't exceed 3.
+      const sendId = randomUUID();
+      const allowed = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"org-email:" + event.id}))`);
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const [{ n }] = await tx.select({ n: sql<number>`cast(count(*) as int)` }).from(organizerEmailSends)
+          .where(and(eq(organizerEmailSends.eventId, event.id), gt(organizerEmailSends.createdAt, since)));
+        if (n >= MAX_SENDS_PER_24H) return false;
+        await tx.insert(organizerEmailSends).values({
+          id: sendId, eventId: event.id, organizerId: organizer.id, userId: req.userId!,
+          subject, message, recipientCount: recipients.length, status: "sending",
+        });
+        return true;
+      });
+      if (!allowed) {
+        return res.status(429).json({ message: `You can send at most ${MAX_SENDS_PER_24H} emails per event every 24 hours` });
+      }
+
+      const orgName = safeDisplayName(organizer.businessName);
+      const from = `${orgName} via Showgate <${fromAddress}>`;
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      let sent = 0;
+      let failed = 0;
+
+      for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+        const chunk = recipients.slice(i, i + BATCH_SIZE);
+        const payload = chunk.map((to) => {
+          const link = unsubUrl(base, organizer.id, to);
+          return {
+            from,
+            to: [to],
+            replyTo: user.email,
+            subject,
+            text: `${message}\n\n--\nSent via Showgate on behalf of ${organizer.businessName} for ${event.title}\nUnsubscribe: ${link}\n`,
+            headers: {
+              "List-Unsubscribe": `<${link}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          };
+        });
+        try {
+          const { error } = await resend.batch.send(payload);
+          if (error) { failed += chunk.length; console.error("[organizer-email] batch failed:", error.message); }
+          else sent += chunk.length;
+        } catch (err: any) {
+          failed += chunk.length;
+          console.error("[organizer-email] batch error:", err?.message ?? err);
+        }
+      }
+
+      const status = failed === 0 ? "sent" : sent === 0 ? "failed" : "partial";
+      await db.update(organizerEmailSends)
+        .set({ sentCount: sent, failedCount: failed, status, completedAt: new Date() })
+        .where(eq(organizerEmailSends.id, sendId));
+
+      if (status === "failed") return res.status(502).json({ message: "Emails could not be sent. Please try again later." });
+      return res.json({ status, sent, failed });
+    } catch (err: any) {
+      console.error("[organizer-email] send error:", err?.message ?? err);
+      return res.status(500).json({ message: "Could not send emails" });
+    }
+  });
+
+  // ── Public unsubscribe (buyer clicks the link). GET confirms, POST performs (also one-click). ──
+  function parseUnsub(q: any): { o: string; e: string } | null {
+    try {
+      const o = String(q.o ?? ""); const t = String(q.t ?? "");
+      const e = Buffer.from(String(q.e ?? ""), "base64url").toString().toLowerCase();
+      if (!o || !e || !t || !validUnsubToken(o, e, t)) return null;
+      return { o, e };
+    } catch { return null; }
+  }
+
+  app.get("/api/email/unsubscribe", (req, res) => {
+    const p = parseUnsub(req.query);
+    if (!p) return res.status(400).send(page("Invalid link", `<p style="color:#a1a1aa">This unsubscribe link is not valid.</p>`));
+    const qs = new URLSearchParams({ o: String(req.query.o), e: String(req.query.e), t: String(req.query.t) }).toString();
+    return res.send(page("Unsubscribe", `<p style="color:#a1a1aa">Stop receiving emails from this organizer sent through Showgate?</p>
+<form method="POST" action="/api/email/unsubscribe?${qs}"><button style="background:#f59e0b;border:0;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer">Unsubscribe</button></form>`));
+  });
+
+  app.post("/api/email/unsubscribe", async (req, res) => {
+    const p = parseUnsub(req.query);
+    if (!p) return res.status(400).send(page("Invalid link", `<p style="color:#a1a1aa">This unsubscribe link is not valid.</p>`));
+    try {
+      await db.insert(organizerEmailUnsubscribes).values({ organizerId: p.o, email: p.e }).onConflictDoNothing();
+      return res.send(page("You're unsubscribed", `<p style="color:#a1a1aa">You will no longer receive emails from this organizer through Showgate.</p>`));
+    } catch {
+      return res.status(500).send(page("Something went wrong", `<p style="color:#a1a1aa">Please try again.</p>`));
+    }
+  });
+}
