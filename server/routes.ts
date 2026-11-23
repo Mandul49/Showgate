@@ -10,6 +10,7 @@ import { registerUpgradeRoutes, registerUpgradeWebhook, startSubscriptionCron } 
 import { registerBrandingRoutes } from "./branding";
 import { getPaystackSecretKey } from "./paystackConfig";
 import { registerAnalyticsRoutes } from "./analytics";
+import { registerOrganizerEmailRoutes } from "./organizerEmails";
 import { registerUploadRoutes } from "./uploads";
 import { registerOgRoutes } from "./og";
 import { registerDiscountRoutes } from "./discounts";
@@ -243,6 +244,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: err.message });
     }
   });
+
+  registerOrganizerEmailRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

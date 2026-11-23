@@ -47,6 +47,30 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 
+// ─── Organizer emails to attendees ────────────────────────────────────────────
+// One row per send request (the audit log and the rate-limit counter). Never stores recipient addresses.
+
+export const organizerEmailSends = pgTable("organizer_email_sends", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  eventId: varchar("event_id", { length: 36 }).notNull(),
+  organizerId: varchar("organizer_id", { length: 36 }).notNull(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  sentCount: integer("sent_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  status: text("status").notNull().default("sending"), // sending | sent | partial | failed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const organizerEmailUnsubscribes = pgTable("organizer_email_unsubscribes", {
+  organizerId: varchar("organizer_id", { length: 36 }).notNull(),
+  email: text("email").notNull(), // lowercase
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export type AdminRole = "super_admin" | "admin" | "support" | "finance";

@@ -15,7 +15,7 @@ import {
   ToggleLeft, ToggleRight, Tag, AlertTriangle, X,
   CheckCircle2, CircleDot, ExternalLink, Copy, Check, Link2, Zap,
   Paintbrush, Image, Type, BarChart2, Wallet, Clock, CheckCheck, Pencil, Trash2, Archive, ArchiveRestore,
-  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2, Twitter,
+  Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2, Twitter, Mail,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
 import { SiInstagram, SiFacebook, SiTiktok } from "react-icons/si";
@@ -1066,6 +1066,79 @@ function AttendeesSection({ event }: { event: EventData }) {
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
+function EmailAttendeesButton({ eventId, title }: { eventId: string; title: string }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<{ recipientCount: number; sendsRemaining: number; nextAvailableAt: string | null } | null>(null);
+  const headers = () => ({ Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" });
+
+  async function loadInfo() {
+    try {
+      const res = await fetch(`/api/events/${eventId}/email-attendees`, { headers: headers() });
+      if (res.ok) setInfo(await res.json());
+    } catch {}
+  }
+  function openDialog() { setOpen(true); loadInfo(); }
+
+  async function send() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/email-attendees`, { method: "POST", headers: headers(), body: JSON.stringify({ subject, message }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.message || "Could not send emails");
+      toast({ title: "Email sent", description: `Sent to ${json.sent} ticket buyer${json.sent === 1 ? "" : "s"}${json.failed ? `, ${json.failed} failed` : ""}.` });
+      setSubject(""); setMessage(""); setOpen(false);
+    } catch (err: any) {
+      toast({ title: "Could not send emails", description: err.message, variant: "destructive" });
+      loadInfo();
+    } finally { setBusy(false); }
+  }
+
+  const blocked = !!info && (info.sendsRemaining === 0 || info.recipientCount === 0);
+  return (
+    <>
+      <button onClick={openDialog} title="Email attendees"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 text-xs font-semibold transition-colors hover:border-amber-400/50 text-zinc-400 hover:text-amber-400">
+        <Mail className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">Email Attendees</span>
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <h3 className="text-white font-bold flex items-center gap-2"><Mail className="w-4 h-4 text-amber-400" /> Email attendees</h3>
+              <button onClick={() => setOpen(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-zinc-500 text-xs mb-4">
+              {title}. Showgate sends this to your ticket buyers on your behalf. Replies come to your account email. Buyer addresses are never shown to you.
+            </p>
+            <input value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={120} placeholder="Subject"
+              className="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/50" />
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} maxLength={3000} rows={8} placeholder="Message (plain text)"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/50" />
+            <div className="flex justify-between text-[11px] text-zinc-600 mt-1 mb-3">
+              <span>{subject.length}/120 subject</span><span>{message.length}/3000</span>
+            </div>
+            {info && (
+              <p className="text-zinc-400 text-xs mb-3">
+                {info.recipientCount} recipient{info.recipientCount === 1 ? "" : "s"} · {info.sendsRemaining} of 3 sends left in 24 hours
+                {info.nextAvailableAt && info.sendsRemaining === 0 ? ` (next at ${new Date(info.nextAvailableAt).toLocaleString()})` : ""}
+              </p>
+            )}
+            <button onClick={send} disabled={busy || blocked || !subject.trim() || !message.trim()}
+              className="w-full py-2.5 rounded-lg bg-amber-400 text-black text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+              {busy && <Loader2 className="w-4 h-4 animate-spin" />} Send to {info?.recipientCount ?? "all"} buyer{info?.recipientCount === 1 ? "" : "s"}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function VipButton({ eventId, title }: { eventId: string; title: string }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -1524,6 +1597,7 @@ function EventCard({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            <EmailAttendeesButton eventId={event.id} title={event.title} />
             <VipButton eventId={event.id} title={event.title} />
             <a
               href={`/analytics/${event.slug ?? event.id}`}
