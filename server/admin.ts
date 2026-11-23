@@ -98,6 +98,22 @@ export function registerAdminRoutes(app: Express) {
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
+  app.get("/api/admin/email-organizers", requireAdmin, SUPPORT_ACCESS, async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db
+        .select({
+          id: organizers.id,
+          name: organizers.businessName,
+          email: users.email,
+          canSendEmails: organizers.canSendEmails,
+        })
+        .from(organizers)
+        .leftJoin(users, eq(users.id, organizers.userId))
+        .orderBy(organizers.businessName);
+      return res.json(rows);
+    } catch (err: any) { return res.status(500).json({ message: err.message }); }
+  });
+
   app.patch("/api/admin/organizers/:id/email-sending", requireAdmin, requireAdminRole(["super_admin", "admin"]), async (req: AuthRequest, res) => {
     try {
       const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
