@@ -236,6 +236,18 @@ export function registerAdminRoutes(app: Express) {
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
+  // Permanent removal: only events already deleted (soft) can be purged.
+  app.delete("/api/admin/events/:id/permanent", requireAdmin, SUPER_ONLY, async (req: AuthRequest, res) => {
+    try {
+      const event = await storage.getEventById(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (!event.deletedAt) return res.status(400).json({ message: "Delete the event first, then remove it permanently" });
+      await storage.adminPurgeEvent(event.id);
+      audit(req, "purge_event", "event", event.id, { title: event.title });
+      return res.json({ message: "Event permanently deleted" });
+    } catch (err: any) { return res.status(500).json({ message: err.message }); }
+  });
+
   // ── Analytics & Subscriptions (super_admin + finance) ─────────────────────
 
   app.get("/api/admin/analytics", requireAdmin, FINANCE_ACCESS, async (_req: AuthRequest, res) => {
