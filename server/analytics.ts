@@ -37,6 +37,7 @@ export function registerAnalyticsRoutes(app: Express) {
         tickets: orders.flatMap((o) => {
           const attendees = (o.attendeeDetails as { name?: string }[] | null) ?? [];
           const seats = (o.checkedInSeats as Record<string, string> | null) ?? {};
+          const upgraded = (o.upgradedSeats as Record<string, string> | null) ?? {};
           return Array.from({ length: Math.max(1, o.quantity) }, (_, i) => ({
             key: `${o.id}:${i}`,
             orderId: o.id,
@@ -49,6 +50,7 @@ export function registerAnalyticsRoutes(app: Express) {
             ticketType: o.ticketType,
             createdAt: o.createdAt,
             checkedInAt: seats[String(i)] ?? null,
+            specialGuest: !!upgraded[String(i)],
           }));
         }),
       });
@@ -116,6 +118,25 @@ export function registerAnalyticsRoutes(app: Express) {
         return res.status(400).json({ message: "Invalid ticket number" });
       }
       await storage.setOrderCheckedIn(order.id, seat, !!req.body?.checkedIn);
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PATCH /api/analytics/:eventId/upgrade/:orderId — make a paid ticket a special guest ──
+  app.patch("/api/analytics/:eventId/upgrade/:orderId", requireAuth, async (req: any, res) => {
+    try {
+      const event = await authorizeEvent(req, res);
+      if (!event) return res;
+      const orders = await storage.getOrdersByEventId(event.id);
+      const order = orders.find((o) => o.id === req.params.orderId);
+      if (!order || order.status !== "confirmed") return res.status(404).json({ message: "Paid order not found" });
+      const seat = Number(req.body?.seat ?? 0);
+      if (!Number.isInteger(seat) || seat < 0 || seat >= Math.max(1, order.quantity)) {
+        return res.status(400).json({ message: "Invalid ticket number" });
+      }
+      await storage.setOrderSeatUpgraded(order.id, seat, !!req.body?.upgraded);
       return res.json({ ok: true });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });

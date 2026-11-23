@@ -253,6 +253,7 @@ export interface IStorage {
   getOrdersByEventId(eventId: string): Promise<Order[]>;
   hasEventOrders(eventId: string): Promise<boolean>;
   setOrderCheckedIn(id: string, seat: number, checkedIn: boolean): Promise<Order | undefined>;
+  setOrderSeatUpgraded(id: string, seat: number, upgraded: boolean): Promise<Order | undefined>;
   getTotalTicketsSold(): Promise<number>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   // Event config
@@ -397,6 +398,16 @@ export class DbStorage implements IStorage {
     const seats = { ...((cur.checkedInSeats as Record<string, string> | null) ?? {}) };
     if (checkedIn) seats[String(seat)] = new Date().toISOString(); else delete seats[String(seat)];
     const [row] = await db.update(orders).set({ checkedInSeats: seats }).where(eq(orders.id, id)).returning();
+    return row;
+  }
+
+  // Marks one paid ticket as a special guest. The order, amount and revenue are untouched.
+  async setOrderSeatUpgraded(id: string, seat: number, upgraded: boolean): Promise<Order | undefined> {
+    const [cur] = await db.select().from(orders).where(eq(orders.id, id));
+    if (!cur) return undefined;
+    const seats = { ...((cur.upgradedSeats as Record<string, string> | null) ?? {}) };
+    if (upgraded) seats[String(seat)] = new Date().toISOString(); else delete seats[String(seat)];
+    const [row] = await db.update(orders).set({ upgradedSeats: seats }).where(eq(orders.id, id)).returning();
     return row;
   }
 

@@ -6,7 +6,7 @@ import { isAuthenticated } from "@/lib/auth";
 
 type Buyer = {
   key: string; orderId: string; seat: number; of: number; name: string; buyerName: string;
-  email: string; phone: string; ticketType: string; createdAt: string | null; checkedInAt: string | null;
+  email: string; phone: string; ticketType: string; createdAt: string | null; checkedInAt: string | null; specialGuest?: boolean;
 };
 type CheckInData = {
   event: { id: string; title: string; date: string; location: string };
@@ -135,12 +135,22 @@ export default function CheckIn() {
     onSettled: () => { if (!readJson<Pending[]>(queueKey, []).length) qc.invalidateQueries({ queryKey: key }); },
   });
 
+  const upgrade = useMutation({
+    mutationFn: async ({ orderId, seat, upgraded }: { orderId: string; seat: number; upgraded: boolean }) => {
+      const res = await fetch(`/api/analytics/${eventId}/upgrade/${orderId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify({ seat, upgraded }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || "Could not update ticket");
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+  });
+
   const buyers = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = (data?.tickets ?? []).filter((b) =>
       !q || [b.name, b.buyerName, b.email, b.phone, b.ticketType, b.orderId].some((v) => v?.toLowerCase().includes(q)));
     // Waiting first (original order), checked-in at the bottom (most recent last)
-    const waiting = list.filter((b) => !b.checkedInAt);
+    const waiting = list.filter((b) => !b.checkedInAt).sort((a, b) => Number(!!b.specialGuest) - Number(!!a.specialGuest));
     const done = list.filter((b) => b.checkedInAt)
       .sort((a, b) => new Date(a.checkedInAt!).getTime() - new Date(b.checkedInAt!).getTime());
     return [...waiting, ...done];
@@ -234,12 +244,12 @@ export default function CheckIn() {
             {buyers.map((b) => {
               const done = !!b.checkedInAt;
               return (
-                <li key={b.key}>
+                <li key={b.key} className="flex items-stretch gap-2">
                   <button
                     onClick={() => toggle.mutate({ id: b.orderId, seat: b.seat, checkedIn: !done })}
                     aria-pressed={done}
-                    className={`w-full flex items-center gap-4 text-left rounded-xl border px-4 py-3 transition-all ${
-                      done
+                    className={`min-w-0 flex-1 flex items-center gap-4 text-left rounded-xl border px-4 py-3 transition-all ${
+                      b.specialGuest && !done ? "bg-zinc-900 border-amber-400/70 hover:border-amber-400" : done
                         ? "bg-zinc-900/40 border-zinc-800/60 opacity-50"
                         : "bg-zinc-900 border-zinc-800 hover:border-amber-400/40"
                     }`}>
@@ -251,6 +261,7 @@ export default function CheckIn() {
                     <span className="min-w-0 flex-1">
                       <span className={`block font-semibold truncate ${done ? "line-through text-zinc-500" : "text-white"}`}>
                         {b.name}
+                        {b.specialGuest && <span className="ml-2 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300">Special guest</span>}
                         {b.of > 1 && <span className="ml-2 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 no-underline">{b.seat + 1}/{b.of}</span>}
                       </span>
                       <span className="block text-xs text-zinc-500 truncate">{b.name !== b.buyerName ? `Buyer: ${b.buyerName} · ` : ""}{b.email} · {b.phone}</span>
@@ -258,6 +269,18 @@ export default function CheckIn() {
                     <span className="text-right shrink-0">
                       <span className="block text-xs font-semibold text-amber-400">{b.ticketType}</span>
                     </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (b.specialGuest || window.confirm(`Upgrade ${b.name} to special guest? Their payment stays on record.`))
+                        upgrade.mutate({ orderId: b.orderId, seat: b.seat, upgraded: !b.specialGuest });
+                    }}
+                    title={b.specialGuest ? "Remove special guest status" : "Upgrade to special guest"}
+                    aria-label={b.specialGuest ? "Remove special guest status" : "Upgrade to special guest"}
+                    className={`shrink-0 w-12 rounded-xl border flex items-center justify-center transition-all ${
+                      b.specialGuest ? "border-amber-400/70 bg-amber-400/10 text-amber-400" : "border-zinc-800 bg-zinc-900 text-zinc-500 hover:text-amber-400 hover:border-amber-400/40"
+                    }`}>
+                    <Crown className="w-5 h-5" />
                   </button>
                 </li>
               );
