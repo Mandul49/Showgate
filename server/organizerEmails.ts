@@ -104,6 +104,7 @@ export function registerOrganizerEmailRoutes(app: Express) {
     const event = await storage.getEventById(req.params.id);
     if (!event) { res.status(404).json({ message: "Event not found" }); return null; }
     if (event.organizerId !== organizer.id) { res.status(403).json({ message: "Not authorized" }); return null; }
+    if (organizer.tier !== "pro") { res.status(403).json({ message: "Email Attendees is available on the Pro plan" }); return null; }
     return { organizer, event };
   }
 

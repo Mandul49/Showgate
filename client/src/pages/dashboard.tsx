@@ -1485,7 +1485,15 @@ function EventCard({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <EmailAttendeesButton eventId={event.id} title={event.title} />
+            {tier === "pro" ? (
+              <EmailAttendeesButton eventId={event.id} title={event.title} />
+            ) : (
+              <a href="/pricing" title="Email Attendees is a Pro feature"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-xs font-semibold text-zinc-600 hover:text-amber-400 hover:border-amber-400/40 transition-colors">
+                <Lock className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Email Attendees · Pro</span>
+              </a>
+            )}
             <a
               href={`/analytics/${event.slug ?? event.id}`}
               title="View analytics"
