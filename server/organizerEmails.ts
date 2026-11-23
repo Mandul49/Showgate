@@ -39,6 +39,32 @@ function unsubUrl(base: string, organizerId: string, email: string): string {
   return `${base}/api/email/unsubscribe?o=${encodeURIComponent(organizerId)}&e=${e}&t=${unsubToken(organizerId, email)}`;
 }
 
+const esc = (v: string) =>
+  v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Same look as the Showgate welcome email. The organizer's message is escaped plain text. */
+function renderHtml(opts: { subject: string; message: string; organizerName: string; eventTitle: string; unsubscribeUrl: string }): string {
+  const body = esc(opts.message).replace(/\r?\n/g, "<br>");
+  return `
+<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px 28px;">
+    <span style="font-size:18px;font-weight:900;color:#000;">Showgate</span>
+    <h1 style="margin:8px 0 0;font-size:22px;color:#000;font-weight:900;">${esc(opts.subject)}</h1>
+  </div>
+  <div style="padding:24px 28px;">
+    <p style="margin:0 0 20px;color:#a1a1aa;font-size:13px;">
+      A message from <strong style="color:#fff;">${esc(opts.organizerName)}</strong> about <strong style="color:#fff;">${esc(opts.eventTitle)}</strong>
+    </p>
+    <div style="margin:0;color:#e4e4e7;font-size:15px;line-height:1.6;">${body}</div>
+    <p style="margin:24px 0 0;font-size:12px;color:#52525b;border-top:1px solid #27272a;padding-top:16px;">
+      Sent via Showgate on behalf of ${esc(opts.organizerName)} for ${esc(opts.eventTitle)}.
+      Reply to this email to reach the organizer.<br>
+      <a href="${esc(opts.unsubscribeUrl)}" style="color:#f59e0b;text-decoration:none;">Unsubscribe</a>
+    </p>
+  </div>
+</div>`;
+}
+
 // Display names go into a header: strip anything that could break out of it.
 function safeDisplayName(name: string): string {
   return name.replace(/[\r\n"<>,;:\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Organizer";
@@ -157,6 +183,7 @@ export function registerOrganizerEmailRoutes(app: Express) {
             to: [to],
             replyTo: user.email,
             subject,
+            html: renderHtml({ subject, message, organizerName: organizer.businessName, eventTitle: event.title, unsubscribeUrl: link }),
             text: `${message}\n\n--\nSent via Showgate on behalf of ${organizer.businessName} for ${event.title}\nUnsubscribe: ${link}\n`,
             headers: {
               "List-Unsubscribe": `<${link}>`,
