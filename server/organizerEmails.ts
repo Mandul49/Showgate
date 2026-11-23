@@ -54,7 +54,7 @@ const esc = (v: string) =>
   v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Same look as the Showgate welcome email. The organizer's message is escaped plain text. */
-function renderHtml(opts: { subject: string; message: string; organizerName: string; eventTitle: string; unsubscribeUrl: string }): string {
+function renderHtml(opts: { subject: string; message: string; organizerName: string; eventTitle: string; organizerEmail: string; unsubscribeUrl: string }): string {
   const body = esc(opts.message).replace(/\r?\n/g, "<br>");
   return `
 <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f5f5f5;border-radius:12px;overflow:hidden;">
@@ -69,7 +69,7 @@ function renderHtml(opts: { subject: string; message: string; organizerName: str
     <div style="margin:0;color:#e4e4e7;font-size:15px;line-height:1.6;">${body}</div>
     <p style="margin:24px 0 0;font-size:12px;color:#52525b;border-top:1px solid #27272a;padding-top:16px;">
       Sent via Showgate on behalf of ${esc(opts.organizerName)} for ${esc(opts.eventTitle)}.
-      Reply to this email to reach the organizer.<br>
+      Questions? Contact the organizer at <a href="mailto:${esc(opts.organizerEmail)}" style="color:#f59e0b;text-decoration:none;">${esc(opts.organizerEmail)}</a>.<br>
       <a href="${esc(opts.unsubscribeUrl)}" style="color:#f59e0b;text-decoration:none;">Unsubscribe</a>
     </p>
   </div>
@@ -211,8 +211,8 @@ export function registerOrganizerEmailRoutes(app: Express) {
           to: [to],
           replyTo: user.email,
           subject,
-          html: renderHtml({ subject, message, organizerName: organizer.businessName, eventTitle: event.title, unsubscribeUrl: link }),
-          text: `${message}\n\n--\nSent via Showgate on behalf of ${organizer.businessName} for ${event.title}\nUnsubscribe: ${link}\n`,
+          html: renderHtml({ subject, message, organizerName: organizer.businessName, eventTitle: event.title, organizerEmail: user.email, unsubscribeUrl: link }),
+          text: `${message}\n\n--\nSent via Showgate on behalf of ${organizer.businessName} for ${event.title}\nQuestions? Contact the organizer at ${user.email}\nUnsubscribe: ${link}\n`,
           headers: {
             "List-Unsubscribe": `<${link}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
