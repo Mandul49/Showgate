@@ -5,7 +5,7 @@ import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { getPaystackSecretKey } from "./paystackConfig";
 import { sendProWelcomeEmail } from "./email";
-import { updateOrganizerEventSubaccountCharges } from "./payout";
+import { syncOrganizerSubaccountCharges } from "./payout";
 
 export const PLANS = {
   monthly: { amountKobo: 1_000_000, label: "Monthly", durationDays: 31 },
@@ -56,12 +56,9 @@ export async function fulfillUpgrade(userId: string, plan: PlanKey): Promise<voi
   const organizer = await storage.getOrganizerByUserId(userId);
   if (organizer) {
     await storage.updateOrganizerTier(organizer.id, "pro");
-    if (organizer.subaccountCode) {
-      updateSubaccountCharge(organizer.subaccountCode, 0).catch((err) =>
-        console.error("[upgrade] Subaccount update failed:", err.message)
-      );
-    }
-    updateOrganizerEventSubaccountCharges(organizer.id, 0).catch(console.error);
+    syncOrganizerSubaccountCharges(organizer.id).catch((err) =>
+      console.error("[upgrade] Subaccount update failed:", err.message)
+    );
   }
 
   const firstName = user.email.split("@")[0];
@@ -88,10 +85,7 @@ export function startSubscriptionCron(): void {
         const organizer = await storage.getOrganizerByUserId(user.id);
         if (organizer) {
           await storage.updateOrganizerTier(organizer.id, "free");
-          if (organizer.subaccountCode) {
-            updateSubaccountCharge(organizer.subaccountCode, 2.5).catch(console.error);
-          }
-          updateOrganizerEventSubaccountCharges(organizer.id, 2.5).catch(console.error);
+          syncOrganizerSubaccountCharges(organizer.id).catch(console.error);
         }
         console.log(`[cron] Downgraded ${user.email} → free`);
       }
@@ -402,12 +396,9 @@ export function registerUpgradeRoutes(app: Express): void {
       const organizer = await storage.getOrganizerByUserId(req.userId!);
       if (organizer) {
         await storage.updateOrganizerTier(organizer.id, "free");
-        if (organizer.subaccountCode) {
-          updateSubaccountCharge(organizer.subaccountCode, 2.5).catch((err) =>
-            console.error("[cancel] Subaccount update failed:", err.message)
-          );
-        }
-        updateOrganizerEventSubaccountCharges(organizer.id, 2.5).catch(console.error);
+        syncOrganizerSubaccountCharges(organizer.id).catch((err) =>
+          console.error("[cancel] Subaccount update failed:", err.message)
+        );
       }
 
       console.log(`[cancel] User ${req.userId!} (${user.email}) immediately downgraded to free — reason: ${reason ?? "No reason given"}`);
