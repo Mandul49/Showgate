@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertOrderSchema, eventConfigSchema } from "@shared/schema";
 import { registerAuthRoutes, requireAuth } from "./auth";
 import { registerOnboardingRoutes } from "./onboarding";
+import { registerPayoutRoutes } from "./payout";
 import { registerEventsRoutes } from "./events";
 import { registerCheckoutRoutes } from "./checkout";
 import { registerUpgradeRoutes, registerUpgradeWebhook, startSubscriptionCron } from "./upgrade";
@@ -53,6 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Onboarding ───────────────────────────────────────────────────────────
   registerOnboardingRoutes(app);
+  registerPayoutRoutes(app);
 
   // ─── Events ───────────────────────────────────────────────────────────────
   registerEventsRoutes(app);

@@ -5,6 +5,7 @@ import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { getPaystackSecretKey } from "./paystackConfig";
 import { sendProWelcomeEmail } from "./email";
+import { updateOrganizerEventSubaccountCharges } from "./payout";
 
 export const PLANS = {
   monthly: { amountKobo: 1_000_000, label: "Monthly", durationDays: 31 },
@@ -60,6 +61,7 @@ export async function fulfillUpgrade(userId: string, plan: PlanKey): Promise<voi
         console.error("[upgrade] Subaccount update failed:", err.message)
       );
     }
+    updateOrganizerEventSubaccountCharges(organizer.id, 0).catch(console.error);
   }
 
   const firstName = user.email.split("@")[0];
@@ -89,6 +91,7 @@ export function startSubscriptionCron(): void {
           if (organizer.subaccountCode) {
             updateSubaccountCharge(organizer.subaccountCode, 2.5).catch(console.error);
           }
+          updateOrganizerEventSubaccountCharges(organizer.id, 2.5).catch(console.error);
         }
         console.log(`[cron] Downgraded ${user.email} → free`);
       }
@@ -404,6 +407,7 @@ export function registerUpgradeRoutes(app: Express): void {
             console.error("[cancel] Subaccount update failed:", err.message)
           );
         }
+        updateOrganizerEventSubaccountCharges(organizer.id, 2.5).catch(console.error);
       }
 
       console.log(`[cancel] User ${req.userId!} (${user.email}) immediately downgraded to free — reason: ${reason ?? "No reason given"}`);

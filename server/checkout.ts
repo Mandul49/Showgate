@@ -7,6 +7,7 @@ import { fulfillPaystackOrder } from "./paystackFulfillment";
 import { fulfillUpgrade } from "./upgrade";
 import { sendConfirmationEmail } from "./email";
 import { getPaystackSecretKey, isTestMode } from "./paystackConfig";
+import { effectiveSubaccountCode } from "./payout";
 
 const FREE_TIER_FEE_PCT = 0.025;       // 2.5% fixed for free-tier organizers
 const DEFAULT_PLATFORM_FEE_PCT = 0.02; // 2% default for pro — overridden by platform_fee_percent DB setting
@@ -80,9 +81,7 @@ export function registerCheckoutRoutes(app: Express) {
       }
 
       const organizer = await storage.getOrganizerById(event.organizerId);
-      const activeSubaccountCode = isTestMode()
-        ? (organizer?.testSubaccountCode || organizer?.subaccountCode)
-        : organizer?.subaccountCode;
+      const activeSubaccountCode = effectiveSubaccountCode(event, organizer);
 
       if (!activeSubaccountCode) {
         console.warn(`[checkout] Missing ${isTestMode() ? "test" : "live"} subaccount for organizerId=${organizer?.id ?? "unknown"} eventId=${eventId}`);

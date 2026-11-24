@@ -260,6 +260,22 @@ export const events = pgTable("events", {
   twitterUrl: text("twitter_url"),
   tiktokUrl: text("tiktok_url"),
   brandingOverride: jsonb("branding_override"),
+  payoutSubaccountCode: text("payout_subaccount_code"),
+  payoutSubaccountMode: text("payout_subaccount_mode"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// One row per distinct payout account an organizer has used for an event.
+// Reused when the same bank + account number is entered again.
+export const organizerSubaccounts = pgTable("organizer_subaccounts", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  organizerId: varchar("organizer_id", { length: 36 }).notNull(),
+  bankCode: text("bank_code").notNull(),
+  bankName: text("bank_name").notNull(),
+  accountNumber: text("account_number").notNull(),
+  accountName: text("account_name").notNull(),
+  subaccountCode: text("subaccount_code").notNull(),
+  mode: text("mode").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -288,6 +304,8 @@ export type Event = {
   twitterUrl: string | null;
   tiktokUrl: string | null;
   brandingOverride: EventBrandingOverride | null;
+  payoutSubaccountCode: string | null;
+  payoutSubaccountMode: "test" | "live" | null;
   createdAt: Date;
 };
 
@@ -331,6 +349,8 @@ export interface UpdateEventData {
   facebookUrl?: string | null;
   twitterUrl?: string | null;
   tiktokUrl?: string | null;
+  payoutSubaccountCode?: string | null;
+  payoutSubaccountMode?: "test" | "live" | null;
 }
 
 export const createEventSchema = z.object({
