@@ -91,7 +91,7 @@ export default function Pricing() {
   const proFeatures = [
     "Unlimited active events",
     "Unlimited tickets",
-    "All payment providers",
+    "Multiple payout accounts: each event can have its own",
     "Full analytics dashboard",
     `${proFee}% platform fee`,
     "Custom branding",
@@ -102,7 +102,7 @@ export default function Pricing() {
     { label: "Active events",     free: "1",           pro: "Unlimited" },
     { label: "Tickets per month", free: "500",         pro: "Unlimited" },
     { label: "Platform fee",      free: `${freeFee}%`, pro: `${proFee}%` },
-    { label: "Payment methods",   free: "Paystack direct deposit", pro: "All providers" },
+    { label: "Payment methods",   free: "Paystack direct deposit", pro: "Multiple accounts, one per event" },
     { label: "Analytics",         free: "Basic",       pro: "Full dashboard" },
     { label: "Priority support",  free: <X className="w-4 h-4 text-zinc-700 mx-auto" />, pro: <Check className="w-4 h-4 text-green-400 mx-auto" /> },
     { label: "Custom branding",   free: <X className="w-4 h-4 text-zinc-700 mx-auto" />, pro: <Check className="w-4 h-4 text-green-400 mx-auto" /> },
