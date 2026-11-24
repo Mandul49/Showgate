@@ -282,7 +282,6 @@ export interface IStorage {
   updateOrganizerBranding(organizerId: string, data: { customBrandName: string | null; customLogoUrl: string | null; brandTheme?: import("@shared/schema").BrandTheme | null }): Promise<Organizer>;
   updateOrganizerBrandingEnabled(organizerId: string, enabled: boolean): Promise<Organizer>;
   updateEventBrandingOverride(eventId: string, override: import("@shared/schema").EventBrandingOverride | null): Promise<Event>;
-  updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer>;
   updateOrganizerTestSubaccount(organizerId: string, testSubaccountCode: string): Promise<Organizer>;
   updateOrganizerBankAccount(organizerId: string, data: { bankName: string; bankCode: string; accountNumber: string }): Promise<Organizer>;
   setOrganizerLiveSubaccount(organizerId: string, subaccountCode: string): Promise<Organizer>;
@@ -621,8 +620,6 @@ export class DbStorage implements IStorage {
       tier: row.tier as UserTier,
       customBrandName: row.customBrandName ?? null,
       customLogoUrl: row.customLogoUrl ?? null,
-      flutterwavePublicKey: row.flutterwavePublicKey ?? null,
-      flutterwaveSecretKey: row.flutterwaveSecretKey ?? null,
       brandTheme: (row.brandTheme as import("@shared/schema").BrandTheme | null) ?? null,
       brandingEnabled: row.brandingEnabled ?? true,
       canSendEmails: row.canSendEmails ?? true,
@@ -678,15 +675,6 @@ export class DbStorage implements IStorage {
   async updateOrganizerBrandingEnabled(organizerId: string, enabled: boolean): Promise<Organizer> {
     const [row] = await db.update(organizers)
       .set({ brandingEnabled: enabled })
-      .where(eq(organizers.id, organizerId))
-      .returning();
-    if (!row) throw new Error("Organizer not found");
-    return this._mapOrganizer(row);
-  }
-
-  async updateOrganizerGateways(organizerId: string, data: { flutterwavePublicKey: string | null; flutterwaveSecretKey: string | null }): Promise<Organizer> {
-    const [row] = await db.update(organizers)
-      .set(data)
       .where(eq(organizers.id, organizerId))
       .returning();
     if (!row) throw new Error("Organizer not found");
