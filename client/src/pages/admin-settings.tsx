@@ -68,7 +68,12 @@ export default function AdminSettings() {
 
   function saveField(key: string, value: string, label: string) {
     saveMutation.mutate({ key, value }, {
-      onSuccess: () => toast({ title: `${label} updated` }),
+      onSuccess: () => toast({
+        title: `${label} updated`,
+        description: (key === "platform_fee_percent" || key === "pro_ticket_fee_percent")
+          ? "Updating existing payout accounts in Paystack in the background."
+          : undefined,
+      }),
       onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
     });
   }
@@ -185,8 +190,8 @@ export default function AdminSettings() {
         {/* Platform Fee */}
         <SettingSection
           icon={<DollarSign className="w-4 h-4 text-emerald-400" />}
-          title="Platform Fee"
-          description="Percentage of gross ticket revenue Showgate earns on each sale. Used in analytics calculations."
+          title="Free Plan Fee"
+          description="Percentage of gross ticket revenue Showgate earns on each sale for Free tier organizers. Also used in analytics. Saving updates existing Free organizers' Paystack subaccounts."
         >
           <div className="flex items-end gap-3">
             <div className="flex-1 space-y-1.5">
@@ -221,7 +226,7 @@ export default function AdminSettings() {
         <SettingSection
           icon={<DollarSign className="w-4 h-4 text-amber-400" />}
           title="Pro Ticket Fee"
-          description="Percentage fee charged on ticket sales for Pro tier organizers."
+          description="Percentage fee charged on ticket sales for Pro tier organizers. Saving updates existing Pro organizers' Paystack subaccounts."
         >
           <div className="flex items-end gap-3">
             <div className="flex-1 space-y-1.5">

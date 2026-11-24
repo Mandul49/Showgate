@@ -88,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [maintenanceVal, bannerVal, feeVal, proTicketFeeVal, monthlyKoboVal, yearlyKoboVal] = await Promise.all([
         storage.getPlatformSetting("maintenance_mode", "false"),
         storage.getPlatformSetting("maintenance_banner", "false"),
-        storage.getPlatformSetting("platform_fee_percent", "2"),
+        storage.getPlatformSetting("platform_fee_percent", "2.5"),
         storage.getPlatformSetting("pro_ticket_fee_percent", "2"),
         storage.getPlatformSetting("pro_monthly_price_kobo", "1000000"),
         storage.getPlatformSetting("pro_yearly_price_kobo", "10000000"),
@@ -97,7 +97,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maintenanceMode: maintenanceVal === "true",
         maintenanceBanner: bannerVal === "true",
         feePercent: parseFloat(feeVal) || 2,
-        freeFeePercent: 2.5,
+        freeFeePercent: parseFloat(feeVal) || 2.5,
         proTicketFeePercent: parseFloat(proTicketFeeVal) || 2,
         proMonthlyNaira: Math.round(parseInt(monthlyKoboVal, 10) / 100) || 10000,
         proYearlyNaira: Math.round(parseInt(yearlyKoboVal, 10) / 100) || 100000,

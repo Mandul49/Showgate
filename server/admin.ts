@@ -7,6 +7,7 @@ import { organizerEmailSends, organizers, users, events } from "@shared/schema";
 import { db } from "./db";
 import { storage } from "./storage";
 import { requireAdmin, requireAdminRole, type AuthRequest } from "./auth";
+import { syncTierSubaccountCharges } from "./payout";
 import { sendAdminInviteEmail, sendProWelcomeEmail } from "./email";
 
 // ── Permission gates (chained after requireAdmin) ─────────────────────────────
@@ -327,7 +328,10 @@ export function registerAdminRoutes(app: Express) {
       if (!allowed.includes(key)) return res.status(400).json({ message: "Unknown setting key" });
       await storage.setPlatformSetting(key, value);
       audit(req, "update_setting", "setting", key, { value });
-      return res.json({ key, value });
+      // A fee change is pushed to every organizer's Paystack subaccounts in the background.
+      const feeTier = key === "platform_fee_percent" ? "free" : key === "pro_ticket_fee_percent" ? "pro" : null;
+      if (feeTier) syncTierSubaccountCharges(feeTier).catch(err => console.error("[fee-sync]", err.message));
+      return res.json({ key, value, syncing: !!feeTier });
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 

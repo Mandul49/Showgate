@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { getPaystackSecretKey } from "./paystackConfig";
+import { platformFeePctForTier } from "./payout";
 
 
 const setupSchema = z.object({
@@ -117,7 +118,7 @@ export function registerOnboardingRoutes(app: Express) {
         business_name: businessName,
         settlement_bank: bankCode,
         account_number: accountNumber,
-        percentage_charge: 2.5,
+        percentage_charge: await platformFeePctForTier((await storage.getUserById(req.userId!))?.tier ?? "free"),
       };
       if (bvn) payload.metadata = { bvn };
 
@@ -193,7 +194,7 @@ export function registerOnboardingRoutes(app: Express) {
         business_name: organizer.businessName,
         settlement_bank: organizer.bankCode,
         account_number: organizer.accountNumber,
-        percentage_charge: 2.5,
+        percentage_charge: await platformFeePctForTier(organizer.tier),
       };
 
       const paystackRes = await fetch("https://api.paystack.co/subaccount", {
@@ -280,7 +281,7 @@ export function registerOnboardingRoutes(app: Express) {
             business_name: organizer.businessName,
             settlement_bank: bankCode,
             account_number: accountNumber,
-            percentage_charge: 2.5,
+            percentage_charge: await platformFeePctForTier(organizer.tier),
           }),
         });
       }

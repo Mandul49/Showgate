@@ -3,12 +3,21 @@ import { randomUUID } from "crypto";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "./db";
-import { organizerSubaccounts } from "@shared/schema";
+import { organizers, organizerSubaccounts } from "@shared/schema";
 import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { getPaystackSecretKey, isTestMode } from "./paystackConfig";
 
-const FREE_FEE_PCT = 2.5;
+function parsePct(v: string, fallback: number): number {
+  const n = parseFloat(v);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : fallback;
+}
+
+/** Platform fee percentage for a tier, from the admin settings: Free uses platform_fee_percent, Pro uses pro_ticket_fee_percent. */
+export async function platformFeePctForTier(tier: string): Promise<number> {
+  if (tier === "pro") return parsePct(await storage.getPlatformSetting("pro_ticket_fee_percent", "2"), 2);
+  return parsePct(await storage.getPlatformSetting("platform_fee_percent", "2.5"), 2.5);
+}
 
 const accountSchema = z.object({
   bankCode: z.string().min(1, "Please select a bank"),
@@ -71,15 +80,45 @@ export function effectiveSubaccountCode(
   return isTestMode() ? (organizer.testSubaccountCode || organizer.subaccountCode) : organizer.subaccountCode;
 }
 
-/** Update the platform-fee percentage on every extra subaccount an organizer owns (tier change). */
-export async function updateOrganizerEventSubaccountCharges(organizerId: string, pct: number): Promise<void> {
-  const rows = await db.select().from(organizerSubaccounts).where(eq(organizerSubaccounts.organizerId, organizerId));
+/** Paystack subaccount codes an organizer owns for the current Paystack mode (signup account + per-event accounts). */
+async function subaccountCodesFor(org: { id: string; subaccountCode: string | null; testSubaccountCode: string | null }): Promise<string[]> {
+  const mode = isTestMode() ? "test" : "live";
+  const codes = new Set<string>();
+  const own = mode === "test" ? org.testSubaccountCode : org.subaccountCode;
+  if (own) codes.add(own);
+  const rows = await db.select().from(organizerSubaccounts)
+    .where(and(eq(organizerSubaccounts.organizerId, org.id), eq(organizerSubaccounts.mode, mode)));
+  for (const r of rows) codes.add(r.subaccountCode);
+  return Array.from(codes);
+}
+
+/** Set one organizer's Paystack subaccounts to the fee for their current tier. */
+export async function syncOrganizerSubaccountCharges(organizerId: string): Promise<void> {
+  const organizer = await storage.getOrganizerById(organizerId);
+  if (!organizer) return;
+  const pct = await platformFeePctForTier(organizer.tier);
   const { updateSubaccountCharge } = await import("./upgrade");
-  for (const r of rows) {
-    if (r.mode !== (isTestMode() ? "test" : "live")) continue;
-    await updateSubaccountCharge(r.subaccountCode, pct).catch((err) =>
-      console.error("[payout] subaccount charge update failed:", r.subaccountCode, err.message));
+  for (const code of await subaccountCodesFor(organizer)) {
+    await updateSubaccountCharge(code, pct).catch((err) =>
+      console.error("[payout] subaccount charge update failed:", code, err.message));
   }
+}
+
+/** After an admin changes a tier's fee, push it to every organizer on that tier. Runs in the background. */
+export async function syncTierSubaccountCharges(tier: "free" | "pro"): Promise<void> {
+  const rows = await db.select().from(organizers).where(eq(organizers.tier, tier));
+  const pct = await platformFeePctForTier(tier);
+  const { updateSubaccountCharge } = await import("./upgrade");
+  let ok = 0, failed = 0;
+  for (const org of rows) {
+    let codes: string[] = [];
+    try { codes = await subaccountCodesFor(org); } catch (err: any) { console.error("[fee-sync] lookup failed:", org.id, err.message); failed++; continue; }
+    for (const code of codes) {
+      try { await updateSubaccountCharge(code, pct); ok++; }
+      catch (err: any) { failed++; console.error("[fee-sync] failed:", code, err.message); }
+    }
+  }
+  console.log(`[fee-sync] ${tier} fee ${pct}%: ${ok} subaccount(s) updated, ${failed} failed, ${rows.length} organizer(s)`);
 }
 
 export function registerPayoutRoutes(app: Express) {
@@ -160,7 +199,7 @@ export function registerPayoutRoutes(app: Express) {
         if (defaultCode && organizer.bankCode === bankCode && organizer.accountNumber === accountNumber) {
           code = defaultCode; // same account as the organizer default: reuse that subaccount
         } else {
-          code = await createPaystackSubaccount(organizer.businessName, bankCode, accountNumber, organizer.tier === "pro" ? 0 : FREE_FEE_PCT);
+          code = await createPaystackSubaccount(organizer.businessName, bankCode, accountNumber, await platformFeePctForTier(organizer.tier));
           reused = false;
         }
         await db.insert(organizerSubaccounts).values({
