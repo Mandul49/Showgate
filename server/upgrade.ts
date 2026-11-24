@@ -182,13 +182,13 @@ export function registerUpgradeWebhook(app: Express): void {
 
       if (user.tier === "pro") {
         // Still record the reference so it can't be replayed later
-        await storage.recordSubscriptionReference(reference, userId, plan, PLANS[plan].amountKobo);
+        await storage.recordSubscriptionReference(reference, userId, plan, Number(data.amount) || PLANS[plan].amountKobo);
         console.log(`[webhook] User ${userId} already Pro — recorded reference and skipped fulfillment`);
         return res.status(200).json({ message: "Already Pro" });
       }
 
       await fulfillUpgrade(userId, plan);
-      await storage.recordSubscriptionReference(reference, userId, plan, PLANS[plan].amountKobo);
+      await storage.recordSubscriptionReference(reference, userId, plan, Number(data.amount) || PLANS[plan].amountKobo);
 
       console.log(`[webhook] Fulfilled Pro upgrade for user ${userId} (${plan}) via webhook`);
       return res.status(200).json({ message: "Upgrade fulfilled" });
@@ -211,7 +211,10 @@ export function registerUpgradeRoutes(app: Express): void {
       }
 
       const plan: PlanKey = req.body.plan === "yearly" ? "yearly" : "monthly";
-      const { amountKobo, label } = PLANS[plan];
+      const { label } = PLANS[plan];
+      // Charge the price currently set on the admin dashboard, not the built-in default.
+      const planAmounts = await getPlanAmountsFromDb();
+      const amountKobo = plan === "yearly" ? planAmounts.yearly : planAmounts.monthly;
       const userId = req.userId!;
 
       const user = await storage.getUserById(userId);
@@ -235,6 +238,7 @@ export function registerUpgradeRoutes(app: Express): void {
               { display_name: "Type",    variable_name: "payment_type", value: "subscription" },
             ],
             upgrade_plan: plan,
+            amount_kobo: amountKobo,
             user_id: userId,
           },
         }),
@@ -336,14 +340,20 @@ export function registerUpgradeRoutes(app: Express): void {
       const plan: PlanKey = rawPlan;
 
       // Ensure the amount exactly matches the plan price
-      const expectedKobo = PLANS[plan].amountKobo;
+      // Expect the amount charged when the payment was started (stored in its metadata), so a
+      // price change after checkout doesn't reject a valid payment. Older references fall back to the current price.
+      const planAmounts = await getPlanAmountsFromDb();
+      const metaKobo = Number(meta.amount_kobo);
+      const expectedKobo = Number.isFinite(metaKobo) && metaKobo > 0
+        ? metaKobo
+        : (plan === "yearly" ? planAmounts.yearly : planAmounts.monthly);
       if (paystackData.data.amount < expectedKobo) {
         return res.status(400).json({ message: "Payment amount insufficient for this plan" });
       }
 
       await fulfillUpgrade(userId, plan);
       // Record the reference so it can never be replayed for another upgrade
-      await storage.recordSubscriptionReference(reference, userId, plan, PLANS[plan].amountKobo);
+      await storage.recordSubscriptionReference(reference, userId, plan, paystackData.data.amount ?? expectedKobo);
 
       const updatedUser = await storage.getUserById(userId);
       return res.json({
