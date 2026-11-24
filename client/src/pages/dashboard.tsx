@@ -2481,13 +2481,13 @@ function BrandingSection({ tier, events }: { tier: "free" | "pro"; events: { id:
                     {(["auto", "custom"] as const).map((v) => (
                       <button key={v} type="button"
                         onClick={() => setTheme((prev) => prev ? { ...prev, themeMode: v } : prev)}
-                        className={`px-3 py-1.5 transition-colors ${(theme.themeMode ?? "auto") === v ? "bg-amber-400 text-black" : "text-zinc-400 hover:text-white"}`}>
+                        className={`px-3 py-1.5 transition-colors ${(theme.themeMode ?? "custom") === v ? "bg-amber-400 text-black" : "text-zinc-400 hover:text-white"}`}>
                         {v === "auto" ? "Auto (system)" : "Custom (force)"}
                       </button>
                     ))}
                   </div>
                   <p className="text-zinc-600 text-[10px] mt-1">
-                    {(theme.themeMode ?? "auto") === "custom"
+                    {(theme.themeMode ?? "custom") === "custom"
                       ? "Browser light/dark ignored — your colours always show as-is"
                       : "Browser may tint colours based on system dark/light mode"}
                   </p>
