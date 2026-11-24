@@ -114,7 +114,7 @@ export function registerAdminRoutes(app: Express) {
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
-  app.patch("/api/admin/organizers/:id/email-sending", requireAdmin, requireAdminRole(["super_admin", "admin"]), async (req: AuthRequest, res) => {
+  app.patch("/api/admin/organizers/:id/email-sending", requireAdmin, SUPPORT_ACCESS, async (req: AuthRequest, res) => {
     try {
       const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
