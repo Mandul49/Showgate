@@ -746,6 +746,8 @@ export class DbStorage implements IStorage {
       facebookUrl: row.facebookUrl ?? null,
       twitterUrl: row.twitterUrl ?? null,
       tiktokUrl: row.tiktokUrl ?? null,
+      payoutSubaccountCode: row.payoutSubaccountCode ?? null,
+      payoutSubaccountMode: (row.payoutSubaccountMode as "test" | "live" | null) ?? null,
       brandingOverride: (row.brandingOverride as import("@shared/schema").EventBrandingOverride | null) ?? null,
       createdAt: row.createdAt,
     };

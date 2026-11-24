@@ -13,6 +13,7 @@ import {
   checkMonthlyTicketLimit,
 } from "./tierLimits";
 import { sendConfirmationEmail } from "./email";
+import { effectiveSubaccountCode } from "./payout";
 import { fulfillPaystackOrder, isEventSalesClosed, resolveTicketType, resolveDiscount } from "./paystackFulfillment";
 import { getPaystackSecretKey, getPaystackPublicKey, isTestMode, getPaystackMode } from "./paystackConfig";
 
@@ -369,9 +370,7 @@ export function registerEventsRoutes(app: Express) {
         organizer: organizer
           ? {
               businessName: organizer.businessName,
-              subaccountCode: isTestMode()
-                ? (organizer.testSubaccountCode || organizer.subaccountCode)
-                : organizer.subaccountCode,
+              subaccountCode: effectiveSubaccountCode(event, organizer) ?? "",
               testSubaccountCode: organizer.testSubaccountCode,
               bankName: organizer.bankName,
               accountNumber: organizer.accountNumber,

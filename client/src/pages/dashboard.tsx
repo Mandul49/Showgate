@@ -18,6 +18,7 @@ import {
   Crown, Settings, PauseCircle, RefreshCw, Landmark, UserCircle, Download, Wand2, Twitter, Mail,
 } from "lucide-react";
 import sgLogo from "../assets/showgate-logo.png";
+import { EventPayoutAccount, savePayoutSelection, payoutBlocksSave, type PayoutSelection } from "@/components/event-payout-account";
 import { SiInstagram, SiFacebook, SiTiktok } from "react-icons/si";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -281,6 +282,7 @@ function NewEventPanel({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [coverPosY, setCoverPosY] = useState(50);
   const [imageRemoved, setImageRemoved] = useState(false);
+  const [payout, setPayout] = useState<PayoutSelection>({ mode: "default" });
 
   const form = useForm<NewEventForm>({
     resolver: zodResolver(newEventSchema),
@@ -344,6 +346,11 @@ function NewEventPanel({
       const res = await apiRequest("POST", "/api/events", { ...values, coverImagePositionY: coverPosY });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to create event");
+      try {
+        await savePayoutSelection(data.id, payout);
+      } catch (e: any) {
+        toast({ title: "Event created, payout account not saved", description: `${e.message}. It uses your default account until you set it in Edit Event.`, variant: "destructive" });
+      }
       return data as EventData;
     },
     onSuccess: () => {
@@ -369,7 +376,10 @@ function NewEventPanel({
           </button>
         </div>
 
-        <form onSubmit={form.handleSubmit((v) => createMutation.mutate(v))} className="space-y-4">
+        <form onSubmit={form.handleSubmit((v) => {
+          if (payoutBlocksSave(payout)) { toast({ title: "Confirm the payout account", description: "Verify the account and confirm the name, or choose your default account.", variant: "destructive" }); return; }
+          createMutation.mutate(v);
+        })} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-zinc-400 text-xs uppercase tracking-widest block mb-1.5">Event Title *</label>
@@ -434,6 +444,8 @@ function NewEventPanel({
               </label>
             </div>
           </div>
+
+          <EventPayoutAccount value={payout} onChange={setPayout} />
 
           {/* Description */}
           <div>
@@ -753,6 +765,7 @@ function EditEventPanel({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [coverPosY, setCoverPosY] = useState(event.coverImagePositionY ?? 50);
   const [imageRemoved, setImageRemoved] = useState(false);
+  const [payout, setPayout] = useState<PayoutSelection>({ mode: "unchanged" });
 
   const form = useForm<EditEventForm>({
     resolver: zodResolver(editEventSchema),
@@ -816,10 +829,12 @@ function EditEventPanel({
       const res = await apiRequest("PATCH", `/api/events/${event.id}`, { ...values, coverImagePositionY: coverPosY });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to save");
+      await savePayoutSelection(event.id, payout);
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/events"] });
+      qc.invalidateQueries({ queryKey: [`/api/events/${event.id}/payout-account`] });
       toast({ title: "Event updated!" });
       onSaved();
     },
@@ -841,7 +856,10 @@ function EditEventPanel({
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
-      <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-3">
+      <form onSubmit={form.handleSubmit((v) => {
+        if (payoutBlocksSave(payout)) { toast({ title: "Confirm the payout account", description: "Verify the account and confirm the name, or choose your default account.", variant: "destructive" }); return; }
+        saveMutation.mutate(v);
+      })} className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">Title *</label>
@@ -908,6 +926,8 @@ function EditEventPanel({
             </div>
           </div>
         </div>
+
+        <EventPayoutAccount eventId={event.id} value={payout} onChange={setPayout} />
 
         <div>
           <label className="text-zinc-500 text-xs uppercase tracking-widest block mb-1">

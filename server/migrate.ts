@@ -51,6 +51,20 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`ALTER TABLE organizer_email_sends ADD COLUMN IF NOT EXISTS attachment_name text`);
     await db.execute(sql`ALTER TABLE organizer_email_sends ADD COLUMN IF NOT EXISTS attachment_size integer`);
     await db.execute(sql`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS can_send_emails boolean NOT NULL DEFAULT true`);
+    await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS payout_subaccount_code text`);
+    await db.execute(sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS payout_subaccount_mode text`);
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS organizer_subaccounts (
+      id varchar(36) PRIMARY KEY,
+      organizer_id varchar(36) NOT NULL,
+      bank_code text NOT NULL,
+      bank_name text NOT NULL,
+      account_number text NOT NULL,
+      account_name text NOT NULL,
+      subaccount_code text NOT NULL,
+      mode text NOT NULL,
+      created_at timestamp NOT NULL DEFAULT now()
+    )`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS organizer_subaccounts_unique ON organizer_subaccounts (organizer_id, bank_code, account_number, mode)`);
     await db.execute(sql`ALTER TABLE organizers ALTER COLUMN can_send_emails SET DEFAULT false`);
     console.log("[migrations] cover_image_position_y column ready");
   } catch (err: any) {
