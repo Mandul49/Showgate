@@ -532,11 +532,11 @@ export default function Home() {
                   <span className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">For Event Organizers</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-black text-white">2.5% platform fee</p>
+                  <p className="text-2xl font-black text-white">Based on your plan</p>
                   <p className="text-xs text-amber-400/80 font-semibold mt-0.5">per successful ticket sale</p>
                 </div>
                 <p className="text-zinc-500 text-sm leading-relaxed">
-                  Deducted from ticket revenue before settlement. You only pay when you sell.
+                  The platform fee depends on your account tier, Free or Pro. It is deducted from ticket revenue before settlement, and you only pay when you sell.
                 </p>
               </div>
 
