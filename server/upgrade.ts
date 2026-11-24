@@ -5,7 +5,7 @@ import { requireAuth, type AuthRequest } from "./auth";
 import { storage } from "./storage";
 import { getPaystackSecretKey } from "./paystackConfig";
 import { sendProWelcomeEmail } from "./email";
-import { updateOrganizerEventSubaccountCharges } from "./payout";
+import { updateOrganizerEventSubaccountCharges, platformFeePctForTier } from "./payout";
 
 export const PLANS = {
   monthly: { amountKobo: 1_000_000, label: "Monthly", durationDays: 31 },
@@ -61,7 +61,7 @@ export async function fulfillUpgrade(userId: string, plan: PlanKey): Promise<voi
         console.error("[upgrade] Subaccount update failed:", err.message)
       );
     }
-    updateOrganizerEventSubaccountCharges(organizer.id, 0).catch(console.error);
+    platformFeePctForTier("pro").then((pct) => updateOrganizerEventSubaccountCharges(organizer.id, pct)).catch(console.error);
   }
 
   const firstName = user.email.split("@")[0];

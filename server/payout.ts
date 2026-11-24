@@ -10,6 +10,13 @@ import { getPaystackSecretKey, isTestMode } from "./paystackConfig";
 
 const FREE_FEE_PCT = 2.5;
 
+/** Platform fee percentage for a tier: fixed for free, admin setting for Pro. */
+export async function platformFeePctForTier(tier: string): Promise<number> {
+  if (tier !== "pro") return FREE_FEE_PCT;
+  const v = parseFloat(await storage.getPlatformSetting("pro_ticket_fee_percent", "2"));
+  return Number.isFinite(v) && v >= 0 ? v : 2;
+}
+
 const accountSchema = z.object({
   bankCode: z.string().min(1, "Please select a bank"),
   accountNumber: z.string().regex(/^\d{10}$/, "Account number must be exactly 10 digits"),
@@ -160,7 +167,7 @@ export function registerPayoutRoutes(app: Express) {
         if (defaultCode && organizer.bankCode === bankCode && organizer.accountNumber === accountNumber) {
           code = defaultCode; // same account as the organizer default: reuse that subaccount
         } else {
-          code = await createPaystackSubaccount(organizer.businessName, bankCode, accountNumber, organizer.tier === "pro" ? 0 : FREE_FEE_PCT);
+          code = await createPaystackSubaccount(organizer.businessName, bankCode, accountNumber, await platformFeePctForTier(organizer.tier));
           reused = false;
         }
         await db.insert(organizerSubaccounts).values({
