@@ -387,7 +387,6 @@ export function registerEventsRoutes(app: Express) {
         },
         paystackPublicKey: getPaystackPublicKey(),
         paystackEnv: isTestMode() ? "test" : "live",
-        flutterwavePublicKey: (organizer?.tier === "pro" && organizer.flutterwavePublicKey) ? organizer.flutterwavePublicKey : "",
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -465,100 +464,6 @@ export function registerEventsRoutes(app: Express) {
         ticketTypeName: ticketType.name,
         quantity: qty,
         amount: 0,
-        reference: order.id,
-        brandName: (isPro && rb.customBrandName) ? rb.customBrandName : undefined,
-        brandLogoUrl: (isPro && rb.customLogoUrl) ? rb.customLogoUrl : null,
-        isPro,
-      }).catch(console.error);
-
-      return res.status(201).json(order);
-    } catch (err: any) {
-      return res.status(500).json({ message: err.message });
-    }
-  });
-
-  // ── POST /api/public/events/:id/purchase/flutterwave ─────────────────────
-  app.post("/api/public/events/:id/purchase/flutterwave", async (req, res) => {
-    try {
-      const event = await storage.getEventById(req.params.id);
-      if (!event || !event.isActive) return res.status(404).json({ message: "Event not available" });
-      if (isEventSalesClosed(event.date, event.startTime)) return res.status(410).json({ message: "Ticket sales for this event are closed" });
-
-      const organizer = await storage.getOrganizerById(event.organizerId);
-      if (!organizer || organizer.tier !== "pro") {
-        return res.status(403).json({ message: "Flutterwave payments not available for this event" });
-      }
-      if (!organizer.flutterwaveSecretKey) {
-        return res.status(503).json({ message: "Flutterwave not configured for this event" });
-      }
-
-      const { transactionId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, instagramHandle, discountCode, attendeeDetails, recipientEmail, gender, ageRange, heardFrom } = req.body;
-      if (!transactionId) return res.status(400).json({ message: "Missing transactionId" });
-      const toEmail = (recipientEmail && z.string().email().safeParse(recipientEmail).success) ? recipientEmail : customerEmail;
-
-      const resolved = await resolveTicketType(event.id, ticketTypeId, quantity);
-      if ("error" in resolved) return res.status(400).json({ message: resolved.error });
-      const { ticketType, qty, totalAmount, seatDeduction } = resolved;
-
-      const discount = await resolveDiscount(event.id, discountCode, ticketType.id, totalAmount);
-      const chargedAmount = Math.max(0, totalAmount - discount.discountAmount);
-
-      // Verify with Flutterwave using organizer's secret key
-      const fwRes = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
-        headers: { Authorization: `Bearer ${organizer.flutterwaveSecretKey}` },
-      });
-      if (!fwRes.ok) return res.status(400).json({ message: "Flutterwave verification failed" });
-
-      const fwData: any = await fwRes.json();
-      if (fwData.status !== "success" || fwData.data?.status !== "successful") {
-        return res.status(400).json({ message: "Payment was not successful" });
-      }
-
-      // Server-authoritative amount check (FW amounts are in full units, not kobo)
-      if (fwData.data.amount < chargedAmount) {
-        return res.status(400).json({ message: "Paid amount is less than ticket price" });
-      }
-
-      const fwMonthlyCheck = await checkMonthlyTicketLimit(organizer, qty);
-      if (!fwMonthlyCheck.allowed) {
-        return res.status(403).json({ message: fwMonthlyCheck.message, code: fwMonthlyCheck.code });
-      }
-
-      const parsed = insertOrderSchema.safeParse({
-        eventId: event.id,
-        ticketTypeId: ticketType.id,
-        customerName,
-        customerEmail,
-        customerPhone,
-        instagramHandle: instagramHandle || null,
-        ticketType: ticketType.name,
-        quantity: qty,
-        totalAmount: chargedAmount,
-        discountCode: discount.discountAmount > 0 ? (discount as any).discountCodeStr : null,
-        discountAmount: discount.discountAmount,
-        attendeeDetails: attendeeDetails || null,
-        gender: gender || null,
-        ageRange: ageRange || null,
-        heardFrom: heardFrom || null,
-      });
-      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-
-      const order = await storage.createOrder(parsed.data, "confirmed");
-      await storage.incrementTicketTypeSold(ticketType.id, seatDeduction);
-      if (discount.discountCodeId) await storage.incrementDiscountCodeUsed(discount.discountCodeId);
-
-      const rb = resolveBranding(organizer, event);
-      const isPro = rb.active; // email branding only
-      sendConfirmationEmail({
-        to: toEmail,
-        buyerName: customerName,
-        organizerId: event.organizerId,
-        eventTitle: event.title,
-        eventDate: event.date,
-        eventLocation: event.location,
-        ticketTypeName: ticketType.name,
-        quantity: qty,
-        amount: totalAmount,
         reference: order.id,
         brandName: (isPro && rb.customBrandName) ? rb.customBrandName : undefined,
         brandLogoUrl: (isPro && rb.customLogoUrl) ? rb.customLogoUrl : null,

@@ -114,7 +114,7 @@ export function registerAdminRoutes(app: Express) {
     } catch (err: any) { return res.status(500).json({ message: err.message }); }
   });
 
-  app.patch("/api/admin/organizers/:id/email-sending", requireAdmin, requireAdminRole(["super_admin", "admin"]), async (req: AuthRequest, res) => {
+  app.patch("/api/admin/organizers/:id/email-sending", requireAdmin, SUPPORT_ACCESS, async (req: AuthRequest, res) => {
     try {
       const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
@@ -323,7 +323,7 @@ export function registerAdminRoutes(app: Express) {
       const { key } = req.params;
       const { value } = req.body;
       if (typeof value !== "string") return res.status(400).json({ message: "value must be a string" });
-      const allowed = ["platform_fee_percent", "pro_ticket_fee_percent", "pro_monthly_price_kobo", "pro_yearly_price_kobo", "free_max_monthly_tickets", "free_max_active_events", "maintenance_mode"];
+      const allowed = ["platform_fee_percent", "pro_ticket_fee_percent", "pro_monthly_price_kobo", "pro_yearly_price_kobo", "free_max_monthly_tickets", "free_max_active_events", "maintenance_mode", "maintenance_banner"];
       if (!allowed.includes(key)) return res.status(400).json({ message: "Unknown setting key" });
       await storage.setPlatformSetting(key, value);
       audit(req, "update_setting", "setting", key, { value });

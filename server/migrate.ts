@@ -65,6 +65,7 @@ export async function runMigrations(): Promise<void> {
       created_at timestamp NOT NULL DEFAULT now()
     )`);
     await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS organizer_subaccounts_unique ON organizer_subaccounts (organizer_id, bank_code, account_number, mode)`);
+    await db.execute(sql`ALTER TABLE organizers ALTER COLUMN can_send_emails SET DEFAULT false`);
     console.log("[migrations] cover_image_position_y column ready");
   } catch (err: any) {
     console.error("[migrations] startup migration error (non-fatal):", err?.message ?? err);

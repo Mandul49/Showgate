@@ -43,7 +43,7 @@ const ROLE_LABEL: Record<AdminRole, string> = {
 const ROLE_DESC: Record<AdminRole, string> = {
   super_admin: "Full access including settings and team management",
   admin:       "Full access except settings and team management",
-  support:     "View organizers and events, no editing",
+  support:     "View organizers and events, block or allow organizer emails",
   finance:     "View analytics and subscriptions only",
 };
 

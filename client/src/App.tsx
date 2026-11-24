@@ -105,9 +105,28 @@ function MaintenancePage() {
   );
 }
 
+const BANNER_H = 32;
+
+function MaintenanceBanner() {
+  useEffect(() => {
+    document.documentElement.style.setProperty("--maintenance-h", `${BANNER_H}px`);
+    return () => { document.documentElement.style.removeProperty("--maintenance-h"); };
+  }, []);
+  return (
+    <div
+      className="sticky top-0 z-[60] flex items-center justify-center gap-2 bg-amber-400 text-black text-xs font-semibold px-3 text-center"
+      style={{ height: BANNER_H }}
+      role="status"
+    >
+      <Wrench className="w-3.5 h-3.5 shrink-0" />
+      Maintenance is on. Some features may be limited, tickets remain available.
+    </div>
+  );
+}
+
 function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { data, isLoading } = useQuery<{ maintenanceMode: boolean }>({
+  const { data, isLoading } = useQuery<{ maintenanceMode: boolean; maintenanceBanner?: boolean }>({
     queryKey: ["/api/settings/public"],
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -118,6 +137,7 @@ function MaintenanceGate({ children }: { children: React.ReactNode }) {
   if (isAdminRoute) return <>{children}</>;
   if (isLoading) return null;
   if (data?.maintenanceMode) return <MaintenancePage />;
+  if (data?.maintenanceBanner) return <><MaintenanceBanner />{children}</>;
   return <>{children}</>;
 }
 

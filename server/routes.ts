@@ -85,8 +85,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── Public settings ─────────────────────────────────────────────────────
   app.get("/api/settings/public", async (_req, res) => {
     try {
-      const [maintenanceVal, feeVal, proTicketFeeVal, monthlyKoboVal, yearlyKoboVal] = await Promise.all([
+      const [maintenanceVal, bannerVal, feeVal, proTicketFeeVal, monthlyKoboVal, yearlyKoboVal] = await Promise.all([
         storage.getPlatformSetting("maintenance_mode", "false"),
+        storage.getPlatformSetting("maintenance_banner", "false"),
         storage.getPlatformSetting("platform_fee_percent", "2"),
         storage.getPlatformSetting("pro_ticket_fee_percent", "2"),
         storage.getPlatformSetting("pro_monthly_price_kobo", "1000000"),
@@ -94,6 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
       return res.json({
         maintenanceMode: maintenanceVal === "true",
+        maintenanceBanner: bannerVal === "true",
         feePercent: parseFloat(feeVal) || 2,
         freeFeePercent: 2.5,
         proTicketFeePercent: parseFloat(proTicketFeeVal) || 2,

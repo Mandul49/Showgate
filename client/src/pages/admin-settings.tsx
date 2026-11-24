@@ -51,6 +51,7 @@ export default function AdminSettings() {
   const [maxMonthlyTickets, setMaxMonthlyTickets] = useState("");
   const [maxActiveEvents, setMaxActiveEvents] = useState("");
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceBanner, setMaintenanceBanner] = useState(false);
 
   // Seed from settings when loaded
   useEffect(() => {
@@ -62,12 +63,25 @@ export default function AdminSettings() {
     setMaxMonthlyTickets(settings.free_max_monthly_tickets ?? "500");
     setMaxActiveEvents(settings.free_max_active_events ?? "1");
     setMaintenanceMode(settings.maintenance_mode === "true");
+    setMaintenanceBanner(settings.maintenance_banner === "true");
   }, [settings]);
 
   function saveField(key: string, value: string, label: string) {
     saveMutation.mutate({ key, value }, {
       onSuccess: () => toast({ title: `${label} updated` }),
       onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    });
+  }
+
+  function handleBannerToggle() {
+    const next = !maintenanceBanner;
+    setMaintenanceBanner(next);
+    saveMutation.mutate({ key: "maintenance_banner", value: String(next) }, {
+      onSuccess: () => toast({ title: next ? "Maintenance banner ON" : "Maintenance banner OFF" }),
+      onError: (e: any) => {
+        setMaintenanceBanner(!next);
+        toast({ title: "Error", description: e.message, variant: "destructive" });
+      },
     });
   }
 
@@ -136,6 +150,32 @@ export default function AdminSettings() {
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                   maintenanceMode ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </SettingSection>
+
+        {/* Maintenance Banner */}
+        <SettingSection
+          icon={<Wrench className="w-4 h-4 text-amber-400" />}
+          title="Maintenance Banner"
+          description="Shows a small banner on all public pages while the site stays live, so tickets keep selling. Full Maintenance Mode overrides this."
+        >
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm font-medium text-zinc-200">
+              {maintenanceBanner ? "Banner is ON" : "Banner is off"}
+            </span>
+            <button
+              onClick={handleBannerToggle}
+              disabled={saveMutation.isPending}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
+                maintenanceBanner ? "bg-amber-500" : "bg-zinc-700"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  maintenanceBanner ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>

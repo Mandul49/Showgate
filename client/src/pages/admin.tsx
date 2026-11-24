@@ -32,7 +32,7 @@ const formSchema = z.object({
   accentColor: z.string(),
   bgColor: z.string(),
   currency: z.string(),
-  paymentMethod: z.enum(["paystack", "bank_transfer", "flutterwave"]),
+  paymentMethod: z.enum(["paystack", "bank_transfer"]),
   paystackPublicKey: z.string(),
   paystackSecretKey: z.string(),
   bankName: z.string(),
