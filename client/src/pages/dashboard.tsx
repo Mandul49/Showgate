@@ -94,7 +94,7 @@ const newEventSchema = z.object({
   startTime: z.string().optional().nullable(),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.coerce.number().min(1, "Must be at least 1"),
-  paymentMethod: z.enum(["paystack", "flutterwave"]),
+  paymentMethod: z.enum(["paystack"]),
   isActive: z.boolean(),
   description: z.string().optional(),
   coverImageUrl: z.string().optional().nullable(),
@@ -135,7 +135,7 @@ function fmtPrice(n: number) {
 }
 
 const PM_LABELS: Record<string, string> = {
-  paystack: "Paystack", bank_transfer: "Bank Transfer", flutterwave: "Flutterwave",
+  paystack: "Paystack", bank_transfer: "Bank Transfer",
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -424,9 +424,6 @@ function NewEventPanel({
               <select {...form.register("paymentMethod")} disabled={isFree}
                 className="w-full bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 h-10 text-sm outline-none focus:border-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed appearance-none">
                 <option value="paystack">Paystack</option>
-                {!isFree && <>
-                  <option value="flutterwave">Flutterwave</option>
-                </>}
               </select>
             </div>
             <div className="flex flex-col justify-end pb-1">
@@ -1769,23 +1766,12 @@ function EventCard({
 
 const FREE_MAX_ACTIVE_EVENTS = 1;
 
-// ─── Flutterwave Section ──────────────────────────────────────────────────────
-
-const fwFormSchema = z.object({
-  flutterwavePublicKey: z.string().min(1, "Public key is required"),
-  flutterwaveSecretKey: z.string().min(1, "Secret key is required"),
-});
-type FwForm = z.infer<typeof fwFormSchema>;
-
 interface PaymentSettings {
   tier: "free" | "pro";
   bankName: string;
   bankCode: string;
   accountNumber: string;
   businessName: string;
-  flutterwavePublicKey: string;
-  flutterwaveSecretKey: string;
-  hasFlutterwave: boolean;
 }
 
 // ─── Edit Bank Account Section ────────────────────────────────────────────────
@@ -1937,143 +1923,6 @@ function EditBankAccountSection() {
               </div>
             </form>
           </Form>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FlutterwaveSection({ tier }: { tier: "free" | "pro" }) {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-
-  const { data: settings, isLoading } = useQuery<PaymentSettings>({
-    queryKey: ["/api/organizer/payment-settings"],
-    enabled: tier === "pro",
-  });
-
-  const form = useForm<FwForm>({
-    resolver: zodResolver(fwFormSchema),
-    defaultValues: { flutterwavePublicKey: "", flutterwaveSecretKey: "" },
-  });
-
-  useEffect(() => {
-    if (settings) {
-      form.reset({
-        flutterwavePublicKey: settings.flutterwavePublicKey || "",
-        flutterwaveSecretKey: "",
-      });
-    }
-  }, [settings]);
-
-  const saveMutation = useMutation({
-    mutationFn: async (values: FwForm) => {
-      const res = await apiRequest("PUT", "/api/organizer/payment-settings", values);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Failed to save");
-      return json;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/organizer/payment-settings"] });
-      toast({ title: "Flutterwave keys saved", description: "Your events can now accept Flutterwave payments." });
-      form.reset({ flutterwavePublicKey: form.getValues("flutterwavePublicKey"), flutterwaveSecretKey: "" });
-    },
-    onError: (err: any) => toast({ title: "Save failed", description: err.message, variant: "destructive" }),
-  });
-
-  if (tier !== "pro") {
-    return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-4">
-          <div className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 flex-shrink-0">
-            <Wallet className="w-4 h-4 text-zinc-500" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-zinc-400 font-semibold text-sm flex items-center gap-2">
-              Flutterwave Payments <Lock className="w-3.5 h-3.5 text-zinc-600" />
-            </p>
-            <p className="text-zinc-600 text-xs mt-0.5">
-              Accept card, bank transfer and USSD via Flutterwave. Pro plan only.
-            </p>
-          </div>
-          <a href="/pricing"
-            className="flex-shrink-0 px-3 py-1.5 rounded-lg border border-violet-500/40 text-violet-400 hover:bg-violet-500/10 text-xs font-semibold transition-colors">
-            Upgrade
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 mb-6 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-zinc-900 transition-colors">
-        <div className="p-2 rounded-lg bg-amber-400/10 border border-amber-400/20 flex-shrink-0">
-          <Wallet className="w-4 h-4 text-amber-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold text-sm">Flutterwave Payments</p>
-          <p className="text-zinc-500 text-xs mt-0.5">
-            {settings?.hasFlutterwave
-              ? "Keys configured — events can accept Flutterwave payments"
-              : "Add your API keys to enable Flutterwave checkout on events"}
-          </p>
-        </div>
-        {settings?.hasFlutterwave && <CheckCheck className="w-4 h-4 text-green-400 mr-1" />}
-        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
-      </button>
-
-      {open && (
-        <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
-          {isLoading ? (
-            <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
-            </div>
-          ) : (
-            <>
-              <p className="text-zinc-500 text-xs mb-4">
-                Get your API keys from the{" "}
-                <a href="https://dashboard.flutterwave.com/dashboard/settings/apis" target="_blank" rel="noopener noreferrer"
-                  className="text-amber-400 hover:text-amber-300 underline">
-                  Flutterwave dashboard
-                </a>.
-                {" "}Secret key is write-only — paste a new one to update.
-              </p>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
-                  <FormField control={form.control} name="flutterwavePublicKey" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Public Key (FLWPUBK-…)</FormLabel>
-                      <FormControl>
-                        <input {...field} placeholder="FLWPUBK-xxxxxxxx"
-                          className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors" />
-                      </FormControl>
-                      <FormMessage className="text-red-400 text-xs" />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="flutterwaveSecretKey" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-zinc-400 text-xs uppercase tracking-widest">Secret Key (FLWSECK-…)</FormLabel>
-                      <FormControl>
-                        <input {...field} type="password" placeholder={settings?.hasFlutterwave ? "Paste new key to update" : "FLWSECK-xxxxxxxx"}
-                          className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 transition-colors" />
-                      </FormControl>
-                      <FormMessage className="text-red-400 text-xs" />
-                    </FormItem>
-                  )} />
-                  <button type="submit" disabled={saveMutation.isPending}
-                    className="flex items-center gap-2 px-5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold transition-colors disabled:opacity-60">
-                    {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    Save Keys
-                  </button>
-                </form>
-              </Form>
-            </>
-          )}
         </div>
       )}
     </div>
@@ -3018,8 +2867,6 @@ export default function Dashboard() {
           <EditBankAccountSection />
         </div>
 
-        {/* Flutterwave payment gateway */}
-        {tier !== null && showTierSections && <FlutterwaveSection tier={tier} />}
 
         {/* Test payment account setup */}
         {paystackMode === "test" && !organizerInfo?.hasTestSubaccount && (

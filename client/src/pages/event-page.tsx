@@ -19,7 +19,6 @@ declare global {
   interface Window {
     PaystackPop: any;
     Stripe: any;
-    FlutterwaveCheckout: (config: any) => { close: () => void };
   }
 }
 
@@ -83,7 +82,6 @@ interface PublicEvent {
   paystackPublicKey: string;
   paystackEnv?: "test" | "live";
   stripePublicKey: string;
-  flutterwavePublicKey: string;
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
@@ -655,79 +653,6 @@ function PurchaseForm({
       return;
     }
 
-    if (paymentMethod === "flutterwave") {
-      const pubKey = event.flutterwavePublicKey;
-      if (!pubKey) {
-        toast({ title: "Payment not configured", description: "Flutterwave key is missing.", variant: "destructive" });
-        return;
-      }
-      try {
-        await loadScript("https://checkout.flutterwave.com/v3.js");
-      } catch {
-        toast({ title: "Payment system unavailable", description: "Please refresh and try again.", variant: "destructive" });
-        return;
-      }
-      if (!window.FlutterwaveCheckout) {
-        toast({ title: "Payment system unavailable", description: "Please refresh and try again.", variant: "destructive" });
-        return;
-      }
-      setProcessing(true);
-      const txRef = `EVT-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-      window.FlutterwaveCheckout({
-        public_key: pubKey,
-        tx_ref: txRef,
-        amount: total,
-        currency: "NGN",
-        customer: {
-          email: data.customerEmail,
-          phone_number: data.customerPhone,
-          name: data.customerName,
-        },
-        payment_options: "card,banktransfer,ussd",
-        customizations: {
-          title: event.title,
-          description: `${data.quantity} × ${ticket.name}`,
-          logo: event.branding?.logoUrl || undefined,
-        },
-        callback: async (response: any) => {
-          if (response.status === "successful" || response.status === "completed") {
-            const res = await apiRequest("POST", `/api/public/events/${event.id}/purchase/flutterwave`, {
-              transactionId: response.transaction_id,
-              ticketTypeId: ticket.id,
-              quantity: data.quantity,
-              customerName: data.customerName,
-              customerEmail: data.customerEmail,
-              customerPhone: data.customerPhone,
-              instagramHandle: data.instagramHandle || null,
-              gender: data.gender || null,
-              ageRange: data.ageRange || null,
-              heardFrom: data.heardFrom || null,
-              discountCode: discountResult?.code || undefined,
-              recipientEmail: resolvedRecipient,
-              attendeeDetails: isGroupTicket ? attendeeNames.map((n, i) => ({ name: n || data.customerName, email: i === 0 ? data.customerEmail : "" })) : undefined,
-            });
-            const order = await res.json();
-            if (!res.ok) {
-              toast({ title: "Verification failed", description: order.message, variant: "destructive" });
-              setProcessing(false);
-              return;
-            }
-            qc.invalidateQueries({ queryKey: [`/api/public/events/${event.id}`] });
-            onSuccess(order.id, data.customerName, total, data.quantity);
-          } else {
-            toast({ title: "Payment failed", description: "Transaction was not successful.", variant: "destructive" });
-            setProcessing(false);
-          }
-        },
-        onclose: () => {
-          setProcessing(false);
-          toast({ title: "Payment cancelled", description: "You closed the payment window.", variant: "destructive" });
-        },
-      });
-      return;
-    }
-
     if (paymentMethod === "stripe") { setPhase("stripe"); return; }
   }
 
@@ -997,7 +922,7 @@ function PurchaseForm({
 
             <button type="submit" disabled={processing}
               className="w-full py-4 rounded-lg font-black uppercase tracking-widest text-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={total === 0 || paymentMethod === "paystack" || paymentMethod === "stripe" || paymentMethod === "flutterwave"
+              style={total === 0 || paymentMethod === "paystack" || paymentMethod === "stripe"
                 ? { backgroundColor: primary, color: onPrimaryForm }
                 : buttonStyleForm === "solid"
                   ? { backgroundColor: primary, color: onPrimaryForm, border: `2px solid ${primary}` }
@@ -1008,8 +933,6 @@ function PurchaseForm({
                   ? <><Ticket className="w-4 h-4" /> Register Free</>
                   : paymentMethod === "paystack"
                     ? <><ShieldCheck className="w-4 h-4" /> Pay {formatPrice(total)} with Paystack</>
-                    : paymentMethod === "flutterwave"
-                      ? <><ShieldCheck className="w-4 h-4" /> Pay {formatPrice(total)} with Flutterwave</>
                       : paymentMethod === "stripe"
                         ? <><CreditCard className="w-4 h-4" /> Continue to Card Payment</>
                         : <><Building2 className="w-4 h-4" /> View Bank Details</>

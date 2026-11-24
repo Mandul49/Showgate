@@ -177,8 +177,6 @@ export const organizers = pgTable("organizers", {
   tier: text("tier").notNull().default("free"),
   customBrandName: text("custom_brand_name"),
   customLogoUrl: text("custom_logo_url"),
-  flutterwavePublicKey: text("flutterwave_public_key"),
-  flutterwaveSecretKey: text("flutterwave_secret_key"),
   brandTheme: jsonb("brand_theme"),
   brandingEnabled: boolean("branding_enabled").notNull().default(true),
   canSendEmails: boolean("can_send_emails").notNull().default(true),
@@ -198,8 +196,6 @@ export type Organizer = {
   tier: UserTier;
   customBrandName: string | null;
   customLogoUrl: string | null;
-  flutterwavePublicKey: string | null;
-  flutterwaveSecretKey: string | null;
   brandTheme: BrandTheme | null;
   brandingEnabled: boolean;
   canSendEmails: boolean;
@@ -232,7 +228,7 @@ export interface PublicOrganizer {
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 export type EventStatus = "active" | "inactive" | "draft";
-export type PaymentMethod = "paystack" | "bank_transfer" | "flutterwave";
+export type PaymentMethod = "paystack" | "bank_transfer";
 
 export const events = pgTable("events", {
   vipGuests: jsonb("vip_guests"),
@@ -339,7 +335,7 @@ export const createEventSchema = z.object({
   startTime: z.string().optional().nullable(),
   location: z.string().min(1, "Location is required"),
   maxTickets: z.number().min(1, "Must have at least 1 ticket"),
-  paymentMethod: z.enum(["paystack", "flutterwave"]),
+  paymentMethod: z.enum(["paystack"]),
   isActive: z.boolean().default(true),
   description: z.string().optional().nullable(),
   coverImageUrl: z.string().optional().nullable(),
@@ -655,7 +651,7 @@ export const eventConfigSchema = z.object({
   contactEmail: z.string().email().or(z.literal("")),
   contactPhone: z.string(),
   currency: z.string(),
-  paymentMethod: z.enum(["paystack", "bank_transfer", "flutterwave"]),
+  paymentMethod: z.enum(["paystack", "bank_transfer"]),
   paystackPublicKey: z.string(),
   paystackSecretKey: z.string(),
   bankName: z.string(),
