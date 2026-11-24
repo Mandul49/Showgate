@@ -1169,13 +1169,19 @@ export default function EventPage() {
 
   useEffect(() => {
     const bt = event?.branding?.brandTheme;
-    if (!bt || (bt.themeMode ?? "auto") !== "custom") return;
+    if (!bt || (bt.themeMode ?? "custom") !== "custom") return;
     const bg = bt.background ?? "#09090b";
     const r = parseInt(bg.slice(1, 3), 16);
     const g = parseInt(bg.slice(3, 5), 16);
     const b = parseInt(bg.slice(5, 7), 16);
     const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-    const scheme = lum < 0.4 ? "only dark" : "only light";
+    // "only light" is the only "only" keyword; it blocks browser force-dark.
+    // A dark page declares "dark" so the browser sees it as already dark and
+    // leaves its colors alone.
+    const scheme = lum < 0.4 ? "dark" : "only light";
+    const root = document.documentElement;
+    const prevRoot = root.style.colorScheme;
+    root.style.colorScheme = scheme;
     const existing = document.querySelector('meta[name="color-scheme"]') as HTMLMetaElement | null;
     const created = !existing;
     const meta: HTMLMetaElement = existing ?? document.createElement("meta");
@@ -1183,6 +1189,7 @@ export default function EventPage() {
     const prev = meta.content;
     meta.content = scheme;
     return () => {
+      root.style.colorScheme = prevRoot;
       if (created) { meta.remove(); } else { meta.content = prev; }
     };
   }, [event?.branding?.brandTheme?.themeMode, event?.branding?.brandTheme?.background]);
